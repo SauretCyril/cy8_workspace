@@ -14,14 +14,14 @@ Le **cy8_prompts_manager** est une application de bureau Python moderne construi
 - **🔍 Popups d'identification** : Système CY8-POPUP-XXX pour faciliter la communication
 - **📂 Gestion multi-bases** : Basculement facile entre différentes bases de données
 - **⚙️ Préférences utilisateur** : Sauvegarde des paramètres et géométrie de fenêtre
-- **🔄 Suivi d'exécution** : Pile d'exécution en temps réel pour les workflows ComfyUI
+- **🔄 Suivi d'exécution** : Onglet dédié avec historique complet, progression en % et détails des workflows ComfyUI
 
 ## 🏗️ Architecture
 
 ### Modules principaux
 
 - **`cy8_prompts_manager_main.py`** : Gestionnaire principal et interface utilisateur
-- **`cy8_database_manager.py`** : Gestion SQLite avec validation de structure  
+- **`cy8_database_manager.py`** : Gestion SQLite avec validation de structure
 - **`cy8_editable_tables.py`** : Tableaux éditables pour values/workflows
 - **`cy8_popup_manager.py`** : Gestion des popups avec identifiants uniques
 - **`cy8_user_preferences.py`** : Préférences utilisateur et cookies
@@ -84,7 +84,7 @@ python main.py  # Point d'entrée avec gestion d'erreurs
 L'interface est divisée en deux panneaux principaux :
 
 1. **Panneau gauche** : Liste des prompts avec colonnes ID, Name, Status, Model, Comment
-2. **Panneau droit** : Onglets détaillés (Prompt Values, Workflow, Informations, Data)
+2. **Panneau droit** : Onglets détaillés (Prompt Values, Workflow, Informations, Data, Exécutions)
 
 ### Gestion des prompts
 
@@ -105,8 +105,20 @@ L'onglet **Data** permet de :
 
 1. Sélectionnez un prompt dans la liste
 2. Cliquez sur "Exécuter prompt" ou utilisez le menu
-3. Suivez l'exécution dans la pile d'exécution
+3. Suivez l'exécution via l'onglet **Exécutions** avec :
+   - Progression en temps réel (0-100%)
+   - Nom du prompt en cours d'exécution
+   - Historique détaillé des étapes
+   - Statut de chaque exécution
 4. Les images générées sont automatiquement récupérées
+
+### Suivi des exécutions
+
+L'onglet **Exécutions** offre :
+- **Vue d'ensemble** : Tableau avec toutes les exécutions (ID, Nom, Statut, %, Heure)
+- **Détails complets** : Sélectionnez une exécution pour voir l'historique complet
+- **Indicateur barre de statut** : Affichage compact de l'exécution en cours
+- **Gestion historique** : Bouton pour effacer l'historique des exécutions
 
 ## 🔧 Configuration
 

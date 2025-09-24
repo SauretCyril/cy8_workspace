@@ -47,6 +47,7 @@ class cy8_prompts_manager:
         self.execution_stack = []
         self.current_values_tree = None
         self.current_workflow_tree = None
+        self.executions_tree = None  # Référence au TreeView des exécutions
 
         # Configuration de l'interface
         self.setup_main_window()
@@ -268,6 +269,12 @@ class cy8_prompts_manager:
 
         self.setup_data_tab(data_tab)
 
+        # Onglet Exécutions - Suivi des workflows
+        executions_tab = ttk.Frame(notebook)
+        notebook.add(executions_tab, text="Exécutions")
+
+        self.setup_executions_tab(executions_tab)
+
     def setup_info_tab(self, parent):
         """Configuration de l'onglet informations générales"""
         info_frame = ttk.Frame(parent, padding="10")
@@ -424,6 +431,68 @@ class cy8_prompts_manager:
         # Mettre à jour les données
         self.update_database_stats()
         self.refresh_recent_list()
+
+    def setup_executions_tab(self, parent):
+        """Configuration de l'onglet suivi des exécutions"""
+        exec_frame = ttk.Frame(parent, padding="10")
+        exec_frame.pack(fill="both", expand=True)
+
+        # Titre
+        ttk.Label(
+            exec_frame,
+            text="Suivi des Exécutions de Workflows",
+            font=("TkDefaultFont", 12, "bold"),
+        ).pack(pady=(0, 20))
+
+        # Frame pour les contrôles
+        controls_frame = ttk.Frame(exec_frame)
+        controls_frame.pack(fill="x", pady=(0, 10))
+
+        # Bouton pour effacer l'historique
+        ttk.Button(
+            controls_frame,
+            text="Effacer l'historique",
+            command=self.clear_execution_history,
+        ).pack(side="right")
+
+        # TreeView pour afficher les exécutions
+        columns = ("id", "prompt", "status", "progress", "timestamp")
+        self.executions_tree = ttk.Treeview(exec_frame, columns=columns, show="headings", height=15)
+
+        # Configuration des colonnes
+        self.executions_tree.heading("id", text="ID Exécution")
+        self.executions_tree.heading("prompt", text="Nom du Prompt")
+        self.executions_tree.heading("status", text="Statut")
+        self.executions_tree.heading("progress", text="Progression")
+        self.executions_tree.heading("timestamp", text="Démarré à")
+
+        # Largeurs des colonnes
+        self.executions_tree.column("id", width=100)
+        self.executions_tree.column("prompt", width=200)
+        self.executions_tree.column("status", width=200)
+        self.executions_tree.column("progress", width=100)
+        self.executions_tree.column("timestamp", width=150)
+
+        # Scrollbars
+        exec_v_scrollbar = ttk.Scrollbar(exec_frame, orient="vertical", command=self.executions_tree.yview)
+        exec_h_scrollbar = ttk.Scrollbar(exec_frame, orient="horizontal", command=self.executions_tree.xview)
+        self.executions_tree.configure(yscrollcommand=exec_v_scrollbar.set, xscrollcommand=exec_h_scrollbar.set)
+
+        # Pack avec scrollbars
+        self.executions_tree.pack(side="left", fill="both", expand=True)
+        exec_v_scrollbar.pack(side="right", fill="y")
+        exec_h_scrollbar.pack(side="bottom", fill="x")
+
+        # Frame pour les détails de l'exécution sélectionnée
+        details_frame = ttk.LabelFrame(exec_frame, text="Détails de l'exécution", padding="10")
+        details_frame.pack(fill="x", pady=(10, 0))
+
+        # Text widget pour les détails
+        self.execution_details = tk.Text(details_frame, height=5, wrap="word", state="disabled")
+        self.execution_details.pack(fill="both", expand=True)
+
+        # Bind pour la sélection
+        self.executions_tree.bind("<<TreeviewSelect>>", self.on_execution_select)
 
     def setup_status_bar(self):
         """Configuration de la barre de statut"""
@@ -675,7 +744,7 @@ class cy8_prompts_manager:
 
             # Ajouter à la pile d'exécution
             execution_id = f"exec_{int(time.time())}"
-            self.add_to_execution_stack(execution_id, f"En cours: {name}")
+            self.add_to_execution_stack(execution_id, "Initialisation", name, 10)
 
             # Créer un thread pour l'exécution
             thread = threading.Thread(
@@ -696,7 +765,7 @@ class cy8_prompts_manager:
             # Récupérer les données du prompt
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if not data:
-                self.update_execution_stack_status(execution_id, "Erreur: Prompt introuvable")
+                self.update_execution_stack_status(execution_id, "Erreur: Prompt introuvable", 0)
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -706,7 +775,7 @@ class cy8_prompts_manager:
             name, prompt_values_json, workflow_json, url, model, comment, status = data
 
             # Mettre à jour le statut
-            self.update_execution_stack_status(execution_id, f"Préparation: {name}")
+            self.update_execution_stack_status(execution_id, f"Préparation des données", 25)
 
             # Créer le répertoire data/Workflows s'il n'existe pas
             os.makedirs("data/Workflows", exist_ok=True)
@@ -724,25 +793,27 @@ class cy8_prompts_manager:
                 pv_file.write(prompt_values_json)
 
             # Mettre à jour le statut
-            self.update_execution_stack_status(execution_id, f"Connexion ComfyUI: {name}")
+            self.update_execution_stack_status(execution_id, f"Connexion à ComfyUI", 50)
 
             # Exécuter le workflow avec ComfyUI
             tsk1 = comfyui_basic_task()
             comfyui_prompt_id = tsk1.addToQueue(workflow_file_path, prompt_values_file_path)
 
-            self.update_execution_stack_status(execution_id, f"Génération: {comfyui_prompt_id}")
+            self.update_execution_stack_status(execution_id, f"Génération en cours (ID: {comfyui_prompt_id})", 75)
 
             # Récupérer les images générées
             output_images = tsk1.GetImages(comfyui_prompt_id)
 
             if output_images:
-                self.update_execution_stack_status(execution_id, f"Terminé avec succès - Images: {len(output_images)}")
+                self.update_execution_stack_status(
+                    execution_id, f"Terminé avec succès - {len(output_images)} images générées", 100
+                )
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
                 )
             else:
-                self.update_execution_stack_status(execution_id, "Terminé - Aucune image générée")
+                self.update_execution_stack_status(execution_id, "Terminé - Aucune image générée", 100)
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
@@ -750,7 +821,7 @@ class cy8_prompts_manager:
 
         except Exception as e:
             error_msg = f"Erreur ComfyUI: {str(e)}"
-            self.update_execution_stack_status(execution_id, error_msg)
+            self.update_execution_stack_status(execution_id, error_msg, 0)
             self.root.after(0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok"))
             print(f"Erreur dans _execute_workflow_task: {e}")
 
@@ -883,26 +954,119 @@ WORKFLOW:
 
         ttk.Button(main_frame, text="Fermer", command=popup.destroy).pack(pady=10)
 
-    def add_to_execution_stack(self, execution_id, message):
+    def add_to_execution_stack(self, execution_id, message, prompt_name="", progress=0):
         """Ajouter une exécution à la pile"""
-        self.execution_stack.append({"id": execution_id, "message": message, "timestamp": time.time()})
+        execution_item = {
+            "id": execution_id,
+            "message": message,
+            "prompt_name": prompt_name,
+            "progress": progress,
+            "timestamp": time.time(),
+            "formatted_time": time.strftime("%H:%M:%S", time.localtime()),
+            "details": [],
+        }
+        self.execution_stack.append(execution_item)
         self.update_execution_display()
+        self.update_executions_tree()
 
-    def update_execution_stack_status(self, execution_id, message):
+    def update_execution_stack_status(self, execution_id, message, progress=None):
         """Mettre à jour le statut d'une exécution"""
         for item in self.execution_stack:
             if item["id"] == execution_id:
                 item["message"] = message
+                if progress is not None:
+                    item["progress"] = progress
+                # Ajouter aux détails
+                detail_entry = f"[{time.strftime('%H:%M:%S')}] {message}"
+                item["details"].append(detail_entry)
                 break
         self.update_execution_display()
+        self.update_executions_tree()
 
     def update_execution_display(self):
-        """Mettre à jour l'affichage des exécutions"""
+        """Mettre à jour l'affichage des exécutions dans la barre de statut"""
         if self.execution_stack:
             last_execution = self.execution_stack[-1]
-            self.execution_text.set(last_execution["message"])
+            progress_str = f" ({last_execution['progress']}%)" if last_execution["progress"] > 0 else ""
+            display_text = f"{last_execution['prompt_name']}: {last_execution['message']}{progress_str}"
+            self.execution_text.set(display_text)
         else:
             self.execution_text.set("")
+
+    def update_executions_tree(self):
+        """Mettre à jour le TreeView des exécutions"""
+        if not self.executions_tree:
+            return
+
+        # Effacer le contenu actuel
+        for item in self.executions_tree.get_children():
+            self.executions_tree.delete(item)
+
+        # Ajouter les exécutions (les plus récentes en premier)
+        for execution in reversed(self.execution_stack):
+            progress_display = f"{execution['progress']}%" if execution["progress"] > 0 else "-"
+
+            self.executions_tree.insert(
+                "",
+                "end",
+                values=(
+                    execution["id"],
+                    execution["prompt_name"],
+                    execution["message"],
+                    progress_display,
+                    execution["formatted_time"],
+                ),
+            )
+
+    def clear_execution_history(self):
+        """Effacer l'historique des exécutions"""
+        self.execution_stack.clear()
+        self.update_executions_tree()
+        self.update_execution_display()
+        # Effacer les détails
+        if hasattr(self, "execution_details"):
+            self.execution_details.config(state="normal")
+            self.execution_details.delete("1.0", "end")
+            self.execution_details.config(state="disabled")
+
+    def on_execution_select(self, event):
+        """Gérer la sélection d'une exécution dans le TreeView"""
+        if not self.executions_tree or not hasattr(self, "execution_details"):
+            return
+
+        selection = self.executions_tree.selection()
+        if not selection:
+            return
+
+        # Récupérer l'item sélectionné
+        item = self.executions_tree.item(selection[0])
+        execution_id = item["values"][0]
+
+        # Trouver l'exécution correspondante
+        execution = None
+        for exec_item in self.execution_stack:
+            if exec_item["id"] == execution_id:
+                execution = exec_item
+                break
+
+        if execution:
+            # Afficher les détails
+            self.execution_details.config(state="normal")
+            self.execution_details.delete("1.0", "end")
+
+            details_text = f"ID: {execution['id']}\n"
+            details_text += f"Prompt: {execution['prompt_name']}\n"
+            details_text += f"Démarré: {execution['formatted_time']}\n"
+            details_text += f"Progression: {execution['progress']}%\n"
+            details_text += f"Statut actuel: {execution['message']}\n\n"
+
+            if execution["details"]:
+                details_text += "Historique:\n"
+                for detail in execution["details"]:
+                    details_text += f"{detail}\n"
+
+            self.execution_details.insert("1.0", details_text)
+            self.execution_details.config(state="disabled")
 
     def clear_details(self):
         """Effacer les détails affichés"""
