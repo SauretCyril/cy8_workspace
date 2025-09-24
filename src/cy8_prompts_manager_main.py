@@ -795,11 +795,38 @@ class cy8_prompts_manager:
             # Mettre à jour le statut
             self.update_execution_stack_status(execution_id, f"Connexion à ComfyUI", 50)
 
-            # Exécuter le workflow avec ComfyUI
-            tsk1 = comfyui_basic_task()
-            comfyui_prompt_id = tsk1.addToQueue(workflow_file_path, prompt_values_file_path)
+            # Vérifier les fichiers générés
+            print(f"DEBUG: Workflow file: {workflow_file_path}")
+            print(f"DEBUG: Values file: {prompt_values_file_path}")
 
-            self.update_execution_stack_status(execution_id, f"Génération en cours (ID: {comfyui_prompt_id})", 75)
+            # Vérifier le contenu JSON
+            try:
+                import json
+                with open(workflow_file_path, 'r', encoding='utf-8') as f:
+                    workflow_data = json.load(f)
+                    print(f"DEBUG: Workflow JSON valide, {len(workflow_data)} nodes")
+
+                with open(prompt_values_file_path, 'r', encoding='utf-8') as f:
+                    values_data = json.load(f)
+                    print(f"DEBUG: Values JSON valide, {len(values_data)} entrées")
+            except json.JSONDecodeError as e:
+                self.update_execution_stack_status(execution_id, f"Erreur JSON: {e}", 0)
+                return
+            except Exception as e:
+                self.update_execution_stack_status(execution_id, f"Erreur fichiers: {e}", 0)
+                return
+
+            # Exécuter le workflow avec ComfyUI
+            try:
+                tsk1 = comfyui_basic_task()
+                comfyui_prompt_id = tsk1.addToQueue(workflow_file_path, prompt_values_file_path)
+                print(f"DEBUG: ComfyUI prompt ID: {comfyui_prompt_id}")
+
+                self.update_execution_stack_status(execution_id, f"Génération en cours (ID: {comfyui_prompt_id})", 75)
+            except Exception as comfy_error:
+                print(f"DEBUG: Erreur ComfyUI: {comfy_error}")
+                self.update_execution_stack_status(execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0)
+                return
 
             # Récupérer les images générées
             output_images = tsk1.GetImages(comfyui_prompt_id)
