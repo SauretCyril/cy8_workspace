@@ -1,0 +1,26 @@
+# Requirements pour cy8_prompts_manager
+
+# Interface utilisateur
+tkinter  # Inclus avec Python (pas besoin d'installer)
+
+# Gestion d'images
+Pillow>=10.0.0
+
+# WebSocket pour ComfyUI
+websocket-client>=1.6.0
+
+# Base de données (SQLite inclus avec Python)
+# sqlite3  # Inclus avec Python
+
+# Utilitaires
+requests>=2.31.0
+
+# Variables d'environnement
+python-dotenv>=1.0.0
+
+# Tests (optionnel)
+pytest>=7.4.0
+
+# Développement (optionnel)
+black>=23.0.0
+flake8>=6.0.0

@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Lancer cy8_prompts_manager",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cy8_prompts_manager_main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": []
+        },
+        {
+            "name": "Test ComfyUI Connection",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_comfyui_connection.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Debug cy8_prompts_manager",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cy8_prompts_manager_main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "DEBUG": "True"
+            },
+            "stopOnEntry": false,
+            "justMyCode": false
+        }
+    ]
+}

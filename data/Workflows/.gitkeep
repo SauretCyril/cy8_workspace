@@ -1,0 +1,2 @@
+# Ce fichier garde le dossier data/Workflows dans le versioning
+# Les fichiers .json seront ignorés par .gitignore mais le dossier restera
