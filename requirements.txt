@@ -1,7 +1,7 @@
 # Requirements pour cy8_prompts_manager
 
 # Interface utilisateur
-tkinter  # Inclus avec Python (pas besoin d'installer)
+# tkinter  # Inclus avec Python (pas besoin d'installer)
 
 # Gestion d'images
 Pillow>=10.0.0
