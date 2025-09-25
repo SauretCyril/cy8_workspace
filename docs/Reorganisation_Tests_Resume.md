@@ -42,7 +42,7 @@ cy8_workspace/
 # Avant
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-# Après  
+# Après
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 ```
 
