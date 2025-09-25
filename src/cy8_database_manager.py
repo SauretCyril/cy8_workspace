@@ -46,6 +46,20 @@ class cy8_database_manager:
                 )
             """
             )
+
+            # Créer la table prompt_image pour stocker les images générées
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             self.conn.commit()
             self.ensure_additional_columns()
             self.add_default_basic_prompt()
@@ -89,8 +103,22 @@ class cy8_database_manager:
                             )
                         """
                         )
+
+                        # Créer la table prompt_image
+                        self.cursor.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS prompt_image (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                prompt_id INTEGER NOT NULL,
+                                image_path TEXT NOT NULL,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                            )
+                        """
+                        )
+
                         self.conn.commit()
-                        print("Table 'prompts' créée avec succès")
+                        print("Tables 'prompts' et 'prompt_image' créées avec succès")
                 else:
                     print(f"Structure de la base validée: {message}")
             else:
@@ -110,8 +138,22 @@ class cy8_database_manager:
                     )
                 """
                 )
+
+                # Créer la table prompt_image
+                self.cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS prompt_image (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_id INTEGER NOT NULL,
+                        image_path TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                    )
+                """
+                )
+
                 self.conn.commit()
-                print("Table 'prompts' créée avec succès")
+                print("Tables 'prompts' et 'prompt_image' créées avec succès")
 
             self.ensure_additional_columns()
 
@@ -157,6 +199,23 @@ class cy8_database_manager:
                 except sqlite3.OperationalError:
                     pass
 
+            # S'assurer que la table prompt_image existe
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_image'")
+            if not self.cursor.fetchone():
+                self.cursor.execute(
+                    """
+                    CREATE TABLE prompt_image (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_id INTEGER NOT NULL,
+                        image_path TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                    )
+                """
+                )
+                self.conn.commit()
+                print("Table 'prompt_image' créée avec succès")
+
         except sqlite3.OperationalError as e:
             print(f"Erreur lors de l'ajout des colonnes : {e}")
 
@@ -193,6 +252,19 @@ class cy8_database_manager:
                     model TEXT,
                     comment TEXT,
                     status TEXT DEFAULT 'new'
+                )
+            """
+            )
+
+            # Créer la table prompt_image
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
                 )
             """
             )
@@ -476,6 +548,19 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table prompt_image
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             # Restaurer les données si possible
             if backup_data:
                 for row in backup_data:
@@ -527,6 +612,56 @@ class cy8_database_manager:
 
         except Exception as e:
             return False, f"Erreur lors de la correction: {e}"
+
+    def add_prompt_image(self, prompt_id, image_path):
+        """Ajouter une image à un prompt"""
+        try:
+            self.cursor.execute(
+                "INSERT INTO prompt_image (prompt_id, image_path) VALUES (?, ?)",
+                (prompt_id, image_path)
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout de l'image : {e}")
+            return False
+
+    def get_prompt_images(self, prompt_id):
+        """Récupérer toutes les images d'un prompt"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, image_path, created_at
+                FROM prompt_image
+                WHERE prompt_id = ?
+                ORDER BY created_at DESC
+                """,
+                (prompt_id,)
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des images : {e}")
+            return []
+
+    def delete_prompt_image(self, image_id):
+        """Supprimer une image"""
+        try:
+            self.cursor.execute("DELETE FROM prompt_image WHERE id = ?", (image_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression de l'image : {e}")
+            return False
+
+    def delete_prompt_images(self, prompt_id):
+        """Supprimer toutes les images d'un prompt"""
+        try:
+            self.cursor.execute("DELETE FROM prompt_image WHERE prompt_id = ?", (prompt_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression des images : {e}")
+            return False
 
     def close(self):
         """Fermer la connexion"""

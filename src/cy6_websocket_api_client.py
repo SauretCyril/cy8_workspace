@@ -44,6 +44,41 @@ def get_history(prompt_id):
     with urllib.request.urlopen("http://{}/history/{}".format(server_address, prompt_id)) as response:
         return json.loads(response.read())
 
+def get_queue_status():
+    """Récupérer le statut de la queue ComfyUI"""
+    try:
+        with urllib.request.urlopen("http://{}/queue".format(server_address)) as response:
+            return json.loads(response.read())
+    except Exception as e:
+        print(f"DEBUG: Erreur lors de la récupération du statut de la queue: {e}")
+        return None
+
+def is_prompt_in_queue(prompt_id):
+    """Vérifier si un prompt est toujours dans la queue"""
+    try:
+        queue_status = get_queue_status()
+        if not queue_status:
+            return False
+
+        # Vérifier dans la queue en attente
+        for item in queue_status.get('queue_pending', []):
+            if item[1] == prompt_id:  # [0] = numero, [1] = prompt_id, [2] = prompt_data
+                print(f"DEBUG: Prompt {prompt_id} trouvé dans queue_pending")
+                return True
+
+        # Vérifier dans la queue en cours d'exécution
+        for item in queue_status.get('queue_running', []):
+            if item[1] == prompt_id:
+                print(f"DEBUG: Prompt {prompt_id} trouvé dans queue_running")
+                return True
+
+        print(f"DEBUG: Prompt {prompt_id} non trouvé dans la queue")
+        return False
+
+    except Exception as e:
+        print(f"DEBUG: Erreur lors de la vérification de la queue: {e}")
+        return False
+
 
 def socket_get_images(ws,prompt_id):
     try:
@@ -149,12 +184,12 @@ def update_workflow(filevalues,fileworkflow):
                         # Remplacer les sauts de ligne par des espaces et nettoyer
                         prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
                         # Réduire les espaces multiples à un seul
-                        prompt_text = ' '.join(prompt_text.split())
+                        ²prompt_text = ' '.join(prompt_text.split())
 
                     jsonf[node]['inputs']['text'] = prompt_text
                     print (f"dbg-4515-1 = ok (cleaned CLIP text: {len(prompt_text)} chars)")
 
-                case "prompt":
+                case case "prompt" | "prompt_positive" | "prompt_negative":
                     # Nettoyer le prompt des sauts de ligne et espaces multiples
                     prompt_text = values[val]['value']
                     if isinstance(prompt_text, str):
@@ -234,7 +269,7 @@ def server_get_prompt(ws,prompt,isList,node_id):
     # ws = websocket.WebSocket()
     # ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
     print(f"sv:msg02={prompt}")
-    prompt_id = queue_prompt(prompt)['prompt_id']
+    prompt_id = socket_queue_prompt(prompt)['prompt_id']
     print(f"sv:msg03")
     output_text = {}
     while True:
@@ -290,10 +325,10 @@ def workflow_is_running(ws, prompt_id):
     Returns: True si en cours, False si terminé ou en erreur
     """
     try:
-        # Définir un timeout pour éviter les blocages
-        ws.settimeout(5.0)
+        # Définir un timeout plus long pour les workflows longs
+        ws.settimeout(30.0)
 
-        ret = False
+        ret = True  # Par défaut, on assume que c'est en cours si on n'a pas d'info contraire
         out = ws.recv()
         if isinstance(out, str):
             message = json.loads(out)
@@ -327,11 +362,11 @@ def workflow_is_running(ws, prompt_id):
         return ret
 
     except websocket.WebSocketTimeoutException:
-        print(f"DEBUG: Timeout WebSocket pour {prompt_id}")
-        return False  # En cas de timeout, on considère que c'est terminé
+        print(f"DEBUG: Timeout WebSocket pour {prompt_id} - peut-être toujours en cours")
+        return True  # En cas de timeout, on assume que c'est toujours en cours
     except Exception as e:
         print(f"DEBUG: Erreur dans workflow_is_running: {e}")
-        return False  # En cas d'erreur, on considère que c'est terminé
+        return True  # En cas d'erreur, on assume que c'est toujours en cours (sauf si on a une info contraire)
 
 
 
@@ -355,7 +390,7 @@ def server_get_infLora(ws,prompt):
     print("sv:msg01")
 
     #print(f"sv:msg02={prompt}")
-    prompt_id = queue_prompt(prompt)['prompt_id']
+    prompt_id = socket_queue_prompt(prompt)['prompt_id']
     #print(f"sv:msg03")
     output_text = {}
     while True:

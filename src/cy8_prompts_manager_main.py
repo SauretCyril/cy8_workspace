@@ -1,9 +1,11 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import threading
 import time
 import os
 import json
+import subprocess
+from PIL import Image, ImageTk
 from cy8_database_manager import cy8_database_manager
 from cy8_popup_manager import cy8_popup_manager
 from cy8_editable_tables import cy8_editable_tables
@@ -447,6 +449,12 @@ class cy8_prompts_manager:
 
         self.setup_executions_tab(executions_tab)
 
+        # Onglet Images - Explorateur d'images générées
+        images_tab = ttk.Frame(notebook)
+        notebook.add(images_tab, text="Images")
+
+        self.setup_images_tab(images_tab)
+
         # Onglet Filtres - Système de filtres avancés
         filters_tab = ttk.Frame(notebook)
         notebook.add(filters_tab, text="Filtres")
@@ -864,6 +872,111 @@ class cy8_prompts_manager:
         # Bind pour la sélection
         self.executions_tree.bind("<<TreeviewSelect>>", self.on_execution_select)
 
+    def setup_images_tab(self, parent):
+        """Configuration de l'onglet explorateur d'images"""
+        images_frame = ttk.Frame(parent, padding="10")
+        images_frame.pack(fill="both", expand=True)
+
+        # Titre
+        ttk.Label(
+            images_frame,
+            text="Images générées par le prompt",
+            font=("TkDefaultFont", 12, "bold"),
+        ).pack(pady=(0, 10))
+
+        # Frame pour les boutons d'action
+        controls_frame = ttk.Frame(images_frame)
+        controls_frame.pack(fill="x", pady=(0, 10))
+
+        # Bouton pour ajouter des images
+        ttk.Button(
+            controls_frame,
+            text="Ajouter des images",
+            command=self.add_images_to_prompt,
+        ).pack(side="left", padx=(0, 5))
+
+        # Bouton pour actualiser la liste
+        ttk.Button(
+            controls_frame,
+            text="Actualiser",
+            command=self.refresh_images_list,
+        ).pack(side="left", padx=(0, 5))
+
+        # Bouton pour ouvrir le dossier d'images
+        ttk.Button(
+            controls_frame,
+            text="Ouvrir dossier images",
+            command=self.open_images_folder,
+        ).pack(side="left", padx=(0, 5))
+
+        # Frame principal avec deux parties
+        main_frame = ttk.Frame(images_frame)
+        main_frame.pack(fill="both", expand=True)
+
+        # Frame gauche pour la liste des images
+        left_frame = ttk.LabelFrame(main_frame, text="Liste des images", padding="5")
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # TreeView pour la liste des images
+        columns = ("filename", "path", "date")
+        self.images_tree = ttk.Treeview(left_frame, columns=columns, show="headings", height=15)
+
+        # Configuration des colonnes
+        self.images_tree.heading("filename", text="Nom du fichier")
+        self.images_tree.heading("path", text="Chemin")
+        self.images_tree.heading("date", text="Date de création")
+
+        # Largeurs des colonnes
+        self.images_tree.column("filename", width=200)
+        self.images_tree.column("path", width=300)
+        self.images_tree.column("date", width=150)
+
+        # Scrollbars pour la liste
+        images_v_scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=self.images_tree.yview)
+        images_h_scrollbar = ttk.Scrollbar(left_frame, orient="horizontal", command=self.images_tree.xview)
+        self.images_tree.configure(yscrollcommand=images_v_scrollbar.set, xscrollcommand=images_h_scrollbar.set)
+
+        # Pack du TreeView avec scrollbars
+        self.images_tree.pack(side="left", fill="both", expand=True)
+        images_v_scrollbar.pack(side="right", fill="y")
+
+        # Frame droit pour la prévisualisation
+        right_frame = ttk.LabelFrame(main_frame, text="Prévisualisation", padding="5")
+        right_frame.pack(side="right", fill="y", padx=(5, 0))
+        right_frame.configure(width=350)  # Largeur fixe pour la prévisualisation
+
+        # Label pour l'image de prévisualisation
+        self.preview_label = ttk.Label(right_frame, text="Sélectionnez une image\npour la prévisualiser")
+        self.preview_label.pack(pady=10)
+
+        # Boutons pour actions sur l'image sélectionnée
+        preview_buttons_frame = ttk.Frame(right_frame)
+        preview_buttons_frame.pack(fill="x", pady=(10, 0))
+
+        ttk.Button(
+            preview_buttons_frame,
+            text="Agrandir",
+            command=self.enlarge_selected_image,
+        ).pack(fill="x", pady=(0, 5))
+
+        ttk.Button(
+            preview_buttons_frame,
+            text="Ouvrir avec...",
+            command=self.open_selected_image,
+        ).pack(fill="x", pady=(0, 5))
+
+        ttk.Button(
+            preview_buttons_frame,
+            text="Supprimer de la liste",
+            command=self.remove_selected_image,
+        ).pack(fill="x", pady=(0, 5))
+
+        # Bind pour la sélection d'image
+        self.images_tree.bind("<<TreeviewSelect>>", self.on_image_select)
+
+        # Variable pour stocker l'image courante
+        self.current_preview_image = None
+
     def setup_status_bar(self):
         """Configuration de la barre de statut"""
         self.status_bar = ttk.Frame(self.root)
@@ -949,6 +1062,9 @@ class cy8_prompts_manager:
                     self.status_label.config(text=status or "")
                 if hasattr(self, "parent_label"):
                     self.parent_label.config(text=parent or "")
+
+                # Actualiser la liste des images pour ce prompt
+                self.refresh_images_list()
 
             # Le commentaire est maintenant géré par self.comment_var dans l'onglet Info
             # Plus besoin de manipuler directement un widget Text
@@ -1065,12 +1181,8 @@ class cy8_prompts_manager:
 
             name, prompt_values, workflow, url, model, comment, status = data
 
-            # Générer un nouveau nom
-            new_name = f"{name}_herite"
-            counter = 1
-            while self.db_manager.prompt_name_exists(new_name):
-                new_name = f"{name}_herite_{counter}"
-                counter += 1
+            # Utiliser le même nom que le prompt parent
+            new_name = name
 
             # Créer le nouveau prompt avec parent
             new_id = self.db_manager.create_prompt(
@@ -1204,6 +1316,8 @@ class cy8_prompts_manager:
 
     def _execute_workflow_task(self, prompt_id, execution_id):
         """Tâche d'exécution du workflow (en thread séparé)"""
+        import time  # Import au début de la fonction pour éviter les problèmes de scope
+
         try:
             # Récupérer les données du prompt
             data = self.db_manager.get_prompt_by_id(prompt_id)
@@ -1261,8 +1375,7 @@ class cy8_prompts_manager:
 
             # Exécuter le workflow avec ComfyUI
             try:
-                from cy6_websocket_api_client import workflow_is_running
-                import time
+                from cy6_websocket_api_client import workflow_is_running, is_prompt_in_queue
 
                 tsk1 = comfyui_basic_task()
 
@@ -1275,7 +1388,7 @@ class cy8_prompts_manager:
                 self.update_execution_stack_status(execution_id, f"En queue (ID: {comfyui_prompt_id})", 75)
 
                 # Étape 3: Génération en cours avec vérification progressive
-                max_wait_time = 300  # 5 minutes max
+                max_wait_time = 600  # 10 minutes max
                 start_time = time.time()
                 progress_step = 75
                 check_count = 0
@@ -1296,21 +1409,43 @@ class cy8_prompts_manager:
                         self.update_execution_stack_status(execution_id, f"Génération en cours ({int(elapsed_time)}s)", progress_step)
 
                     # Vérifier si le workflow est toujours en cours
+                    workflow_finished = False
+                    websocket_says_finished = False
+                    queue_says_running = False
+
+                    # Méthode 1: Vérification WebSocket
                     try:
                         if hasattr(tsk1, 'ws') and tsk1.ws:
                             is_running = workflow_is_running(tsk1.ws, comfyui_prompt_id)
                             print(f"DEBUG: Check {check_count}: workflow_is_running = {is_running}")
                             if not is_running:
-                                print(f"DEBUG: Workflow terminé après {elapsed_time:.1f}s")
-                                break
+                                websocket_says_finished = True
                         else:
                             print("DEBUG: Pas de connexion WebSocket active")
-                            break
                     except Exception as ws_error:
                         print(f"DEBUG: Erreur WebSocket check: {ws_error}")
-                        # On continue même en cas d'erreur WebSocket
-                        if elapsed_time > 30:  # Si on a attendu au moins 30s, on considère que c'est probablement fini
-                            break
+
+                    # Méthode 2: Vérification via API HTTP de la queue
+                    try:
+                        queue_says_running = is_prompt_in_queue(comfyui_prompt_id)
+                        print(f"DEBUG: Check {check_count}: is_prompt_in_queue = {queue_says_running}")
+                    except Exception as queue_error:
+                        print(f"DEBUG: Erreur queue check: {queue_error}")
+
+                    # Décision basée sur les deux méthodes
+                    if websocket_says_finished and not queue_says_running:
+                        print(f"DEBUG: Workflow terminé après {elapsed_time:.1f}s (WebSocket ET Queue confirment)")
+                        workflow_finished = True
+                    elif not queue_says_running and elapsed_time > 10:
+                        # Si la queue ne contient plus le prompt et que ça fait plus de 10s, c'est probablement fini
+                        print(f"DEBUG: Workflow probablement terminé après {elapsed_time:.1f}s (Plus dans la queue)")
+                        workflow_finished = True
+                    elif elapsed_time > max_wait_time:
+                        print(f"DEBUG: Timeout général après {elapsed_time:.1f}s")
+                        workflow_finished = True
+
+                    if workflow_finished:
+                        break
 
                     time.sleep(3)  # Vérifier toutes les 3 secondes
 
@@ -1331,9 +1466,17 @@ class cy8_prompts_manager:
                 return
 
             if output_images:
+                # Ajouter les images à la base de données
+                images_added = self.add_output_images_to_database(prompt_id, output_images)
+
                 self.update_execution_stack_status(
-                    execution_id, f"Terminé avec succès - {len(output_images)} images générées", 100
+                    execution_id, f"Terminé avec succès - {len(output_images)} images générées ({images_added} ajoutées)", 100
                 )
+
+                # Actualiser la liste d'images si c'est le prompt actuellement sélectionné
+                if self.selected_prompt_id == prompt_id:
+                    self.root.after(0, self.refresh_images_list)
+
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
@@ -1593,6 +1736,261 @@ WORKFLOW:
 
             self.execution_details.insert("1.0", details_text)
             self.execution_details.config(state="disabled")
+
+    # Méthodes pour la gestion des images
+
+    def refresh_images_list(self):
+        """Actualiser la liste des images pour le prompt sélectionné"""
+        if not hasattr(self, 'images_tree') or not self.images_tree:
+            return
+
+        # Effacer la liste actuelle
+        for item in self.images_tree.get_children():
+            self.images_tree.delete(item)
+
+        # Récupérer le prompt sélectionné
+        selection = self.prompts_tree.selection()
+        if not selection:
+            return
+
+        prompt_id = int(selection[0])
+
+        # Récupérer les images de la base de données
+        images = self.db_manager.get_prompt_images(prompt_id)
+
+        for image_id, image_path, created_at in images:
+            if os.path.exists(image_path):
+                filename = os.path.basename(image_path)
+                self.images_tree.insert("", "end", values=(filename, image_path, created_at))
+
+    def on_image_select(self, event):
+        """Gérer la sélection d'une image pour la prévisualisation"""
+        if not hasattr(self, 'images_tree') or not self.images_tree:
+            return
+
+        selection = self.images_tree.selection()
+        if not selection:
+            self.preview_label.configure(image="", text="Sélectionnez une image\npour la prévisualiser")
+            return
+
+        # Récupérer le chemin de l'image
+        item = self.images_tree.item(selection[0])
+        image_path = item["values"][1]
+
+        try:
+            # Charger et redimensionner l'image pour la prévisualisation
+            image = Image.open(image_path)
+
+            # Calculer la taille de prévisualisation (max 300x300)
+            preview_size = 300
+            image.thumbnail((preview_size, preview_size), Image.Resampling.LANCZOS)
+
+            # Convertir pour tkinter
+            photo = ImageTk.PhotoImage(image)
+
+            # Afficher la prévisualisation
+            self.preview_label.configure(image=photo, text="")
+            self.current_preview_image = photo  # Garder une référence
+
+        except Exception as e:
+            self.preview_label.configure(image="", text=f"Erreur lors du chargement:\n{str(e)}")
+            self.current_preview_image = None
+
+    def add_images_to_prompt(self):
+        """Ajouter des images au prompt sélectionné"""
+        # Récupérer le prompt sélectionné
+        selection = self.prompts_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un prompt")
+            return
+
+        prompt_id = int(selection[0])
+
+        # Ouvrir le dialogue de sélection de fichiers
+        filetypes = [
+            ("Images", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff"),
+            ("PNG", "*.png"),
+            ("JPEG", "*.jpg *.jpeg"),
+            ("Tous les fichiers", "*.*")
+        ]
+
+        filenames = filedialog.askopenfilenames(
+            title="Sélectionner des images",
+            filetypes=filetypes
+        )
+
+        if filenames:
+            success_count = 0
+            for filename in filenames:
+                if self.db_manager.add_prompt_image(prompt_id, filename):
+                    success_count += 1
+
+            messagebox.showinfo(
+                "Images ajoutées",
+                f"{success_count} image(s) ajoutée(s) sur {len(filenames)} sélectionnée(s)"
+            )
+
+            # Actualiser la liste
+            self.refresh_images_list()
+
+    def enlarge_selected_image(self):
+        """Agrandir l'image sélectionnée dans une nouvelle fenêtre"""
+        selection = self.images_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            return
+
+        item = self.images_tree.item(selection[0])
+        image_path = item["values"][1]
+
+        try:
+            # Créer une nouvelle fenêtre
+            image_window = tk.Toplevel(self.root)
+            image_window.title(f"Image - {os.path.basename(image_path)}")
+
+            # Charger l'image complète
+            image = Image.open(image_path)
+
+            # Calculer la taille pour l'affichage (max 800x600)
+            max_width, max_height = 800, 600
+            image_ratio = image.width / image.height
+
+            if image.width > max_width or image.height > max_height:
+                if image_ratio > max_width / max_height:
+                    new_width = max_width
+                    new_height = int(max_width / image_ratio)
+                else:
+                    new_height = max_height
+                    new_width = int(max_height * image_ratio)
+
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Convertir pour tkinter
+            photo = ImageTk.PhotoImage(image)
+
+            # Afficher l'image
+            image_label = ttk.Label(image_window, image=photo)
+            image_label.pack(padx=10, pady=10)
+
+            # Garder une référence à l'image
+            image_label.image = photo
+
+            # Centrer la fenêtre
+            image_window.geometry(f"{image.width + 20}x{image.height + 20}")
+            image_window.resizable(True, True)
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
+
+    def open_selected_image(self):
+        """Ouvrir l'image sélectionnée avec l'application par défaut"""
+        selection = self.images_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            return
+
+        item = self.images_tree.item(selection[0])
+        image_path = item["values"][1]
+
+        try:
+            # Ouvrir avec l'application par défaut du système
+            if os.name == 'nt':  # Windows
+                os.startfile(image_path)
+            elif os.name == 'posix':  # macOS et Linux
+                subprocess.call(['open' if os.uname().sysname == 'Darwin' else 'xdg-open', image_path])
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
+
+    def remove_selected_image(self):
+        """Supprimer l'image sélectionnée de la liste (pas du disque)"""
+        selection = self.images_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            return
+
+        item = self.images_tree.item(selection[0])
+        image_path = item["values"][1]
+
+        response = messagebox.askyesno(
+            "Confirmer la suppression",
+            f"Voulez-vous supprimer cette image de la liste ?\n\n{os.path.basename(image_path)}\n\n"
+            "Note: L'image ne sera pas supprimée du disque."
+        )
+
+        if response:
+            # Récupérer le prompt sélectionné
+            prompt_selection = self.prompts_tree.selection()
+            if prompt_selection:
+                prompt_id = int(prompt_selection[0])
+
+                # Trouver l'ID de l'image dans la base
+                images = self.db_manager.get_prompt_images(prompt_id)
+                for image_id, db_image_path, created_at in images:
+                    if db_image_path == image_path:
+                        if self.db_manager.delete_prompt_image(image_id):
+                            messagebox.showinfo("Suppression", "Image supprimée de la liste")
+                            self.refresh_images_list()
+                        else:
+                            messagebox.showerror("Erreur", "Impossible de supprimer l'image")
+                        break
+
+    def open_images_folder(self):
+        """Ouvrir le dossier d'images par défaut"""
+        try:
+            images_path = os.getenv("IMAGES_COLLECTE")
+            if not images_path:
+                # Utiliser le chemin par défaut ComfyUI
+                images_path = "E:/Comfyui_G11/ComfyUI/output"
+
+            if os.path.exists(images_path):
+                if os.name == 'nt':  # Windows
+                    os.startfile(images_path)
+                elif os.name == 'posix':  # macOS et Linux
+                    subprocess.call(['open' if os.uname().sysname == 'Darwin' else 'xdg-open', images_path])
+            else:
+                messagebox.showwarning("Dossier introuvable", f"Le dossier d'images n'existe pas:\n{images_path}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir le dossier d'images:\n{str(e)}")
+
+    def add_output_images_to_database(self, prompt_id, output_images):
+        """Ajouter automatiquement les images de sortie à la base de données"""
+        if not output_images:
+            return 0
+
+        images_added = 0
+
+        try:
+            for image_info in output_images:
+                # output_images contient normalement des dictionnaires avec 'filename', 'path', etc.
+                # Adapter selon la structure exacte retournée par GetImages()
+
+                if isinstance(image_info, dict):
+                    # Si c'est un dictionnaire avec des informations sur l'image
+                    image_path = image_info.get('path') or image_info.get('filename')
+                elif isinstance(image_info, str):
+                    # Si c'est directement le chemin vers l'image
+                    image_path = image_info
+                else:
+                    print(f"DEBUG: Format d'image non reconnu: {type(image_info)} - {image_info}")
+                    continue
+
+                # Vérifier que le fichier existe
+                if image_path and os.path.exists(image_path):
+                    # Ajouter à la base de données
+                    if self.db_manager.add_prompt_image(prompt_id, image_path):
+                        images_added += 1
+                        print(f"DEBUG: Image ajoutée à la BDD: {image_path}")
+                    else:
+                        print(f"DEBUG: Échec ajout image en BDD: {image_path}")
+                else:
+                    print(f"DEBUG: Image introuvable: {image_path}")
+
+        except Exception as e:
+            print(f"DEBUG: Erreur lors de l'ajout des images à la BDD: {e}")
+
+        return images_added
 
     def clear_details(self):
         """Effacer les détails affichés"""
