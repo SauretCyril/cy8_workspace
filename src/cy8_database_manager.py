@@ -435,7 +435,7 @@ class cy8_database_manager:
     def get_prompt_by_id(self, prompt_id):
         """Récupérer un prompt par son ID"""
         self.cursor.execute(
-            "SELECT name, prompt_values, workflow, url, model, comment, status FROM prompts WHERE id=?",
+            "SELECT name, prompt_values, workflow, url, model, comment, status, parent FROM prompts WHERE id=?",
             (prompt_id,),
         )
         return self.cursor.fetchone()

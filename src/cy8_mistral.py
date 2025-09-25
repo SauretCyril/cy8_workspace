@@ -4,6 +4,7 @@ import os
 import time
 from dotenv import load_dotenv
 
+
 def get_mistral_answer(question, role, texte):
     try:
         # Récupérer la clé API Mistral depuis les variables d'environnement

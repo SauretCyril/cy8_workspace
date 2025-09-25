@@ -1034,7 +1034,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, model, comment, status = data
+                name, prompt_values, workflow, url, model, comment, status, parent = data
 
                 # Mettre à jour les informations générales
                 self.name_var.set(name or "")
@@ -1179,7 +1179,7 @@ class cy8_prompts_manager:
                 messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
                 return
 
-            name, prompt_values, workflow, url, model, comment, status = data
+            name, prompt_values, workflow, url, model, comment, status, parent = data
 
             # Utiliser le même nom que le prompt parent
             new_name = name
@@ -1295,7 +1295,7 @@ class cy8_prompts_manager:
                 messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
                 return
 
-            name, prompt_values, workflow, url, model, comment, status = data
+            name, prompt_values, workflow, url, model, comment, status, parent = data
 
             # Ajouter à la pile d'exécution
             execution_id = f"exec_{int(time.time())}"
@@ -1568,7 +1568,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if data:
-                name, prompt_values, workflow, url, model, comment, status = data
+                name, prompt_values, workflow, url, model, comment, status, parent = data
 
                 analysis = f"""ANALYSE DU PROMPT: {name}
 {'='*50}
