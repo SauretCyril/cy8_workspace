@@ -92,6 +92,9 @@ class cy8_prompts_manager:
         # Menu principal
         self.create_menu()
 
+        # Ruban de boutons en haut
+        self.setup_ribbon()
+
         # Layout principal avec panneau horizontal
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill="both", expand=True, padx=5, pady=5)
@@ -152,6 +155,186 @@ class cy8_prompts_manager:
         exec_menu.add_command(label="Exécuter prompt", command=self.execute_workflow)
         exec_menu.add_command(label="Analyser prompt", command=self.open_prompt_analysis)
 
+    def setup_ribbon(self):
+        """Configuration du ruban de boutons style Microsoft Office"""
+        # Conteneur principal du ruban
+        ribbon_frame = ttk.Frame(self.root)
+        ribbon_frame.pack(fill="x", padx=5, pady=(5, 0))
+
+        # Style pour le ruban
+        style = ttk.Style()
+        style.configure("Ribbon.TFrame", relief="raised", borderwidth=2, background="#f0f0f0")
+        style.configure("RibbonButton.TButton", padding=(5, 3), font=("TkDefaultFont", 9))
+        style.configure("RibbonMain.TButton", padding=(8, 5), font=("TkDefaultFont", 9, "bold"))
+        
+        # Frame principal du ruban avec style
+        main_ribbon = ttk.Frame(ribbon_frame, style="Ribbon.TFrame", padding="3")
+        main_ribbon.pack(fill="x")
+
+        # === GROUPE FICHIER ===
+        file_group = ttk.LabelFrame(main_ribbon, text="Fichier", padding="5")
+        file_group.pack(side="left", fill="y", padx=2)
+
+        # Boutons du groupe Fichier (en colonne pour style ruban)
+        file_buttons_frame = ttk.Frame(file_group)
+        file_buttons_frame.pack()
+
+        # Nouveau (bouton principal, plus grand)
+        new_btn = ttk.Button(
+            file_buttons_frame, 
+            text="✚ Nouveau", 
+            command=self.new_prompt, 
+            style="RibbonMain.TButton",
+            width=16
+        )
+        new_btn.grid(row=0, column=0, columnspan=2, sticky="ew", pady=1)
+
+        # Éditer et Hériter (côte à côte)
+        ttk.Button(file_buttons_frame, text="✏️ Éditer", command=self.edit_prompt, style="RibbonButton.TButton", width=8).grid(row=1, column=0, padx=1, pady=1)
+        ttk.Button(file_buttons_frame, text="📋 Hériter", command=self.inherit_prompt, style="RibbonButton.TButton", width=8).grid(row=1, column=1, padx=1, pady=1)
+
+        # Supprimer (rouge)
+        style.configure("Danger.TButton", foreground="red", padding=(5, 3))
+        ttk.Button(
+            file_buttons_frame, 
+            text="🗑️ Supprimer", 
+            command=self.delete_prompt, 
+            style="Danger.TButton",
+            width=16
+        ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=1)
+
+        # Séparateur vertical
+        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+
+        # === GROUPE EXÉCUTION ===
+        exec_group = ttk.LabelFrame(main_ribbon, text="Exécution", padding="5")
+        exec_group.pack(side="left", fill="y", padx=2)
+
+        exec_buttons_frame = ttk.Frame(exec_group)
+        exec_buttons_frame.pack()
+
+        # Exécuter (bouton principal)
+        ttk.Button(
+            exec_buttons_frame,
+            text="▶️ Exécuter",
+            command=self.execute_workflow,
+            style="RibbonMain.TButton",
+            width=16
+        ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=1)
+
+        # Analyser
+        ttk.Button(
+            exec_buttons_frame,
+            text="🔍 Analyser",
+            command=self.open_prompt_analysis,
+            style="RibbonButton.TButton",
+            width=16
+        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=1)
+
+        # Séparateur vertical
+        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+
+        # === GROUPE AFFICHAGE ===
+        view_group = ttk.LabelFrame(main_ribbon, text="Affichage", padding="5")
+        view_group.pack(side="left", fill="y", padx=2)
+
+        view_buttons_frame = ttk.Frame(view_group)
+        view_buttons_frame.pack()
+
+        # Actualiser
+        ttk.Button(
+            view_buttons_frame,
+            text="🔄 Actualiser",
+            command=self.refresh_prompts_display,
+            style="RibbonButton.TButton",
+            width=16
+        ).grid(row=0, column=0, sticky="ew", pady=1)
+
+        # Filtres (raccourci)
+        ttk.Button(
+            view_buttons_frame,
+            text="🔽 Filtres",
+            command=self.toggle_filters_tab,
+            style="RibbonButton.TButton",
+            width=16
+        ).grid(row=1, column=0, sticky="ew", pady=1)
+
+        # Séparateur vertical
+        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+
+        # === GROUPE BASE DE DONNÉES ===
+        db_group = ttk.LabelFrame(main_ribbon, text="Base de données", padding="5")
+        db_group.pack(side="left", fill="y", padx=2)
+
+        db_buttons_frame = ttk.Frame(db_group)
+        db_buttons_frame.pack()
+
+        # Changer de base
+        ttk.Button(
+            db_buttons_frame,
+            text="📂 Changer",
+            command=self.change_database,
+            style="RibbonButton.TButton",
+            width=12
+        ).grid(row=0, column=0, padx=1, pady=1)
+
+        # Créer base
+        ttk.Button(
+            db_buttons_frame,
+            text="➕ Créer",
+            command=self.create_new_database,
+            style="RibbonButton.TButton",
+            width=12
+        ).grid(row=0, column=1, padx=1, pady=1)
+
+        # Espace flexible pour pousser les éléments à droite
+        spacer_frame = ttk.Frame(main_ribbon)
+        spacer_frame.pack(side="left", fill="x", expand=True)
+
+        # === GROUPE AIDE (à droite) ===
+        help_group = ttk.LabelFrame(main_ribbon, text="Aide", padding="5")
+        help_group.pack(side="right", fill="y", padx=2)
+
+        help_buttons_frame = ttk.Frame(help_group)
+        help_buttons_frame.pack()
+
+        # About/Info
+        ttk.Button(
+            help_buttons_frame,
+            text="❓ À propos",
+            command=self.show_about,
+            style="RibbonButton.TButton",
+            width=14
+        ).grid(row=0, column=0, pady=1)
+
+    def toggle_filters_tab(self):
+        """Basculer vers l'onglet filtres"""
+        try:
+            # Rechercher le notebook dans l'interface et activer l'onglet filtres
+            for widget in self.root.winfo_children():
+                if isinstance(widget, ttk.PanedWindow):
+                    for pane in widget.panes():
+                        pane_widget = widget.nametowidget(pane)
+                        for child in pane_widget.winfo_children():
+                            if isinstance(child, ttk.LabelFrame) and "Détails" in child.cget("text"):
+                                for notebook_child in child.winfo_children():
+                                    if isinstance(notebook_child, ttk.Notebook):
+                                        notebook_child.select(4)  # Onglet filtres (index 4)
+                                        return
+        except Exception as e:
+            print(f"Erreur lors du basculement vers les filtres: {e}")
+
+    def show_about(self):
+        """Afficher les informations À propos"""
+        messagebox.showinfo(
+            "À propos",
+            "Gestionnaire de Prompts ComfyUI\n"
+            "Version cy8\n\n"
+            "Application de gestion de prompts et workflows\n"
+            "pour ComfyUI avec interface moderne.\n\n"
+            "© 2025 - Développé avec Python & Tkinter"
+        )
+
     def setup_prompts_table(self, parent):
         """
         0) Configuration du tableau des prompts
@@ -191,38 +374,6 @@ class cy8_prompts_manager:
 
         table_frame.grid_rowconfigure(0, weight=1)
         table_frame.grid_columnconfigure(0, weight=1)
-
-        # Boutons d'action (0.2 à 0.7)
-        btn_frame = ttk.Frame(table_frame, style="Header.TFrame")
-        btn_frame.grid(row=2, column=0, columnspan=2, sticky="ew", pady=5)
-
-        # 0.5) Bouton New
-        ttk.Button(btn_frame, text="Nouveau", command=self.new_prompt, style="Accent.TButton").pack(side="left", padx=2)
-
-        # 0.2) Bouton Éditer
-        ttk.Button(btn_frame, text="Éditer", command=self.edit_prompt).pack(side="left", padx=2)
-
-        # 0.4) Bouton Hériter
-        ttk.Button(btn_frame, text="Hériter", command=self.inherit_prompt).pack(side="left", padx=2)
-
-        # 0.3) Bouton Supprimer
-        ttk.Button(btn_frame, text="Supprimer", command=self.delete_prompt).pack(side="left", padx=2)
-
-        # Séparateur
-        ttk.Separator(btn_frame, orient="vertical").pack(side="left", fill="y", padx=5)
-
-        # 0.6) Bouton Exécuter
-        ttk.Button(
-            btn_frame,
-            text="Exécuter",
-            command=self.execute_workflow,
-            style="Accent.TButton",
-        ).pack(side="left", padx=2)
-
-        # 0.7) Bouton Analyser
-        ttk.Button(btn_frame, text="Analyser", command=self.open_prompt_analysis).pack(side="left", padx=2)
-
-        ttk.Button(btn_frame, text="Actualiser", command=self.load_prompts).pack(side="right", padx=2)
 
         # Événements
         self.prompts_tree.bind("<<TreeviewSelect>>", self.on_prompt_select)
@@ -725,7 +876,18 @@ class cy8_prompts_manager:
         """0.5) Créer un nouveau prompt"""
 
         def on_save():
-            self.load_prompts()
+            old_has_filters = self.has_active_filters()
+            self.refresh_prompts_display()
+            
+            # Si des filtres étaient actifs, informer l'utilisateur
+            if old_has_filters:
+                messagebox.showinfo(
+                    "Information", 
+                    "Nouveau prompt créé avec succès !\n\n"
+                    "Il se peut que le nouveau prompt ne soit pas visible "
+                    "avec les filtres actuels. Vous pouvez modifier les filtres "
+                    "ou les réinitialiser pour le voir."
+                )
 
         self.popup_manager.prompt_form("new", None, on_save)
 
@@ -736,7 +898,7 @@ class cy8_prompts_manager:
             return
 
         def on_save():
-            self.load_prompts()
+            self.refresh_prompts_display()
             self.load_prompt_details(self.selected_prompt_id)
 
         self.popup_manager.prompt_form("edit", self.selected_prompt_id, on_save)
@@ -778,13 +940,60 @@ class cy8_prompts_manager:
                 parent=self.selected_prompt_id,
             )
 
-            # Recharger et sélectionner le nouveau prompt
-            self.load_prompts()
-            self.prompts_tree.selection_set(str(new_id))
-            self.prompts_tree.focus(str(new_id))
-
-            self.update_status(f"Prompt hérité créé: {new_name}")
-            messagebox.showinfo("Succès", f"Prompt hérité créé avec succès: {new_name}")
+            # Recharger et sélectionner le nouveau prompt (en respectant les filtres)
+            self.refresh_prompts_display()
+            
+            # Sélectionner le nouveau prompt seulement s'il est visible
+            prompt_visible = False
+            try:
+                self.prompts_tree.selection_set(str(new_id))
+                self.prompts_tree.focus(str(new_id))
+                prompt_visible = True
+            except tk.TclError:
+                # Le prompt n'est pas visible à cause des filtres
+                prompt_visible = False
+            
+            # Informer l'utilisateur
+            if prompt_visible:
+                self.update_status(f"Prompt hérité créé: {new_name}")
+                messagebox.showinfo("Succès", f"Prompt hérité créé avec succès: {new_name}")
+            else:
+                self.update_status(f"Prompt hérité créé: {new_name} (filtré)")
+                result = messagebox.askyesnocancel(
+                    "Prompt créé mais non visible",
+                    f"Prompt hérité créé avec succès: {new_name}\n\n"
+                    "Le nouveau prompt n'est pas visible avec les filtres actuels.\n\n"
+                    "Voulez-vous réinitialiser les filtres pour le voir ?\n"
+                    "• Oui: Réinitialiser les filtres\n"
+                    "• Non: Garder les filtres actuels\n"
+                    "• Annuler: Aller à l'onglet Filtres"
+                )
+                
+                if result is True:  # Oui - Réinitialiser
+                    self.reset_filters()
+                    # Essayer de sélectionner le prompt maintenant
+                    try:
+                        self.prompts_tree.selection_set(str(new_id))
+                        self.prompts_tree.focus(str(new_id))
+                    except:
+                        pass
+                elif result is None:  # Annuler - Aller aux filtres
+                    # Aller à l'onglet filtres si le notebook existe
+                    try:
+                        # Trouver le notebook et activer l'onglet filtres
+                        for widget in self.root.winfo_children():
+                            if isinstance(widget, ttk.PanedWindow):
+                                for pane in widget.panes():
+                                    pane_widget = widget.nametowidget(pane)
+                                    for child in pane_widget.winfo_children():
+                                        if isinstance(child, ttk.LabelFrame) and "Détails" in child.cget("text"):
+                                            for notebook_child in child.winfo_children():
+                                                if isinstance(notebook_child, ttk.Notebook):
+                                                    # Activer l'onglet filtres (index 4)
+                                                    notebook_child.select(4)
+                                                    return
+                    except:
+                        pass
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de l'héritage: {e}")
@@ -1838,6 +2047,41 @@ WORKFLOW:
 
         # Mettre à jour les statistiques
         self.stats_label.config(text="Aucun filtre appliqué")
+
+    def refresh_prompts_display(self):
+        """Rafraîchir l'affichage des prompts en respectant les filtres actifs"""
+        
+        # Vérifier s'il y a des filtres actifs
+        if not hasattr(self, 'filters_list'):
+            # Pas de système de filtres initialisé, utiliser la méthode standard
+            self.load_prompts()
+            return
+        
+        # Compter les filtres actifs
+        active_filters_count = 0
+        for filter_data in self.filters_list:
+            if filter_data['active_var'].get():
+                active_filters_count += 1
+                break  # On a trouvé au moins un filtre actif
+        
+        if active_filters_count == 0:
+            # Aucun filtre actif, utiliser la méthode standard
+            self.load_prompts()
+            if hasattr(self, 'stats_label'):
+                self.stats_label.config(text="Aucun filtre appliqué")
+        else:
+            # Des filtres sont actifs, les réappliquer
+            self.apply_filters()
+
+    def has_active_filters(self):
+        """Vérifier s'il y a des filtres actifs"""
+        if not hasattr(self, 'filters_list'):
+            return False
+        
+        for filter_data in self.filters_list:
+            if filter_data['active_var'].get():
+                return True
+        return False
 
 
 def main():
