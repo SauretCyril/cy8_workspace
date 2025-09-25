@@ -39,7 +39,7 @@ Le **cy8_prompts_manager** est une application de bureau Python moderne construi
 ### Prérequis
 
 ```bash
-Python 3.8+
+Python 3.10+ (recommandé 3.10.11 pour compatibilité ComfyUI optimale)
 ComfyUI en fonctionnement sur 127.0.0.1:8188
 ```
 
