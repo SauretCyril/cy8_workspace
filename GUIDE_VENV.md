@@ -41,7 +41,7 @@ python check_venv.py
 python --version
 # Doit afficher: Python 3.10.11
 
-# Vérifier exécutable  
+# Vérifier exécutable
 python -c "import sys; print(sys.executable)"
 # Doit afficher: G:\G_WCS\cy8_workspace\venv\Scripts\python.exe
 ```
@@ -98,7 +98,7 @@ Affiche :
 ### Hook pre-push automatique
 Lors des `git push`, validation automatique :
 - ✅ Version Python compatible
-- ✅ Dépendances installées  
+- ✅ Dépendances installées
 - ✅ Tests cy8 passent
 - ✅ Tests pytest passent
 
