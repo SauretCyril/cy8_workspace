@@ -53,7 +53,7 @@ python -c "import sys; print(sys.executable)"
 python main.py                           # Point d'entrée principal
 python src/cy8_prompts_manager_main.py   # Application directe
 python src/cy8_test_suite.py            # Tests cy8
-python test_execution_progress.py       # Tests progression
+python tests/test_execution_progress.py # Tests progression
 pytest tests/                           # Tests pytest
 ```
 
@@ -119,7 +119,7 @@ python main.py
 
 # 5. Pour développement/tests
 python src/cy8_test_suite.py
-python test_execution_progress.py
+python tests/test_execution_progress.py
 ```
 
 ## 💡 Bonnes pratiques

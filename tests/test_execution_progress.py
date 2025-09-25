@@ -10,7 +10,7 @@ import threading
 from unittest.mock import Mock, patch
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # Les imports spécifiques ne sont pas nécessaires pour ce test de simulation
 

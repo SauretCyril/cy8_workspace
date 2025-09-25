@@ -46,22 +46,22 @@ def test_comfyui_connection():
 
 # SUPPRIMÉ : Test d'exécution de workflow
 # Le test d'exécution de workflow a été retiré conformément aux nouvelles spécifications.
-# Les tests d'exécution doivent maintenant être effectués uniquement via l'onglet "ComfyUI" 
+# Les tests d'exécution doivent maintenant être effectués uniquement via l'onglet "ComfyUI"
 # dans l'interface utilisateur avec le bouton "Tester connexion".
 
 def test_workflow_execution_removed():
     """
     ⚠️  FONCTION SUPPRIMÉE
-    
+
     Le test d'exécution de workflow automatique a été retiré.
-    
+
     Pour tester l'exécution de workflows :
     1. Lancez l'application : python src/cy8_prompts_manager_main.py
     2. Sélectionnez un prompt dans la liste
     3. Allez dans l'onglet "ComfyUI" du panneau de détails
     4. Cliquez sur "🔗 Tester la connexion"
-    
-    Cette approche permet un contrôle plus fin et évite les tests automatiques 
+
+    Cette approche permet un contrôle plus fin et évite les tests automatiques
     qui pourraient interférer avec ComfyUI en production.
     """
     print("\n⚠️  Test d'exécution de workflow supprimé")
@@ -86,7 +86,7 @@ def main():
         print("   - Vérifiez que ComfyUI est lancé")
         print("   - Vérifiez que ComfyUI écoute sur 127.0.0.1:8188")
         print("   - Vérifiez qu'aucun firewall ne bloque la connexion")
-        
+
     print("\n" + "=" * 60)
     print("ℹ️  Les tests d'exécution de workflow sont maintenant intégrés")
     print("   dans l'interface utilisateur pour un meilleur contrôle.")

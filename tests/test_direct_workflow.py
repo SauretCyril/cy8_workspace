@@ -4,7 +4,7 @@ Test direct du workflow ComfyUI pour diagnostiquer l'erreur 400
 """
 import sys
 import os
-sys.path.append('src')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from cy6_wkf001_Basic import comfyui_basic_task
 

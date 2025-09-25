@@ -9,7 +9,7 @@ import tempfile
 import shutil
 
 # Ajouter le chemin src au PYTHONPATH
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from cy8_prompts_manager_main import cy8_prompts_manager
 import tkinter as tk

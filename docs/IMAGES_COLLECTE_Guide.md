@@ -68,7 +68,7 @@ Le système inclut des tests automatisés pour vérifier :
 
 Lancer les tests :
 ```bash
-python test_images_simple.py
+python tests/test_images_simple.py
 ```
 
 ## 📝 Notes importantes
