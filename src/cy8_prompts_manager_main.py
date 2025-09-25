@@ -1117,18 +1117,74 @@ class cy8_prompts_manager:
 
             # Exécuter le workflow avec ComfyUI
             try:
+                from cy6_websocket_api_client import workflow_is_running
+                import time
+
                 tsk1 = comfyui_basic_task()
+
+                # Étape 1: Ajout à la queue (50% -> 60%)
+                self.update_execution_stack_status(execution_id, "Ajout à la queue ComfyUI", 60)
                 comfyui_prompt_id = tsk1.addToQueue(workflow_file_path, prompt_values_file_path)
                 print(f"DEBUG: ComfyUI prompt ID: {comfyui_prompt_id}")
 
-                self.update_execution_stack_status(execution_id, f"Génération en cours (ID: {comfyui_prompt_id})", 75)
+                # Étape 2: Workflow en queue (60% -> 75%)
+                self.update_execution_stack_status(execution_id, f"En queue (ID: {comfyui_prompt_id})", 75)
+
+                # Étape 3: Génération en cours avec vérification progressive
+                max_wait_time = 300  # 5 minutes max
+                start_time = time.time()
+                progress_step = 75
+                check_count = 0
+
+                while True:
+                    elapsed_time = time.time() - start_time
+                    check_count += 1
+
+                    if elapsed_time > max_wait_time:
+                        self.update_execution_stack_status(execution_id, "Timeout - Workflow trop long", 0)
+                        print(f"DEBUG: Timeout après {elapsed_time:.1f}s pour prompt {comfyui_prompt_id}")
+                        return
+
+                    # Mise à jour progressive du statut (75% -> 95%)
+                    if elapsed_time > 5:  # Après 5 secondes, on augmente le progrès
+                        progress_increment = min(20, int(elapsed_time / 10) * 5)  # 5% toutes les 10 secondes
+                        progress_step = min(95, 75 + progress_increment)
+                        self.update_execution_stack_status(execution_id, f"Génération en cours ({int(elapsed_time)}s)", progress_step)
+
+                    # Vérifier si le workflow est toujours en cours
+                    try:
+                        if hasattr(tsk1, 'ws') and tsk1.ws:
+                            is_running = workflow_is_running(tsk1.ws, comfyui_prompt_id)
+                            print(f"DEBUG: Check {check_count}: workflow_is_running = {is_running}")
+                            if not is_running:
+                                print(f"DEBUG: Workflow terminé après {elapsed_time:.1f}s")
+                                break
+                        else:
+                            print("DEBUG: Pas de connexion WebSocket active")
+                            break
+                    except Exception as ws_error:
+                        print(f"DEBUG: Erreur WebSocket check: {ws_error}")
+                        # On continue même en cas d'erreur WebSocket
+                        if elapsed_time > 30:  # Si on a attendu au moins 30s, on considère que c'est probablement fini
+                            break
+
+                    time.sleep(3)  # Vérifier toutes les 3 secondes
+
+                # Étape 4: Récupération des images (95% -> 100%)
+                self.update_execution_stack_status(execution_id, "Récupération des images", 95)
+
             except Exception as comfy_error:
                 print(f"DEBUG: Erreur ComfyUI: {comfy_error}")
                 self.update_execution_stack_status(execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0)
                 return
 
             # Récupérer les images générées
-            output_images = tsk1.GetImages(comfyui_prompt_id)
+            try:
+                output_images = tsk1.GetImages(comfyui_prompt_id)
+            except Exception as img_error:
+                print(f"DEBUG: Erreur récupération images: {img_error}")
+                self.update_execution_stack_status(execution_id, f"Erreur images: {str(img_error)}", 0)
+                return
 
             if output_images:
                 self.update_execution_stack_status(

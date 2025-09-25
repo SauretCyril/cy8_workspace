@@ -8,37 +8,37 @@ from  cy6_websocket_api_client import update_workflow,socket_queue_prompt,server
 #seed aleatoire
 class comfyui_task:
     name="Default"
-    
+
     def update_values(self, values):
         self.values = values
 
-   
+
 
     def log_values(self):
         log_json('02_value_to_update',self.values)
-     
-    def addToQueue(self,fileworkflow,filevalues):
-        json, updated_values = update_workflow(filevalues,fileworkflow)
+
+    def addToQueue(self, fileworkflow, filevalues):
+        """
+        Ajoute un workflow à la queue ComfyUI et retourne immédiatement l'ID
+        Ne bloque pas en attendant la fin d'exécution
+        """
+        json, updated_values = update_workflow(filevalues, fileworkflow)
         self.update_values(updated_values)
         self.last_workflow = json
 
-        prompt_list=[]
-        prompt_id = socket_queue_prompt(json)['prompt_id']
-        prompt_list.append(prompt_id)
+        # Soumettre le prompt à ComfyUI
+        response = socket_queue_prompt(json)
+        prompt_id = response['prompt_id']
 
-        nbqueue = len(prompt_list)
-        self.ws = server_connect()
-        nb=0
-        print (f"nb workflows = {nbqueue}")
+        # Établir la connexion WebSocket pour le suivi
+        try:
+            self.ws = server_connect()
+            print(f"DEBUG: Workflow {prompt_id} ajouté à la queue ComfyUI")
+        except Exception as e:
+            print(f"DEBUG: Erreur connexion WebSocket: {e}")
+            self.ws = None
 
-    
-        while nb!=nbqueue:
-            nb=0
-            for promptId in prompt_list:
-                if not workflow_is_running(self.ws ,promptId):
-                    nb+=1
-            print(f"workflow : {promptId}  ->  {nb}/{nbqueue}")
-        return promptId
+        return prompt_id
 
     def GetImages(self, key):
         output_images = socket_get_images(self.ws, key)

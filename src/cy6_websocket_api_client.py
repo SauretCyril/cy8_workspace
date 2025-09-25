@@ -284,17 +284,54 @@ def server_connect():
     return ws
 
 
-def workflow_is_running(ws,prompt_id):
-    ret=False
-    out = ws.recv()
-    if isinstance(out, str):
-        message = json.loads(out)
-        if message['type'] == 'executing':
-            data = message['data']
-            if data['node'] is None and data['prompt_id'] == prompt_id:
-                ret= True
-    print(f"serveur : {ret}")
-    return ret
+def workflow_is_running(ws, prompt_id):
+    """
+    Vérifie si un workflow est toujours en cours d'exécution
+    Returns: True si en cours, False si terminé ou en erreur
+    """
+    try:
+        # Définir un timeout pour éviter les blocages
+        ws.settimeout(5.0)
+
+        ret = False
+        out = ws.recv()
+        if isinstance(out, str):
+            message = json.loads(out)
+            print(f"DEBUG: Message reçu: {message}")
+
+            if message['type'] == 'executing':
+                data = message['data']
+                # Si node est None et prompt_id correspond, l'exécution est terminée
+                if data['node'] is None and data['prompt_id'] == prompt_id:
+                    print(f"DEBUG: Workflow {prompt_id} terminé (node=None)")
+                    ret = False  # Terminé
+                elif data['prompt_id'] == prompt_id and data['node'] is not None:
+                    print(f"DEBUG: Workflow {prompt_id} en cours (node={data['node']})")
+                    ret = True   # En cours
+            elif message['type'] == 'progress':
+                # Gestion des messages de progrès
+                data = message['data']
+                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
+                    progress = data.get('value', 0)
+                    max_progress = data.get('max', 100)
+                    percent = int((progress / max_progress) * 100) if max_progress > 0 else 0
+                    print(f"DEBUG: Workflow {prompt_id} progrès: {percent}%")
+                    ret = True  # Toujours en cours
+            elif message['type'] == 'execution_error':
+                data = message['data']
+                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
+                    print(f"DEBUG: Workflow {prompt_id} en erreur")
+                    ret = False  # Terminé avec erreur
+
+        print(f"DEBUG: workflow_is_running({prompt_id}) = {ret}")
+        return ret
+
+    except websocket.WebSocketTimeoutException:
+        print(f"DEBUG: Timeout WebSocket pour {prompt_id}")
+        return False  # En cas de timeout, on considère que c'est terminé
+    except Exception as e:
+        print(f"DEBUG: Erreur dans workflow_is_running: {e}")
+        return False  # En cas d'erreur, on considère que c'est terminé
 
 
 
