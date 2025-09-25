@@ -1,4 +1,7 @@
 import requests
+import sys
+import os
+import time
 from dotenv import load_dotenv
 
 def get_mistral_answer(question, role, texte):
@@ -48,8 +51,9 @@ def get_mistral_answer(question, role, texte):
         if e.response is not None and e.response.status_code == 429:
             print(f"dbg-678 : Trop de requêtes envoyées à l'API Mistral: {e}")
             return '{"error": "Trop de requêtes envoyées à l\'API Mistral. Merci de patienter avant de réessayer."}'
+        else:
             print(f"dbg-678 : Erreur de l'API Mistral: {e}")
-        return f'{{"error": "Erreur lors de l\'appel à l\'API Mistral: {str(e)}"}}'
+            return f'{{"error": "Erreur lors de l\'appel à l\'API Mistral: {str(e)}"}}'
     except Exception as e:
         print(f"dbg-678 : Erreur inattendue: {e}")
         return f'{{"error": "Erreur lors de l\'appel à l\'API Mistral: {str(e)}"}}'
