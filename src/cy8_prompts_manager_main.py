@@ -50,6 +50,9 @@ class cy8_prompts_manager:
         self.executions_tree = None  # Référence au TreeView des exécutions
         self.filters_list = []  # Liste des filtres actifs
 
+        # Variables pour la gestion des répertoires d'images
+        self.init_images_paths()
+
         # Configuration de l'interface
         self.setup_main_window()
         self.setup_ui()
@@ -61,6 +64,17 @@ class cy8_prompts_manager:
         self.db_manager.init_database(mode)
         self.load_prompts()
         self.update_database_stats()
+
+    def init_images_paths(self):
+        """Initialiser le chemin du répertoire d'images depuis le fichier .env"""
+        # Charger depuis la variable d'environnement ou utiliser la valeur par défaut ComfyUI
+        default_comfyui_path = "E:/Comfyui_G11/ComfyUI/output"
+
+        # IMAGES_COLLECTE depuis .env (ou valeur par défaut)
+        images_path = os.getenv("IMAGES_COLLECTE") or default_comfyui_path
+
+        # S'assurer que la variable d'environnement est définie
+        os.environ["IMAGES_COLLECTE"] = images_path
 
     def setup_main_window(self):
         """Configuration de la fenêtre principale"""
@@ -415,6 +429,12 @@ class cy8_prompts_manager:
 
         self.setup_info_tab(info_tab)
 
+        # Onglet ComfyUI - Test de connexion
+        comfyui_tab = ttk.Frame(notebook)
+        notebook.add(comfyui_tab, text="ComfyUI")
+
+        self.setup_comfyui_tab(comfyui_tab)
+
         # Onglet Data - Gestion de la base de données
         data_tab = ttk.Frame(notebook)
         notebook.add(data_tab, text="Data")
@@ -537,6 +557,85 @@ class cy8_prompts_manager:
             command=self.save_current_info,
         ).grid(row=row, column=0, columnspan=2, pady=20)
 
+    def setup_comfyui_tab(self, parent):
+        """Configuration de l'onglet ComfyUI - Test de connexion"""
+        comfyui_frame = ttk.Frame(parent, padding="20")
+        comfyui_frame.pack(fill="both", expand=True)
+
+        # Titre
+        ttk.Label(
+            comfyui_frame,
+            text="Test de Connexion ComfyUI",
+            font=("TkDefaultFont", 14, "bold"),
+        ).pack(pady=(0, 30))
+
+        # Frame pour le test de connexion
+        test_frame = ttk.LabelFrame(comfyui_frame, text="Connexion au serveur ComfyUI", padding="20")
+        test_frame.pack(fill="x", pady=(0, 20))
+
+        # Informations serveur
+        info_frame = ttk.Frame(test_frame)
+        info_frame.pack(fill="x", pady=(0, 20))
+
+        server_info = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
+        ttk.Label(info_frame, text="Serveur:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        ttk.Label(info_frame, text=server_info, font=("Consolas", 9)).pack(side="left", padx=(10, 0))
+
+        # Frame pour le bouton et l'indicateur
+        button_frame = ttk.Frame(test_frame)
+        button_frame.pack(fill="x")
+
+        # Bouton de test
+        self.test_connection_btn = ttk.Button(
+            button_frame,
+            text="🔗 Tester la connexion",
+            command=self.test_comfyui_connection,
+            width=25
+        )
+        self.test_connection_btn.pack(side="left", padx=(0, 20))
+
+        # Indicateur de statut (icône + texte)
+        self.connection_status_frame = ttk.Frame(button_frame)
+        self.connection_status_frame.pack(side="left", fill="x", expand=True)
+
+        # Icône de statut
+        self.status_icon_label = ttk.Label(
+            self.connection_status_frame,
+            text="⚪",  # Icône neutre au départ
+            font=("TkDefaultFont", 16)
+        )
+        self.status_icon_label.pack(side="left")
+
+        # Texte de statut
+        self.status_text_label = ttk.Label(
+            self.connection_status_frame,
+            text="Cliquez sur 'Tester la connexion' pour vérifier",
+            font=("TkDefaultFont", 9),
+            foreground="gray"
+        )
+        self.status_text_label.pack(side="left", padx=(10, 0))
+
+        # Frame pour les détails techniques (masqué par défaut)
+        self.details_frame = ttk.LabelFrame(comfyui_frame, text="Détails techniques", padding="10")
+        # Note: On n'utilise pas pack() ici, le frame sera affiché uniquement après un test
+
+        # Zone de texte pour les détails (avec scrollbar)
+        details_text_frame = ttk.Frame(self.details_frame)
+        details_text_frame.pack(fill="both", expand=True)
+
+        self.details_text = tk.Text(
+            details_text_frame,
+            height=10,
+            wrap="word",
+            state="disabled",
+            font=("Consolas", 9)
+        )
+        details_scrollbar = ttk.Scrollbar(details_text_frame, orient="vertical", command=self.details_text.yview)
+        self.details_text.configure(yscrollcommand=details_scrollbar.set)
+
+        self.details_text.pack(side="left", fill="both", expand=True)
+        details_scrollbar.pack(side="right", fill="y")
+
     def setup_data_tab(self, parent):
         """Configuration de l'onglet gestion des données"""
         data_frame = ttk.Frame(parent, padding="10")
@@ -631,6 +730,51 @@ class cy8_prompts_manager:
             command=self.remove_selected_recent,
             width=12,
         ).pack(pady=(5, 0))
+
+        # Affichage du répertoire d'images
+        images_frame = ttk.LabelFrame(data_frame, text="Répertoire des images générées", padding="10")
+        images_frame.pack(fill="x", pady=(0, 20))
+
+        # Répertoire principal des images (IMAGES_COLLECTE) - LECTURE SEULE
+        ttk.Label(images_frame, text="IMAGES_COLLECTE (défini dans .env):", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
+
+        images_main_frame = ttk.Frame(images_frame)
+        images_main_frame.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        images_main_frame.grid_columnconfigure(0, weight=1)
+
+        # Variable pour afficher le chemin des images (lecture seule)
+        self.images_path_var = tk.StringVar()
+        current_images_path = os.getenv("IMAGES_COLLECTE") or "E:/Comfyui_G11/ComfyUI/output"
+        self.images_path_var.set(current_images_path)
+
+        # Champ en lecture seule avec style différent pour indiquer qu'il n'est pas modifiable
+        images_entry = ttk.Entry(
+            images_main_frame,
+            textvariable=self.images_path_var,
+            state="readonly",
+            width=70,
+            font=("Consolas", 9)
+        )
+        images_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+
+        # Seul bouton : ouvrir l'explorateur
+        ttk.Button(
+            images_main_frame,
+            text="🗂️ Ouvrir l'explorateur",
+            command=self.open_images_in_explorer,
+            width=18
+        ).grid(row=0, column=1)
+
+        # Note explicative
+        note_label = ttk.Label(
+            images_frame,
+            text="� Ce répertoire est configuré dans le fichier .env et ne peut pas être modifié depuis l'interface.",
+            font=("TkDefaultFont", 8),
+            foreground="gray"
+        )
+        note_label.grid(row=2, column=0, sticky="w", pady=(10, 0))
+
+        images_frame.grid_columnconfigure(0, weight=1)
 
         # Statistiques
         stats_frame = ttk.LabelFrame(data_frame, text="Statistiques", padding="10")
@@ -2138,6 +2282,149 @@ WORKFLOW:
             if filter_data['active_var'].get():
                 return True
         return False
+
+    # === Méthode d'accès au répertoire d'images ===
+
+    def open_images_in_explorer(self):
+        """Ouvrir le répertoire principal des images dans l'explorateur"""
+        try:
+            import subprocess
+            import platform
+
+            path = self.images_path_var.get()
+
+            if not os.path.exists(path):
+                response = messagebox.askyesno(
+                    "Répertoire inexistant",
+                    f"Le répertoire n'existe pas:\n{path}\n\nVoulez-vous le créer?"
+                )
+                if response:
+                    os.makedirs(path, exist_ok=True)
+                else:
+                    return
+
+            # Ouvrir selon l'OS
+            system = platform.system()
+            if system == "Windows":
+                subprocess.run(["explorer", path])
+            elif system == "Darwin":  # macOS
+                subprocess.run(["open", path])
+            else:  # Linux
+                subprocess.run(["xdg-open", path])
+
+            self.update_status(f"Ouverture du répertoire: {os.path.basename(path)}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir l'explorateur: {e}")
+
+    def test_comfyui_connection(self):
+        """Tester la connexion avec ComfyUI et mettre à jour les indicateurs visuels"""
+        # Désactiver le bouton pendant le test
+        self.test_connection_btn.config(state="disabled", text="🔄 Test en cours...")
+
+        # Indicateur de test en cours
+        self.status_icon_label.config(text="🟡", foreground="orange")
+        self.status_text_label.config(text="Test de connexion en cours...", foreground="orange")
+
+        # Forcer la mise à jour de l'interface
+        self.root.update_idletasks()
+
+        try:
+            # Importer et tester la connexion ComfyUI
+            from cy6_websocket_api_client import workflow_is_running
+
+            # Récupérer les informations du serveur
+            server_info = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
+
+            # Tenter la connexion
+            import requests
+            import json
+
+            # Test de connexion HTTP basique
+            url = f"http://{server_info}/system_stats"
+            response = requests.get(url, timeout=5)
+
+            if response.status_code == 200:
+                # Connexion réussie
+                self.status_icon_label.config(text="✅", foreground="green")
+                self.status_text_label.config(text="Connexion ComfyUI réussie", foreground="green")
+
+                # Récupérer les détails
+                stats = response.json()
+                details = f"✅ CONNEXION RÉUSSIE\n\n"
+                details += f"Serveur: {server_info}\n"
+                details += f"Status: {response.status_code} OK\n"
+                details += f"Système:\n"
+
+                if 'system' in stats:
+                    for key, value in stats['system'].items():
+                        details += f"  • {key}: {value}\n"
+
+                # Test WebSocket (optionnel)
+                try:
+                    is_running = workflow_is_running()
+                    details += f"\nWebSocket: {'✅ Connecté' if is_running is not None else '⚠️ Non testé'}\n"
+                except Exception as ws_error:
+                    details += f"\nWebSocket: ❌ Erreur ({str(ws_error)})\n"
+
+                self.update_status("Connexion ComfyUI : OK")
+
+            else:
+                # Erreur HTTP
+                raise Exception(f"HTTP {response.status_code}")
+
+        except requests.exceptions.ConnectionError:
+            # Serveur non accessible
+            self.status_icon_label.config(text="❌", foreground="red")
+            self.status_text_label.config(text="ComfyUI non accessible", foreground="red")
+
+            details = f"❌ CONNEXION ÉCHOUÉE\n\n"
+            details += f"Serveur: {server_info}\n"
+            details += f"Erreur: Serveur non accessible\n\n"
+            details += f"Vérifications à effectuer:\n"
+            details += f"  • ComfyUI est-il démarré ?\n"
+            details += f"  • Le serveur écoute-t-il sur {server_info} ?\n"
+            details += f"  • Y a-t-il un firewall qui bloque ?\n"
+
+            self.update_status("Connexion ComfyUI : ÉCHEC")
+
+        except requests.exceptions.Timeout:
+            # Timeout
+            self.status_icon_label.config(text="⏱️", foreground="orange")
+            self.status_text_label.config(text="ComfyUI : Timeout", foreground="orange")
+
+            details = f"⏱️ TIMEOUT\n\n"
+            details += f"Serveur: {server_info}\n"
+            details += f"Erreur: Timeout (>5s)\n\n"
+            details += f"Le serveur ComfyUI est peut-être surchargé.\n"
+
+            self.update_status("Connexion ComfyUI : TIMEOUT")
+
+        except Exception as e:
+            # Autres erreurs
+            self.status_icon_label.config(text="❌", foreground="red")
+            self.status_text_label.config(text=f"Erreur: {str(e)}", foreground="red")
+
+            details = f"❌ ERREUR\n\n"
+            details += f"Serveur: {server_info}\n"
+            details += f"Erreur: {str(e)}\n\n"
+            details += f"Détails techniques:\n{str(e)}\n"
+
+            self.update_status(f"Connexion ComfyUI : ERREUR")
+
+        finally:
+            # Remettre le bouton en état normal
+            self.test_connection_btn.config(state="normal", text="🔗 Tester la connexion")
+
+            # Afficher les détails techniques
+            self.details_text.config(state="normal")
+            self.details_text.delete(1.0, tk.END)
+            self.details_text.insert(1.0, details)
+            self.details_text.config(state="disabled")
+
+            # Afficher le frame des détails s'il n'est pas déjà visible
+            if not self.details_frame.winfo_viewable():
+                self.details_frame.pack(fill="both", expand=True, pady=(20, 0))
 
 
 def main():

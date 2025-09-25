@@ -122,14 +122,28 @@ L'onglet **Exécutions** offre :
 
 ## 🔧 Configuration
 
-### Variables d'environnement
+### Configuration des répertoires
 
-Créez un fichier `.env` avec :
+#### IMAGES_COLLECTE (Simplifié)
+
+L'application utilise maintenant un système simplifié centré sur **IMAGES_COLLECTE** :
+
+- **Via l'interface** : Onglet "Data" > Section "Configuration du répertoire d'images"
+- **Variable d'environnement** : `IMAGES_COLLECTE=path/to/comfyui/output`
+- **Valeur par défaut** : `./images` si non configuré
+
+**Actions disponibles :**
+- 📁 Parcourir et sélectionner un nouveau répertoire
+- ✅ Appliquer les changements (sauvegardé dans les préférences)
+- 📂 Créer le répertoire s'il n'existe pas
+- 🗂️ Ouvrir dans l'explorateur de fichiers
+
+Voir le [Guide IMAGES_COLLECTE](docs/IMAGES_COLLECTE_Guide.md) pour plus de détails.
+
+#### Autres variables (optionnelles)
 
 ```env
 COMFYUI_SERVER=127.0.0.1:8188
-IMAGES_COLLECTE=path/to/comfyui/output
-IMAGES_CENTRAL=path/to/comfyui/central
 ```
 
 ### Structure des données

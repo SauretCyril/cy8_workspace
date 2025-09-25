@@ -44,134 +44,52 @@ def test_comfyui_connection():
         return False
 
 
-def test_workflow_execution():
-    """Teste l'exécution d'un workflow basique"""
-    print("\n🔍 Test d'exécution de workflow...")
+# SUPPRIMÉ : Test d'exécution de workflow
+# Le test d'exécution de workflow a été retiré conformément aux nouvelles spécifications.
+# Les tests d'exécution doivent maintenant être effectués uniquement via l'onglet "ComfyUI" 
+# dans l'interface utilisateur avec le bouton "Tester connexion".
 
-    # Workflow basique pour test
-    basic_workflow = {
-        "3": {
-            "inputs": {
-                "seed": 156680208700286,
-                "steps": 20,
-                "cfg": 8.0,
-                "sampler_name": "euler",
-                "scheduler": "normal",
-                "denoise": 1.0,
-                "model": ["4", 0],
-                "positive": ["6", 0],
-                "negative": ["7", 0],
-                "latent_image": ["5", 0],
-            },
-            "class_type": "KSampler",
-            "_meta": {"title": "KSampler"},
-        },
-        "4": {
-            "inputs": {"ckpt_name": "v1-5-pruned-emaonly.ckpt"},
-            "class_type": "CheckpointLoaderSimple",
-            "_meta": {"title": "Load Checkpoint"},
-        },
-        "5": {
-            "inputs": {"width": 512, "height": 512, "batch_size": 1},
-            "class_type": "EmptyLatentImage",
-            "_meta": {"title": "Empty Latent Image"},
-        },
-        "6": {
-            "inputs": {"text": "beautiful landscape", "clip": ["4", 1]},
-            "class_type": "CLIPTextEncode",
-            "_meta": {"title": "CLIP Text Encode (Prompt)"},
-        },
-        "7": {
-            "inputs": {"text": "bad quality", "clip": ["4", 1]},
-            "class_type": "CLIPTextEncode",
-            "_meta": {"title": "CLIP Text Encode (Prompt)"},
-        },
-        "8": {
-            "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
-            "class_type": "VAEDecode",
-            "_meta": {"title": "VAE Decode"},
-        },
-        "9": {
-            "inputs": {"filename_prefix": "ComfyUI_test", "images": ["8", 0]},
-            "class_type": "SaveImage",
-            "_meta": {"title": "Save Image"},
-        },
-    }
-
-    basic_values = {
-        "1": {
-            "id": "6",
-            "type": "prompt",
-            "value": "beautiful landscape, nature, test image",
-        },
-        "2": {"id": "7", "type": "prompt", "value": "bad quality, blurry"},
-        "3": {"id": "3", "type": "seed", "value": "156680208700286"},
-    }
-
-    try:
-        # Créer les fichiers temporaires
-        os.makedirs("data/Workflows", exist_ok=True)
-
-        workflow_path = "data/Workflows/test_workflow.json"
-        values_path = "data/Workflows/test_values.json"
-
-        with open(workflow_path, "w", encoding="utf-8") as f:
-            json.dump(basic_workflow, f, ensure_ascii=False, indent=2)
-
-        with open(values_path, "w", encoding="utf-8") as f:
-            json.dump(basic_values, f, ensure_ascii=False, indent=2)
-
-        print("✅ Fichiers de test créés")
-
-        # Tester l'exécution
-        print("🚀 Lancement du workflow de test sur ComfyUI...")
-        task = comfyui_basic_task()
-        prompt_id = task.addToQueue(workflow_path, values_path)
-
-        print(f"✅ Workflow ajouté à la queue ComfyUI avec l'ID: {prompt_id}")
-
-        # Essayer de récupérer les images (peut prendre du temps)
-        print("⏳ Attente de la génération des images...")
-        images = task.GetImages(prompt_id)
-
-        if images:
-            print(f"✅ Images générées avec succès! Nombre d'images: {len(images)}")
-        else:
-            print("⚠️  Aucune image récupérée (mais pas forcément un problème)")
-
-        # Nettoyer
-        if os.path.exists(workflow_path):
-            os.remove(workflow_path)
-        if os.path.exists(values_path):
-            os.remove(values_path)
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Erreur lors de l'exécution du workflow: {e}")
-        return False
+def test_workflow_execution_removed():
+    """
+    ⚠️  FONCTION SUPPRIMÉE
+    
+    Le test d'exécution de workflow automatique a été retiré.
+    
+    Pour tester l'exécution de workflows :
+    1. Lancez l'application : python src/cy8_prompts_manager_main.py
+    2. Sélectionnez un prompt dans la liste
+    3. Allez dans l'onglet "ComfyUI" du panneau de détails
+    4. Cliquez sur "🔗 Tester la connexion"
+    
+    Cette approche permet un contrôle plus fin et évite les tests automatiques 
+    qui pourraient interférer avec ComfyUI en production.
+    """
+    print("\n⚠️  Test d'exécution de workflow supprimé")
+    print("   👉 Utilisez l'onglet 'ComfyUI' dans l'interface pour tester")
+    return True
 
 
 def main():
     print("🧪 Test de la connexion ComfyUI pour cy8_prompts_manager")
     print("=" * 60)
 
-    # Test 1: Connexion de base
-    if not test_comfyui_connection():
+    # Test unique: Connexion de base seulement
+    if test_comfyui_connection():
+        print(f"\n✅ Test de connexion réussi ! ComfyUI est accessible.")
+        print("\n💡 Pour tester l'exécution de workflows :")
+        print("   1. Lancez l'application : python src/cy8_prompts_manager_main.py")
+        print("   2. Sélectionnez un prompt dans la liste")
+        print("   3. Allez dans l'onglet 'ComfyUI' du panneau de détails")
+        print("   4. Cliquez sur '🔗 Tester la connexion'")
+    else:
         print("\n💡 Conseils de dépannage:")
         print("   - Vérifiez que ComfyUI est lancé")
         print("   - Vérifiez que ComfyUI écoute sur 127.0.0.1:8188")
         print("   - Vérifiez qu'aucun firewall ne bloque la connexion")
-        return
-
-    # Test 2: Exécution de workflow
+        
     print("\n" + "=" * 60)
-    if test_workflow_execution():
-        print(
-            f"\n🎉 Tous les tests passent ! ComfyUI est prêt pour cy8_prompts_manager"
-        )
-    else:
-        print(f"\n⚠️  Problème avec l'exécution de workflow")
+    print("ℹ️  Les tests d'exécution de workflow sont maintenant intégrés")
+    print("   dans l'interface utilisateur pour un meilleur contrôle.")
 
 
 if __name__ == "__main__":
