@@ -166,7 +166,7 @@ class cy8_prompts_manager:
         style.configure("Ribbon.TFrame", relief="raised", borderwidth=2, background="#f0f0f0")
         style.configure("RibbonButton.TButton", padding=(5, 3), font=("TkDefaultFont", 9))
         style.configure("RibbonMain.TButton", padding=(8, 5), font=("TkDefaultFont", 9, "bold"))
-        
+
         # Frame principal du ruban avec style
         main_ribbon = ttk.Frame(ribbon_frame, style="Ribbon.TFrame", padding="3")
         main_ribbon.pack(fill="x")
@@ -181,9 +181,9 @@ class cy8_prompts_manager:
 
         # Nouveau (bouton principal, plus grand)
         new_btn = ttk.Button(
-            file_buttons_frame, 
-            text="✚ Nouveau", 
-            command=self.new_prompt, 
+            file_buttons_frame,
+            text="✚ Nouveau",
+            command=self.new_prompt,
             style="RibbonMain.TButton",
             width=16
         )
@@ -196,9 +196,9 @@ class cy8_prompts_manager:
         # Supprimer (rouge)
         style.configure("Danger.TButton", foreground="red", padding=(5, 3))
         ttk.Button(
-            file_buttons_frame, 
-            text="🗑️ Supprimer", 
-            command=self.delete_prompt, 
+            file_buttons_frame,
+            text="🗑️ Supprimer",
+            command=self.delete_prompt,
             style="Danger.TButton",
             width=16
         ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=1)
@@ -878,11 +878,11 @@ class cy8_prompts_manager:
         def on_save():
             old_has_filters = self.has_active_filters()
             self.refresh_prompts_display()
-            
+
             # Si des filtres étaient actifs, informer l'utilisateur
             if old_has_filters:
                 messagebox.showinfo(
-                    "Information", 
+                    "Information",
                     "Nouveau prompt créé avec succès !\n\n"
                     "Il se peut que le nouveau prompt ne soit pas visible "
                     "avec les filtres actuels. Vous pouvez modifier les filtres "
@@ -942,7 +942,7 @@ class cy8_prompts_manager:
 
             # Recharger et sélectionner le nouveau prompt (en respectant les filtres)
             self.refresh_prompts_display()
-            
+
             # Sélectionner le nouveau prompt seulement s'il est visible
             prompt_visible = False
             try:
@@ -952,7 +952,7 @@ class cy8_prompts_manager:
             except tk.TclError:
                 # Le prompt n'est pas visible à cause des filtres
                 prompt_visible = False
-            
+
             # Informer l'utilisateur
             if prompt_visible:
                 self.update_status(f"Prompt hérité créé: {new_name}")
@@ -968,7 +968,7 @@ class cy8_prompts_manager:
                     "• Non: Garder les filtres actuels\n"
                     "• Annuler: Aller à l'onglet Filtres"
                 )
-                
+
                 if result is True:  # Oui - Réinitialiser
                     self.reset_filters()
                     # Essayer de sélectionner le prompt maintenant
@@ -2050,20 +2050,20 @@ WORKFLOW:
 
     def refresh_prompts_display(self):
         """Rafraîchir l'affichage des prompts en respectant les filtres actifs"""
-        
+
         # Vérifier s'il y a des filtres actifs
         if not hasattr(self, 'filters_list'):
             # Pas de système de filtres initialisé, utiliser la méthode standard
             self.load_prompts()
             return
-        
+
         # Compter les filtres actifs
         active_filters_count = 0
         for filter_data in self.filters_list:
             if filter_data['active_var'].get():
                 active_filters_count += 1
                 break  # On a trouvé au moins un filtre actif
-        
+
         if active_filters_count == 0:
             # Aucun filtre actif, utiliser la méthode standard
             self.load_prompts()
@@ -2077,7 +2077,7 @@ WORKFLOW:
         """Vérifier s'il y a des filtres actifs"""
         if not hasattr(self, 'filters_list'):
             return False
-        
+
         for filter_data in self.filters_list:
             if filter_data['active_var'].get():
                 return True
