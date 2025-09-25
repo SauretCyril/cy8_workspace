@@ -184,12 +184,12 @@ def update_workflow(filevalues,fileworkflow):
                         # Remplacer les sauts de ligne par des espaces et nettoyer
                         prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
                         # Réduire les espaces multiples à un seul
-                        ²prompt_text = ' '.join(prompt_text.split())
+                        prompt_text = ' '.join(prompt_text.split())
 
                     jsonf[node]['inputs']['text'] = prompt_text
                     print (f"dbg-4515-1 = ok (cleaned CLIP text: {len(prompt_text)} chars)")
 
-                case case "prompt" | "prompt_positive" | "prompt_negative":
+                case "prompt" | "prompt_positive" | "prompt_negative":
                     # Nettoyer le prompt des sauts de ligne et espaces multiples
                     prompt_text = values[val]['value']
                     if isinstance(prompt_text, str):
