@@ -48,6 +48,7 @@ class cy8_prompts_manager:
         self.current_values_tree = None
         self.current_workflow_tree = None
         self.executions_tree = None  # Référence au TreeView des exécutions
+        self.filters_list = []  # Liste des filtres actifs
 
         # Configuration de l'interface
         self.setup_main_window()
@@ -275,6 +276,65 @@ class cy8_prompts_manager:
 
         self.setup_executions_tab(executions_tab)
 
+        # Onglet Filtres - Système de filtres avancés
+        filters_tab = ttk.Frame(notebook)
+        notebook.add(filters_tab, text="Filtres")
+
+        self.setup_filters_tab(filters_tab)
+
+    def setup_filters_tab(self, parent):
+        """Configurer l'onglet des filtres avancés"""
+
+        # Frame principal avec scrollbar
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Header du tableau des filtres
+        header_frame = ttk.LabelFrame(scrollable_frame, text="Filtres actifs")
+        header_frame.pack(fill="x", padx=5, pady=5)
+
+        # Colonnes: [✓] | Type de filtre | Critère | Valeur
+        ttk.Label(header_frame, text="Actif", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5, pady=2)
+        ttk.Label(header_frame, text="Type de filtre", font=("Arial", 9, "bold")).grid(row=0, column=1, padx=5, pady=2)
+        ttk.Label(header_frame, text="Critère", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=5, pady=2)
+        ttk.Label(header_frame, text="Valeur", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5, pady=2)
+        ttk.Label(header_frame, text="Actions", font=("Arial", 9, "bold")).grid(row=0, column=4, padx=5, pady=2)
+
+        # Initialiser la liste des filtres
+        self.filters_list = []
+        self.filters_frame = scrollable_frame
+
+        # Ajouter les filtres par défaut
+        self.add_default_filters()
+
+        # Boutons d'action
+        action_frame = ttk.Frame(scrollable_frame)
+        action_frame.pack(fill="x", padx=5, pady=10)
+
+        ttk.Button(action_frame, text="+ Ajouter filtre", command=self.add_new_filter).pack(side="left", padx=5)
+        ttk.Button(action_frame, text="Appliquer filtres", command=self.apply_filters).pack(side="left", padx=5)
+        ttk.Button(action_frame, text="Réinitialiser", command=self.reset_filters).pack(side="left", padx=5)
+
+        # Statistiques des filtres
+        stats_frame = ttk.LabelFrame(scrollable_frame, text="Statistiques")
+        stats_frame.pack(fill="x", padx=5, pady=5)
+
+        self.stats_label = ttk.Label(stats_frame, text="Aucun filtre appliqué")
+        self.stats_label.pack(padx=5, pady=5)
+
+        # Pack du canvas et scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
     def setup_info_tab(self, parent):
         """Configuration de l'onglet informations générales"""
         info_frame = ttk.Frame(parent, padding="10")
@@ -455,9 +515,13 @@ class cy8_prompts_manager:
             command=self.clear_execution_history,
         ).pack(side="right")
 
+        # Frame conteneur pour le TreeView et ses scrollbars
+        tree_frame = ttk.Frame(exec_frame)
+        tree_frame.pack(fill="both", expand=True, pady=(0, 5))
+
         # TreeView pour afficher les exécutions
         columns = ("id", "prompt", "status", "progress", "timestamp")
-        self.executions_tree = ttk.Treeview(exec_frame, columns=columns, show="headings", height=15)
+        self.executions_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=10)
 
         # Configuration des colonnes
         self.executions_tree.heading("id", text="ID Exécution")
@@ -473,23 +537,34 @@ class cy8_prompts_manager:
         self.executions_tree.column("progress", width=100)
         self.executions_tree.column("timestamp", width=150)
 
-        # Scrollbars
-        exec_v_scrollbar = ttk.Scrollbar(exec_frame, orient="vertical", command=self.executions_tree.yview)
-        exec_h_scrollbar = ttk.Scrollbar(exec_frame, orient="horizontal", command=self.executions_tree.xview)
+        # Scrollbars pour le TreeView
+        exec_v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.executions_tree.yview)
+        exec_h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.executions_tree.xview)
         self.executions_tree.configure(yscrollcommand=exec_v_scrollbar.set, xscrollcommand=exec_h_scrollbar.set)
 
-        # Pack avec scrollbars
-        self.executions_tree.pack(side="left", fill="both", expand=True)
-        exec_v_scrollbar.pack(side="right", fill="y")
-        exec_h_scrollbar.pack(side="bottom", fill="x")
+        # Pack du TreeView avec scrollbars
+        self.executions_tree.grid(row=0, column=0, sticky="nsew")
+        exec_v_scrollbar.grid(row=0, column=1, sticky="ns")
+        exec_h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        # Configuration des poids pour le redimensionnement
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
 
         # Frame pour les détails de l'exécution sélectionnée
         details_frame = ttk.LabelFrame(exec_frame, text="Détails de l'exécution", padding="10")
-        details_frame.pack(fill="x", pady=(10, 0))
+        details_frame.pack(fill="both", expand=True, pady=(10, 0))
 
-        # Text widget pour les détails
-        self.execution_details = tk.Text(details_frame, height=5, wrap="word", state="disabled")
-        self.execution_details.pack(fill="both", expand=True)
+        # Text widget pour les détails avec scrollbar
+        details_text_frame = ttk.Frame(details_frame)
+        details_text_frame.pack(fill="both", expand=True)
+
+        self.execution_details = tk.Text(details_text_frame, height=12, wrap="word", state="disabled")
+        details_scrollbar = ttk.Scrollbar(details_text_frame, orient="vertical", command=self.execution_details.yview)
+        self.execution_details.configure(yscrollcommand=details_scrollbar.set)
+
+        self.execution_details.pack(side="left", fill="both", expand=True)
+        details_scrollbar.pack(side="right", fill="y")
 
         # Bind pour la sélection
         self.executions_tree.bind("<<TreeviewSelect>>", self.on_execution_select)
@@ -567,6 +642,21 @@ class cy8_prompts_manager:
                 self.table_manager.load_workflow_data(self.workflow_tree, workflow or "{}")
 
                 self.update_status(f"Prompt '{name}' chargé")
+
+                # Mettre à jour les détails dans l'onglet Détails
+                if hasattr(self, "id_label"):
+                    self.id_label.config(text=str(prompt_id))
+                if hasattr(self, "name_label"):
+                    self.name_label.config(text=name or "")
+                if hasattr(self, "model_label"):
+                    self.model_label.config(text=model or "")
+                if hasattr(self, "status_label"):
+                    self.status_label.config(text=status or "")
+                if hasattr(self, "parent_label"):
+                    self.parent_label.config(text=parent or "")
+
+            # Le commentaire est maintenant géré par self.comment_var dans l'onglet Info
+            # Plus besoin de manipuler directement un widget Text
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de charger les détails: {e}")
@@ -1442,6 +1532,312 @@ WORKFLOW:
             print(f"Erreur lors de la fermeture: {e}")
 
         self.root.destroy()
+
+    def add_default_filters(self):
+        """Ajouter les filtres par défaut"""
+
+        # Filtre 1: Exécutions en cours
+        self.add_filter_row(
+            filter_type="Statut d'exécution",
+            criteria="En cours d'exécution",
+            value="",
+            active=False,
+            filter_id="execution_running"
+        )
+
+        # Filtre 2: Modèle spécifique
+        self.add_filter_row(
+            filter_type="Modèle",
+            criteria="Égal à",
+            value="",
+            active=False,
+            filter_id="model_equals"
+        )
+
+        # Filtre 3: Fils du prompt sélectionné
+        self.add_filter_row(
+            filter_type="Hiérarchie",
+            criteria="Fils du prompt sélectionné",
+            value="",
+            active=False,
+            filter_id="children_selected"
+        )
+
+        # Filtre 4: Nom du prompt
+        self.add_filter_row(
+            filter_type="Nom",
+            criteria="Contient",
+            value="",
+            active=False,
+            filter_id="name_contains"
+        )
+
+    def add_filter_row(self, filter_type="", criteria="", value="", active=False, filter_id=None):
+        """Ajouter une ligne de filtre"""
+
+        # Frame pour cette ligne de filtre
+        filter_frame = ttk.Frame(self.filters_frame)
+        filter_frame.pack(fill="x", padx=5, pady=2)
+
+        # Checkbox pour activer/désactiver
+        active_var = tk.BooleanVar(value=active)
+        active_check = ttk.Checkbutton(filter_frame, variable=active_var, command=self.on_filter_changed)
+        active_check.grid(row=0, column=0, padx=5, pady=2)
+
+        # Type de filtre (ComboBox)
+        filter_types = [
+            "Statut d'exécution",
+            "Modèle",
+            "Hiérarchie",
+            "Nom",
+            "Statut"
+        ]
+        type_var = tk.StringVar(value=filter_type)
+        type_combo = ttk.Combobox(filter_frame, textvariable=type_var, values=filter_types, width=15)
+        type_combo.grid(row=0, column=1, padx=5, pady=2)
+        type_combo.bind('<<ComboboxSelected>>', lambda e: self.on_filter_type_changed(filter_id, type_var.get()))
+
+        # Critère (dépend du type)
+        criteria_var = tk.StringVar(value=criteria)
+        criteria_combo = ttk.Combobox(filter_frame, textvariable=criteria_var, width=20)
+        criteria_combo.grid(row=0, column=2, padx=5, pady=2)
+
+        # Valeur (Entry ou ComboBox selon le type)
+        value_var = tk.StringVar(value=value)
+        value_widget = ttk.Entry(filter_frame, textvariable=value_var, width=20)
+        value_widget.grid(row=0, column=3, padx=5, pady=2)
+        value_widget.bind('<KeyRelease>', lambda e: self.on_filter_changed())
+
+        # Bouton supprimer
+        delete_btn = ttk.Button(filter_frame, text="✕", width=3,
+                               command=lambda: self.remove_filter_row(filter_id))
+        delete_btn.grid(row=0, column=4, padx=5, pady=2)
+
+        # Stocker les références
+        filter_data = {
+            'id': filter_id or f"filter_{len(self.filters_list)}",
+            'frame': filter_frame,
+            'active_var': active_var,
+            'type_var': type_var,
+            'criteria_var': criteria_var,
+            'value_var': value_var,
+            'criteria_combo': criteria_combo,
+            'value_widget': value_widget
+        }
+
+        self.filters_list.append(filter_data)
+
+        # Configurer les critères selon le type
+        self.update_criteria_options(filter_data)
+
+    def on_filter_type_changed(self, filter_id, new_type):
+        """Quand le type de filtre change, mettre à jour les critères"""
+        filter_data = next((f for f in self.filters_list if f['id'] == filter_id), None)
+        if filter_data:
+            self.update_criteria_options(filter_data)
+            self.on_filter_changed()
+
+    def update_criteria_options(self, filter_data):
+        """Mettre à jour les options de critères selon le type de filtre"""
+
+        filter_type = filter_data['type_var'].get()
+        criteria_combo = filter_data['criteria_combo']
+
+        if filter_type == "Statut d'exécution":
+            criteria_combo['values'] = ["En cours d'exécution", "Terminé", "En erreur", "En attente"]
+            filter_data['criteria_var'].set("En cours d'exécution")
+
+        elif filter_type == "Modèle":
+            criteria_combo['values'] = ["Égal à", "Contient", "Commence par", "Finit par"]
+            filter_data['criteria_var'].set("Égal à")
+
+        elif filter_type == "Hiérarchie":
+            criteria_combo['values'] = ["Fils du prompt sélectionné", "Parent du prompt sélectionné", "Racine (sans parent)", "Avec enfants"]
+            filter_data['criteria_var'].set("Fils du prompt sélectionné")
+
+        elif filter_type == "Nom":
+            criteria_combo['values'] = ["Contient", "Égal à", "Commence par", "Finit par"]
+            filter_data['criteria_var'].set("Contient")
+
+        elif filter_type == "Statut":
+            criteria_combo['values'] = ["Égal à", "Différent de"]
+            filter_data['criteria_var'].set("Égal à")
+
+    def add_new_filter(self):
+        """Ajouter un nouveau filtre vide"""
+        self.add_filter_row()
+
+    def remove_filter_row(self, filter_id):
+        """Supprimer une ligne de filtre"""
+        filter_data = next((f for f in self.filters_list if f['id'] == filter_id), None)
+        if filter_data:
+            filter_data['frame'].destroy()
+            self.filters_list.remove(filter_data)
+            self.on_filter_changed()
+
+    def on_filter_changed(self):
+        """Appelé quand un filtre change"""
+        # Pour l'instant, ne pas appliquer automatiquement
+        pass
+
+    def apply_filters(self):
+        """Appliquer tous les filtres actifs à la liste des prompts"""
+
+        if not hasattr(self, 'db_manager') or not self.db_manager:
+            return
+
+        # Récupérer tous les prompts de base (utiliser get_all_prompts pour cohérence)
+        try:
+            all_prompts = self.db_manager.get_all_prompts()
+        except Exception as e:
+            print(f"Erreur lors de la récupération des prompts: {e}")
+            return
+
+        filtered_prompts = all_prompts.copy()
+        active_filters_count = 0
+
+        # Appliquer chaque filtre actif
+        for filter_data in self.filters_list:
+            if not filter_data['active_var'].get():
+                continue
+
+            active_filters_count += 1
+            filter_type = filter_data['type_var'].get()
+            criteria = filter_data['criteria_var'].get()
+            value = filter_data['value_var'].get()
+
+            filtered_prompts = self.apply_single_filter(filtered_prompts, filter_type, criteria, value)
+
+        # Si aucun filtre actif, utiliser la méthode standard
+        if active_filters_count == 0:
+            self.load_prompts()
+            self.stats_label.config(text="Aucun filtre appliqué")
+            return
+
+        # Mettre à jour l'affichage avec les prompts filtrés
+        self.update_prompts_display(filtered_prompts)
+
+        # Mettre à jour les statistiques
+        total_prompts = len(all_prompts)
+        filtered_count = len(filtered_prompts)
+        stats_text = f"{active_filters_count} filtre(s) actif(s) - {filtered_count}/{total_prompts} prompts affichés"
+        self.stats_label.config(text=stats_text)
+
+    def apply_single_filter(self, prompts, filter_type, criteria, value):
+        """Appliquer un filtre spécifique à la liste de prompts"""
+
+        result = []
+
+        for prompt in prompts:
+            # prompt est un tuple: (id, name, parent, model, workflow, status, comment) - format get_all_prompts
+            prompt_id, name, parent, model, workflow, status, comment = prompt
+
+            include_prompt = False
+
+            if filter_type == "Statut d'exécution":
+                # Vérifier si le prompt est en cours d'exécution
+                is_executing = any(exec_item['prompt_name'] == name and exec_item['message'] in ['En cours', 'Génération']
+                                 for exec_item in self.execution_stack)
+
+                if criteria == "En cours d'exécution":
+                    include_prompt = is_executing
+                elif criteria == "Terminé":
+                    include_prompt = not is_executing
+
+            elif filter_type == "Modèle":
+                if criteria == "Égal à":
+                    include_prompt = (model or "").lower() == value.lower()
+                elif criteria == "Contient":
+                    include_prompt = value.lower() in (model or "").lower()
+                elif criteria == "Commence par":
+                    include_prompt = (model or "").lower().startswith(value.lower())
+                elif criteria == "Finit par":
+                    include_prompt = (model or "").lower().endswith(value.lower())
+
+            elif filter_type == "Hiérarchie":
+                if criteria == "Fils du prompt sélectionné":
+                    selected_item = self.prompts_tree.selection()
+                    if selected_item:
+                        selected_id = self.prompts_tree.item(selected_item[0])['values'][0]
+                        include_prompt = parent == selected_id
+                    else:
+                        include_prompt = False
+                elif criteria == "Racine (sans parent)":
+                    include_prompt = parent is None or parent == ""
+
+            elif filter_type == "Nom":
+                if criteria == "Contient":
+                    include_prompt = value.lower() in (name or "").lower()
+                elif criteria == "Égal à":
+                    include_prompt = (name or "").lower() == value.lower()
+                elif criteria == "Commence par":
+                    include_prompt = (name or "").lower().startswith(value.lower())
+                elif criteria == "Finit par":
+                    include_prompt = (name or "").lower().endswith(value.lower())
+
+            elif filter_type == "Statut":
+                if criteria == "Égal à":
+                    include_prompt = (status or "").lower() == value.lower()
+                elif criteria == "Différent de":
+                    include_prompt = (status or "").lower() != value.lower()
+
+            if include_prompt:
+                result.append(prompt)
+
+        return result
+
+    def update_prompts_display(self, filtered_prompts):
+        """Mettre à jour l'affichage du TreeView avec les prompts filtrés"""
+
+        # Sauvegarder la sélection actuelle
+        selected_items = self.prompts_tree.selection()
+        selected_ids = []
+        for item in selected_items:
+            try:
+                selected_ids.append(int(item))  # l'iid est l'ID du prompt
+            except:
+                pass
+
+        # Vider le TreeView
+        for item in self.prompts_tree.get_children():
+            self.prompts_tree.delete(item)
+
+        # Ajouter les prompts filtrés
+        for prompt in filtered_prompts:
+            prompt_id, name, parent, model, workflow, status, comment = prompt
+
+            # Format des valeurs pour l'affichage (même format que load_prompts)
+            display_values = (
+                prompt_id,
+                name or "",
+                status or "new",
+                model or "",
+                comment or "",
+                parent or ""
+            )
+
+            # Insérer avec iid pour pouvoir identifier l'élément
+            item = self.prompts_tree.insert("", "end", iid=str(prompt_id), values=display_values)
+
+            # Restaurer la sélection si c'était sélectionné avant
+            if prompt_id in selected_ids:
+                self.prompts_tree.selection_add(str(prompt_id))
+                self.selected_prompt_id = prompt_id
+                # Recharger les détails du prompt sélectionné
+                self.load_prompt_details(prompt_id)
+
+    def reset_filters(self):
+        """Réinitialiser tous les filtres"""
+
+        for filter_data in self.filters_list:
+            filter_data['active_var'].set(False)
+            filter_data['value_var'].set("")
+
+        # Recharger tous les prompts (pas de filtre)
+        self.load_prompts()
+
+        # Mettre à jour les statistiques
+        self.stats_label.config(text="Aucun filtre appliqué")
 
 
 def main():

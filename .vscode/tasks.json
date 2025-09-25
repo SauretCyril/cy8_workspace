@@ -5,7 +5,11 @@
             "label": "Installer les dépendances",
             "type": "shell",
             "command": "pip",
-            "args": ["install", "-r", "requirements.txt"],
+            "args": [
+                "install",
+                "-r",
+                "requirements.txt"
+            ],
             "group": "build",
             "presentation": {
                 "echo": true,
@@ -19,7 +23,9 @@
             "label": "Lancer cy8_prompts_manager",
             "type": "shell",
             "command": "python",
-            "args": ["src/cy8_prompts_manager_main.py"],
+            "args": [
+                "src/cy8_prompts_manager_main.py"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -36,7 +42,9 @@
             "label": "Test ComfyUI Connection",
             "type": "shell",
             "command": "python",
-            "args": ["tests/test_comfyui_connection.py"],
+            "args": [
+                "tests/test_comfyui_connection.py"
+            ],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -50,7 +58,12 @@
             "label": "Lancer tous les tests",
             "type": "shell",
             "command": "python",
-            "args": ["-m", "pytest", "tests/", "-v"],
+            "args": [
+                "-m",
+                "pytest",
+                "tests/",
+                "-v"
+            ],
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -64,12 +77,31 @@
             "label": "Formater le code (Black)",
             "type": "shell",
             "command": "black",
-            "args": ["src/", "tests/"],
+            "args": [
+                "src/",
+                "tests/"
+            ],
             "group": "build",
             "presentation": {
                 "echo": true,
                 "reveal": "always",
                 "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Validation CI complète",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "validate_ci.py"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
                 "panel": "shared"
             },
             "problemMatcher": []

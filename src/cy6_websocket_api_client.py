@@ -18,7 +18,21 @@ def socket_queue_prompt(prompt):
     p = {"prompt": prompt, "client_id": client_id}
     data = json.dumps(p).encode('utf-8')
     req =  urllib.request.Request("http://{}/prompt".format(server_address), data=data)
-    return json.loads(urllib.request.urlopen(req).read())
+    req.add_header('Content-Type', 'application/json')
+
+    try:
+        print(f"DEBUG: Envoi de la requête à ComfyUI ({len(data)} bytes)")
+        response = urllib.request.urlopen(req)
+        return json.loads(response.read())
+    except urllib.error.HTTPError as e:
+        print(f"DEBUG: Erreur HTTP {e.code}: {e.reason}")
+        if e.code == 400:
+            try:
+                error_response = e.read().decode('utf-8')
+                print(f"DEBUG: Réponse d'erreur ComfyUI: {error_response}")
+            except:
+                pass
+        raise e
 
 def get_image(filename, subfolder, folder_type):
     data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
@@ -100,42 +114,57 @@ def update_workflow(filevalues,fileworkflow):
 
     with open(filevalues, "r",encoding="utf-8") as f:
         values_json_data=f.read()
-    
+
     print(f"dbg-4514 =>values ={values_json_data}")
 
     values=json.loads( values_json_data)
 
     data_updated={}
-   
+
     try:
         # with open(file, "r",encoding="utf-8") as f:
         #     worflow_json_data=f.read()
         jsonf = load_json(fileworkflow)
-       
+
         for val in values:
-           
+
             typ = values[val]['type']
             node =values[val]['id']
-            
+
             print (f"dbg-4514 = node {node} : type {typ}:")
             #print(f"............set value to node={node} - typ={typ}")
             #print(f"................value ={values[val]}")
-            
+
             #data_updated.update(f"{#node}:{'type':{typ}}") # type: ignore
             #data_updated.update(f"{node}:{'value':{values[val]}}")
-           
-            match typ: 
-                
+
+            match typ:
+
                 case "image":
                     jsonf[node]['inputs']['image'] =  values[val]['value']
                 case "CLIPTextEncode":
-                    jsonf[node]['inputs']['text'] =  values[val]['value']
-                    print (f"dbg-4515-1 = ok")
-                    
-                case "prompt":
-                    jsonf[node]['inputs']['text'] =  values[val]['value']
+                    # Nettoyer le prompt des sauts de ligne et espaces multiples
+                    prompt_text = values[val]['value']
+                    if isinstance(prompt_text, str):
+                        # Remplacer les sauts de ligne par des espaces et nettoyer
+                        prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
+                        # Réduire les espaces multiples à un seul
+                        prompt_text = ' '.join(prompt_text.split())
 
-                    print (f"dbg-4515-2 = ok")
+                    jsonf[node]['inputs']['text'] = prompt_text
+                    print (f"dbg-4515-1 = ok (cleaned CLIP text: {len(prompt_text)} chars)")
+
+                case "prompt":
+                    # Nettoyer le prompt des sauts de ligne et espaces multiples
+                    prompt_text = values[val]['value']
+                    if isinstance(prompt_text, str):
+                        # Remplacer les sauts de ligne par des espaces et nettoyer
+                        prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
+                        # Réduire les espaces multiples à un seul
+                        prompt_text = ' '.join(prompt_text.split())
+
+                    jsonf[node]['inputs']['text'] = prompt_text
+                    print (f"dbg-4515-2 = ok (cleaned prompt: {len(prompt_text)} chars)")
                 case "seed" :
                     #seednum=124578
                     seednum = random.randint(0, 9999999)
@@ -146,16 +175,16 @@ def update_workflow(filevalues,fileworkflow):
                 case "PortraitMasterStylePose.pose" :
                     jsonf[node]['inputs']['model_pose'] = values[val]['model_pose']
                 case "BilboXPhotoPrompt.style" :
-                    
+
                     #print(f"{jsonf[node]}")
-                    '''  
+                    '''
                     jsonf[node]['inputs']['style'] = values[val]['style']
                     jsonf[node]['inputs']['framing'] = values[val]['framing']
                     jsonf[node]['inputs']['lighting'] = values[val]['lighting']
                     jsonf[node]['inputs']['camera_angle'] = values[val]['camera_angle']
                     jsonf[node]['inputs']['lenses'] = values[val]['lenses']
                     jsonf[node]['inputs']['filters_effects'] = values[val]['overexposed']
-                    jsonf[node]['inputs']['photographers'] = values[val]['photographers'] 
+                    jsonf[node]['inputs']['photographers'] = values[val]['photographers']
                     '''
                 case "SDXLPromptStylerbyMood" :
                     jsonf[node]['inputs']['style'] = values[val]['style']
@@ -179,8 +208,8 @@ def update_workflow(filevalues,fileworkflow):
         # print ("\n")
         # print (file)
         # exit(None)
-    
-    #print (f"........END update node ----------------")  
+
+    #print (f"........END update node ----------------")
     #log_json('current_workflow_data_updated',data_updated)
     return jsonf, values
 
@@ -193,13 +222,13 @@ def server_run_now(jsonf):
          ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
     except Exception:
          print(f"Error: {Exception}")
-         exit(None) 
-    
+         exit(None)
+
     result = get_images(ws, jsonf)
     return result
 
 
-    
+
 def server_get_prompt(ws,prompt,isList,node_id):
     print("sv:msg01")
     # ws = websocket.WebSocket()
@@ -222,17 +251,17 @@ def server_get_prompt(ws,prompt,isList,node_id):
     history = get_history(prompt_id)[prompt_id]
     if (isList):
         output=history['outputs'][node_id]['text']
-    else: 
+    else:
         output=history['outputs'][node_id]['text'][0]
-        
+
     #output1=history['outputs'][node_id]
     # print(f"Output---------------------")
     # print(f"{output1}")
-    # print(f"Output---------------------")  
+    # print(f"Output---------------------")
     result={'0':{'prompt_id':prompt_id},
         '1':{'output':output}}
     return result
-    #return 
+    #return
 
 
 
@@ -245,13 +274,13 @@ def socket_queue_add(jsonf):
     # req =  request.Request("http://127.0.0.1:8188/prompt", data=data)
     # request.urlopen(req)
     prompt_id = socket_queue_prompt(jsonf)['prompt_id']
-    
+
     return prompt_id
 
 def server_connect():
     ws = websocket.WebSocket()
     ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
-    
+
     return ws
 
 
@@ -266,8 +295,8 @@ def workflow_is_running(ws,prompt_id):
                 ret= True
     print(f"serveur : {ret}")
     return ret
-       
-           
+
+
 
 def get_history_images(prompt_id):
     output_images = {}
@@ -287,7 +316,7 @@ def get_history_images(prompt_id):
 
 def server_get_infLora(ws,prompt):
     print("sv:msg01")
-    
+
     #print(f"sv:msg02={prompt}")
     prompt_id = queue_prompt(prompt)['prompt_id']
     #print(f"sv:msg03")

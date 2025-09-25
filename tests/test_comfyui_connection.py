@@ -6,9 +6,13 @@ Test de connexion ComfyUI pour vérifier que l'exécution de workflow fonctionne
 import os
 import sys
 import json
+import urllib.request
+
+# Ajouter le répertoire src au path Python
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
 from cy6_wkf001_Basic import comfyui_basic_task
 from cy6_websocket_api_client import server_address
-import urllib.request
 
 
 def test_comfyui_connection():
