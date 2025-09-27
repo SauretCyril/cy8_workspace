@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 
 def get_mistral_answer(question, role, texte):
     try:
+        # Charger le fichier .env
+        load_dotenv()
+
         # Récupérer la clé API Mistral depuis les variables d'environnement
         print(f"Python utilisé dans cy_mistral.py : {sys.executable}")
         api_key = os.getenv("MISTRAL_API_KEY")

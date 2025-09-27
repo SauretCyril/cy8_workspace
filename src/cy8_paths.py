@@ -11,6 +11,77 @@ from pathlib import Path
 class cy8_paths_manager:
     """Gestionnaire des chemins de fichiers cross-platform"""
 
+    # Stockage des extra paths ComfyUI
+    _extra_paths = {}
+
+    @classmethod
+    def set_extra_paths(cls, extra_paths_data):
+        """Stocker les extra paths depuis la configuration ComfyUI"""
+        cls._extra_paths.clear()
+
+        if not extra_paths_data or not isinstance(extra_paths_data, dict):
+            return
+
+        # Parcourir les configurations extra paths
+        extra_paths_config = extra_paths_data.get('extra_paths', {})
+        for section_name, section_paths in extra_paths_config.items():
+            if isinstance(section_paths, dict):
+                for path_type, path_value in section_paths.items():
+                    if isinstance(path_value, str) and path_value.strip():
+                        # Utiliser le nom du dernier répertoire comme clé
+                        last_dir = cls._get_last_directory_name(path_value)
+                        if last_dir:
+                            cls._extra_paths[last_dir] = {
+                                'path': path_value,
+                                'type': path_type,
+                                'section': section_name
+                            }
+
+    @classmethod
+    def get_extra_path_by_key(cls, key):
+        """Récupérer un extra path par sa clé (nom du dernier répertoire)"""
+        return cls._extra_paths.get(key)
+
+    @classmethod
+    def get_all_extra_paths(cls):
+        """Récupérer tous les extra paths"""
+        return cls._extra_paths.copy()
+
+    @classmethod
+    def _get_last_directory_name(cls, path):
+        """Extraire le nom du dernier répertoire d'un chemin"""
+        if not path:
+            return None
+
+        # Nettoyer le chemin
+        normalized_path = cls.normalize_path(path.strip())
+
+        # Si c'est un fichier, prendre le répertoire parent
+        if os.path.isfile(normalized_path):
+            normalized_path = os.path.dirname(normalized_path)
+
+        # Obtenir le nom du dernier répertoire
+        last_dir = os.path.basename(normalized_path)
+        return last_dir if last_dir else None
+
+    @classmethod
+    def find_paths_containing(cls, search_term):
+        """Trouver tous les paths contenant un terme de recherche"""
+        results = {}
+        for key, path_info in cls._extra_paths.items():
+            if search_term.lower() in path_info['path'].lower():
+                results[key] = path_info
+        return results
+
+    @classmethod
+    def get_paths_by_type(cls, path_type):
+        """Récupérer tous les paths d'un type donné (checkpoints, loras, etc.)"""
+        results = {}
+        for key, path_info in cls._extra_paths.items():
+            if path_info['type'] == path_type:
+                results[key] = path_info
+        return results
+
     @staticmethod
     def get_default_db_path():
         """Obtenir le chemin par défaut de la base de données"""
@@ -166,3 +237,18 @@ def normalize_path(path):
 def ensure_dir(file_path):
     """Raccourci pour s'assurer qu'un répertoire existe"""
     return cy8_paths_manager.ensure_directory_exists(file_path)
+
+
+def set_extra_paths(extra_paths_data):
+    """Raccourci pour définir les extra paths"""
+    return cy8_paths_manager.set_extra_paths(extra_paths_data)
+
+
+def get_extra_path(key):
+    """Raccourci pour récupérer un extra path par clé"""
+    return cy8_paths_manager.get_extra_path_by_key(key)
+
+
+def get_all_extra_paths():
+    """Raccourci pour récupérer tous les extra paths"""
+    return cy8_paths_manager.get_all_extra_paths()

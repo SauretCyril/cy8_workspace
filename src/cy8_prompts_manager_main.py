@@ -12,6 +12,7 @@ from cy8_editable_tables import cy8_editable_tables
 from cy8_user_preferences import cy8_user_preferences
 from cy8_paths import normalize_path, ensure_dir, get_default_db_path, cy8_paths_manager
 from cy6_wkf001_Basic import comfyui_basic_task
+from cy8_log_analyzer import cy8_log_analyzer
 
 
 class cy8_prompts_manager:
@@ -431,11 +432,17 @@ class cy8_prompts_manager:
 
         self.setup_info_tab(info_tab)
 
-        # Onglet ComfyUI - Test de connexion
+        # Onglet ComfyUI - Environnement et Extra Paths
         comfyui_tab = ttk.Frame(notebook)
         notebook.add(comfyui_tab, text="ComfyUI")
 
         self.setup_comfyui_tab(comfyui_tab)
+
+        # Onglet Log - Analyse des logs ComfyUI
+        log_tab = ttk.Frame(notebook)
+        notebook.add(log_tab, text="📊 Log")
+
+        self.setup_log_tab(log_tab)
 
         # Onglet Data - Gestion de la base de données
         data_tab = ttk.Frame(notebook)
@@ -566,83 +573,394 @@ class cy8_prompts_manager:
         ).grid(row=row, column=0, columnspan=2, pady=20)
 
     def setup_comfyui_tab(self, parent):
-        """Configuration de l'onglet ComfyUI - Test de connexion"""
-        comfyui_frame = ttk.Frame(parent, padding="20")
+        """Configuration de l'onglet ComfyUI - Interface complète"""
+        # Frame principal avec scrolling
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        comfyui_frame = ttk.Frame(scrollable_frame, padding="10")
         comfyui_frame.pack(fill="both", expand=True)
 
-        # Titre
+        # Titre principal
         ttk.Label(
             comfyui_frame,
-            text="Test de Connexion ComfyUI",
+            text="🚀 ComfyUI - Gestion & Environnement",
             font=("TkDefaultFont", 14, "bold"),
-        ).pack(pady=(0, 30))
+        ).pack(pady=(0, 10))
 
-        # Frame pour le test de connexion
-        test_frame = ttk.LabelFrame(comfyui_frame, text="Connexion au serveur ComfyUI", padding="20")
-        test_frame.pack(fill="x", pady=(0, 20))
+        # === SECTION 1: ENVIRONNEMENT COMFYUI (MISE EN AVANT) ===
+        env_main_frame = ttk.LabelFrame(comfyui_frame, text="🌍 Environnement ComfyUI - Extra Paths", padding="10")
+        env_main_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        # Informations serveur
-        info_frame = ttk.Frame(test_frame)
-        info_frame.pack(fill="x", pady=(0, 20))
+        # Ligne d'information rapide
+        env_info_line = ttk.Frame(env_main_frame)
+        env_info_line.pack(fill="x", pady=(0, 10))
 
+        # Serveur et statut en une ligne compacte
         server_info = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
-        ttk.Label(info_frame, text="Serveur:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
-        ttk.Label(info_frame, text=server_info, font=("Consolas", 9)).pack(side="left", padx=(10, 0))
+        ttk.Label(env_info_line, text="🖥️ Serveur:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        ttk.Label(env_info_line, text=server_info, font=("Consolas", 8)).pack(side="left", padx=(5, 20))
 
-        # Frame pour le bouton et l'indicateur
-        button_frame = ttk.Frame(test_frame)
-        button_frame.pack(fill="x")
+        ttk.Label(env_info_line, text="🆔 ID:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.env_config_id_label = ttk.Label(env_info_line, text="Non identifié", foreground="gray", font=("Consolas", 8))
+        self.env_config_id_label.pack(side="left", padx=(5, 20))
 
-        # Bouton de test
+        ttk.Label(env_info_line, text="📁 Racine:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.env_root_label = ttk.Label(env_info_line, text="Non détecté", foreground="gray", font=("Consolas", 8))
+        self.env_root_label.pack(side="left", padx=(5, 0))
+
+        # Boutons d'action principaux
+        buttons_frame = ttk.Frame(env_main_frame)
+        buttons_frame.pack(fill="x", pady=(0, 10))
+
+        # Bouton principal d'identification
+        identify_btn = ttk.Button(
+            buttons_frame,
+            text="� Identifier l'environnement",
+            command=self.identify_comfyui_environment,
+            style="Accent.TButton"
+        )
+        identify_btn.pack(side="left", padx=(0, 10))
+
+        # Bouton test connexion plus discret
         self.test_connection_btn = ttk.Button(
-            button_frame,
-            text="🔗 Tester la connexion",
+            buttons_frame,
+            text="🔗 Test",
             command=self.test_comfyui_connection,
-            width=25
+            width=8
         )
-        self.test_connection_btn.pack(side="left", padx=(0, 20))
+        self.test_connection_btn.pack(side="left", padx=(0, 10))
 
-        # Indicateur de statut (icône + texte)
-        self.connection_status_frame = ttk.Frame(button_frame)
-        self.connection_status_frame.pack(side="left", fill="x", expand=True)
+        # Bouton actualiser
+        ttk.Button(
+            buttons_frame,
+            text="🔄 Actualiser",
+            command=self.refresh_env_data,
+            width=12
+        ).pack(side="left", padx=(0, 10))
 
-        # Icône de statut
-        self.status_icon_label = ttk.Label(
-            self.connection_status_frame,
-            text="⚪",  # Icône neutre au départ
-            font=("TkDefaultFont", 16)
-        )
-        self.status_icon_label.pack(side="left")
+        # Indicateur de statut compact
+        self.status_icon_label = ttk.Label(buttons_frame, text="⚪", font=("TkDefaultFont", 12))
+        self.status_icon_label.pack(side="left", padx=(10, 5))
 
-        # Texte de statut
-        self.status_text_label = ttk.Label(
-            self.connection_status_frame,
-            text="Cliquez sur 'Tester la connexion' pour vérifier",
-            font=("TkDefaultFont", 9),
-            foreground="gray"
-        )
-        self.status_text_label.pack(side="left", padx=(10, 0))
+        self.status_text_label = ttk.Label(buttons_frame, text="Prêt", font=("TkDefaultFont", 8), foreground="gray")
+        self.status_text_label.pack(side="left")
+
+        # Outils de recherche et filtrage
+        search_frame = ttk.Frame(env_main_frame)
+        search_frame.pack(fill="x", pady=(10, 5))
+
+        ttk.Label(search_frame, text="🔍 Rechercher:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
+        self.env_search_var = tk.StringVar()
+        self.env_search_var.trace("w", self.filter_env_paths)
+        search_entry = ttk.Entry(search_frame, textvariable=self.env_search_var, width=25)
+        search_entry.pack(side="left", padx=(0, 15))
+
+        ttk.Label(search_frame, text="🏷️ Type:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
+        self.env_type_filter = ttk.Combobox(search_frame, values=["Tous", "checkpoints", "loras", "embeddings", "vae", "custom_nodes", "controlnet"], state="readonly", width=15)
+        self.env_type_filter.set("Tous")
+        self.env_type_filter.bind("<<ComboboxSelected>>", self.filter_env_paths)
+        self.env_type_filter.pack(side="left", padx=(0, 15))
+
+        ttk.Button(search_frame, text="📋 Copier chemin", command=self.copy_selected_path, width=15).pack(side="left")
+
+        # TABLEAU DES EXTRA PATHS (PRINCIPAL ET VISIBLE)
+        env_tree_frame = ttk.Frame(env_main_frame)
+        env_tree_frame.pack(fill="both", expand=True, pady=(5, 0))
+
+        # Frame pour la scrollbar horizontale (en bas)
+        env_h_scroll_frame = ttk.Frame(env_tree_frame)
+        env_h_scroll_frame.pack(side="bottom", fill="x")
+
+        # Frame pour le contenu principal (treeview + scrollbar verticale)
+        env_main_content_frame = ttk.Frame(env_tree_frame)
+        env_main_content_frame.pack(side="top", fill="both", expand=True)
+
+        # Colonnes: Clé, Type, Chemin, Section
+        env_columns = ("key", "type", "path", "section")
+        self.env_tree = ttk.Treeview(env_main_content_frame, columns=env_columns, show="headings", height=12)
+
+        # Configuration des colonnes avec largeurs adaptives
+        self.env_tree.heading("key", text="Clé")
+        self.env_tree.heading("type", text="Type")
+        self.env_tree.heading("path", text="Chemin")
+        self.env_tree.heading("section", text="Section")
+
+        # Largeurs optimisées et flexibles
+        self.env_tree.column("key", width=120, minwidth=80, anchor="w")
+        self.env_tree.column("type", width=140, minwidth=100, anchor="w")
+        self.env_tree.column("path", width=500, minwidth=300, anchor="w")
+        self.env_tree.column("section", width=100, minwidth=80, anchor="w")
+
+        # Scrollbars pour le treeview des paths
+        env_tree_v_scrollbar = ttk.Scrollbar(env_main_content_frame, orient="vertical", command=self.env_tree.yview)
+        env_tree_h_scrollbar = ttk.Scrollbar(env_h_scroll_frame, orient="horizontal", command=self.env_tree.xview)
+        self.env_tree.configure(yscrollcommand=env_tree_v_scrollbar.set, xscrollcommand=env_tree_h_scrollbar.set)
+
+        # Placement optimisé avec pack
+        self.env_tree.pack(side="left", fill="both", expand=True)
+        env_tree_v_scrollbar.pack(side="right", fill="y")
+        env_tree_h_scrollbar.pack(side="bottom", fill="x")
+
+        # Configuration des couleurs pour les différents types
+        self.env_tree.tag_configure("checkpoints", background="#e8f5e8")
+        self.env_tree.tag_configure("loras", background="#e8f0ff")
+        self.env_tree.tag_configure("embeddings", background="#fff8e8")
+        self.env_tree.tag_configure("custom_nodes", background="#f0e8ff")
+        self.env_tree.tag_configure("vae", background="#ffe8f0")
+
+        # === SECTION 2: OUTILS COMPLEMENTAIRES (COLLAPSIBLE) ===
+        tools_frame = ttk.LabelFrame(comfyui_frame, text="🔧 Outils complémentaires", padding="10")
+        tools_frame.pack(fill="x", pady=(10, 0))
 
         # Frame pour les détails techniques (masqué par défaut)
-        self.details_frame = ttk.LabelFrame(comfyui_frame, text="Détails techniques", padding="10")
+        self.details_frame = ttk.LabelFrame(tools_frame, text="Détails techniques", padding="5")
         # Note: On n'utilise pas pack() ici, le frame sera affiché uniquement après un test
 
-        # Zone de texte pour les détails (avec scrollbar)
+        # Zone de texte pour les détails (avec scrollbar) - plus compacte
         details_text_frame = ttk.Frame(self.details_frame)
         details_text_frame.pack(fill="both", expand=True)
 
         self.details_text = tk.Text(
             details_text_frame,
-            height=10,
+            height=6,  # Réduit de 10 à 6
             wrap="word",
             state="disabled",
-            font=("Consolas", 9)
+            font=("Consolas", 8)  # Police plus petite
         )
         details_scrollbar = ttk.Scrollbar(details_text_frame, orient="vertical", command=self.details_text.yview)
         self.details_text.configure(yscrollcommand=details_scrollbar.set)
 
         self.details_text.pack(side="left", fill="both", expand=True)
         details_scrollbar.pack(side="right", fill="y")
+
+
+
+        # Variables pour compatibilité avec le code existant
+        self.comfyui_config_id = tk.StringVar(value="")
+        self.config_id_entry = None  # Plus utilisé dans la nouvelle interface
+        self.config_info_label = self.status_text_label  # Redirection vers le nouveau label de statut
+
+        # Chargement initial des données environnement
+        self.refresh_env_data()
+
+    def setup_log_tab(self, parent):
+        """Configuration de l'onglet d'analyse des logs ComfyUI"""
+        # Frame principal avec padding
+        log_frame = ttk.Frame(parent, padding="15")
+        log_frame.pack(fill="both", expand=True)
+
+        # Titre principal
+        title_frame = ttk.Frame(log_frame)
+        title_frame.pack(fill="x", pady=(0, 20))
+
+        ttk.Label(
+            title_frame,
+            text="📊 Analyse des Logs ComfyUI",
+            font=("TkDefaultFont", 14, "bold"),
+        ).pack(side="left")
+
+        # Informations rapides sur le côté
+        info_label = ttk.Label(
+            title_frame,
+            text="Analysez les logs ComfyUI pour détecter les erreurs et problèmes",
+            font=("TkDefaultFont", 9),
+            foreground="gray"
+        )
+        info_label.pack(side="right")
+
+        # === SECTION 1: CONFIGURATION DU FICHIER LOG ===
+        config_frame = ttk.LabelFrame(log_frame, text="📁 Configuration du fichier log", padding="10")
+        config_frame.pack(fill="x", pady=(0, 15))
+
+        # Ligne de sélection du fichier
+        file_selection_frame = ttk.Frame(config_frame)
+        file_selection_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(file_selection_frame, text="Fichier log:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+
+        # Zone de texte pour le chemin avec valeur par défaut
+        default_log_path = os.getenv("COMFYUI_FILE_LOG", "E:/Comfyui_G11/ComfyUI/user/comfyui.log")
+        self.comfyui_log_path = tk.StringVar(value=default_log_path)
+        log_path_entry = ttk.Entry(file_selection_frame, textvariable=self.comfyui_log_path, font=("Consolas", 9))
+        log_path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        # Bouton parcourir
+        browse_log_btn = ttk.Button(
+            file_selection_frame,
+            text="📂 Parcourir...",
+            command=self.browse_log_file,
+            width=15
+        )
+        browse_log_btn.pack(side="right")
+
+        # Informations sur le fichier
+        file_info_frame = ttk.Frame(config_frame)
+        file_info_frame.pack(fill="x")
+
+        self.log_file_info_label = ttk.Label(
+            file_info_frame,
+            text="💡 Sélectionnez un fichier log ComfyUI pour commencer l'analyse",
+            font=("TkDefaultFont", 8),
+            foreground="gray"
+        )
+        self.log_file_info_label.pack(anchor="w")
+
+        # === SECTION 2: ACTIONS D'ANALYSE ===
+        actions_frame = ttk.LabelFrame(log_frame, text="🔍 Actions d'analyse", padding="10")
+        actions_frame.pack(fill="x", pady=(0, 15))
+
+        # Boutons d'action
+        buttons_frame = ttk.Frame(actions_frame)
+        buttons_frame.pack(fill="x", pady=(0, 10))
+
+        # Bouton analyser principal
+        self.analyze_log_btn = ttk.Button(
+            buttons_frame,
+            text="🔍 Analyser le log",
+            command=self.analyze_comfyui_log,
+            style="Accent.TButton",
+            width=20
+        )
+        self.analyze_log_btn.pack(side="left", padx=(0, 15))
+
+        # Bouton actualiser
+        refresh_log_btn = ttk.Button(
+            buttons_frame,
+            text="🔄 Actualiser",
+            command=self.refresh_log_analysis,
+            width=15
+        )
+        refresh_log_btn.pack(side="left", padx=(0, 15))
+
+        # Bouton exporter
+        export_log_btn = ttk.Button(
+            buttons_frame,
+            text="📤 Exporter",
+            command=self.export_log_analysis,
+            width=15
+        )
+        export_log_btn.pack(side="left")
+
+        # Indicateur de statut
+        status_frame = ttk.Frame(actions_frame)
+        status_frame.pack(fill="x")
+
+        ttk.Label(status_frame, text="Statut:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+
+        self.log_status_label = ttk.Label(
+            status_frame,
+            text="Aucune analyse effectuée",
+            font=("TkDefaultFont", 9),
+            foreground="gray"
+        )
+        self.log_status_label.pack(side="left")
+
+        # === SECTION 3: RESULTATS D'ANALYSE ===
+        results_main_frame = ttk.LabelFrame(log_frame, text="📋 Résultats de l'analyse", padding="10")
+        results_main_frame.pack(fill="both", expand=True)
+
+        # Barre d'outils pour les résultats
+        results_toolbar = ttk.Frame(results_main_frame)
+        results_toolbar.pack(fill="x", pady=(0, 10))
+
+        # Filtres pour les résultats
+        ttk.Label(results_toolbar, text="Filtrer:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+
+        self.log_filter_var = tk.StringVar(value="Tous")
+        log_filter_combo = ttk.Combobox(
+            results_toolbar,
+            textvariable=self.log_filter_var,
+            values=["Tous", "ERREUR", "ATTENTION", "OK", "INFO"],
+            state="readonly",
+            width=15
+        )
+        log_filter_combo.pack(side="left", padx=(0, 15))
+        log_filter_combo.bind("<<ComboboxSelected>>", self.filter_log_results)
+
+        # Recherche dans les résultats
+        ttk.Label(results_toolbar, text="Rechercher:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
+
+        self.log_search_var = tk.StringVar()
+        self.log_search_var.trace("w", self.search_log_results)
+        log_search_entry = ttk.Entry(results_toolbar, textvariable=self.log_search_var, width=25)
+        log_search_entry.pack(side="left", padx=(0, 15))
+
+        # Compteur de résultats
+        self.log_results_count_label = ttk.Label(
+            results_toolbar,
+            text="0 résultats",
+            font=("TkDefaultFont", 8),
+            foreground="gray"
+        )
+        self.log_results_count_label.pack(side="right")
+
+        # Tableau des résultats
+        results_frame = ttk.Frame(results_main_frame)
+        results_frame.pack(fill="both", expand=True)
+
+        # Frame pour la scrollbar horizontale (en bas)
+        h_scroll_frame = ttk.Frame(results_frame)
+        h_scroll_frame.pack(side="bottom", fill="x")
+
+        # Frame pour le contenu principal (treeview + scrollbar verticale)
+        main_content_frame = ttk.Frame(results_frame)
+        main_content_frame.pack(side="top", fill="both", expand=True)
+
+        # Créer le Treeview pour afficher les résultats
+        columns = ("type", "category", "element", "message", "line")
+        self.log_results_tree = ttk.Treeview(main_content_frame, columns=columns, show="headings", height=15)
+
+        # Configuration des colonnes
+        self.log_results_tree.heading("type", text="État")
+        self.log_results_tree.heading("category", text="Catégorie")
+        self.log_results_tree.heading("element", text="Élément")
+        self.log_results_tree.heading("message", text="Message")
+        self.log_results_tree.heading("line", text="Ligne")
+
+        # Largeurs optimisées
+        self.log_results_tree.column("type", width=90, minwidth=70)
+        self.log_results_tree.column("category", width=130, minwidth=100)
+        self.log_results_tree.column("element", width=180, minwidth=120)
+        self.log_results_tree.column("message", width=500, minwidth=350)
+        self.log_results_tree.column("line", width=70, minwidth=50)
+
+        # Scrollbars
+        tree_v_scrollbar = ttk.Scrollbar(main_content_frame, orient="vertical", command=self.log_results_tree.yview)
+        tree_h_scrollbar = ttk.Scrollbar(h_scroll_frame, orient="horizontal", command=self.log_results_tree.xview)
+        self.log_results_tree.configure(yscrollcommand=tree_v_scrollbar.set, xscrollcommand=tree_h_scrollbar.set)
+
+        # Placement
+        self.log_results_tree.pack(side="left", fill="both", expand=True)
+        tree_v_scrollbar.pack(side="right", fill="y")
+        tree_h_scrollbar.pack(side="bottom", fill="x")
+
+        # Configuration des couleurs selon le type d'entrée
+        self.log_results_tree.tag_configure("OK", background="#d4edda", foreground="#155724")
+        self.log_results_tree.tag_configure("ERREUR", background="#f8d7da", foreground="#721c24")
+        self.log_results_tree.tag_configure("ATTENTION", background="#fff3cd", foreground="#856404")
+        self.log_results_tree.tag_configure("INFO", background="#d1ecf1", foreground="#0c5460")
+
+        # Bind pour double-clic (détails)
+        self.log_results_tree.bind("<Double-1>", self.show_log_detail)
+
+        # Initialiser l'analyseur de logs
+        self.log_analyzer = cy8_log_analyzer()
+
+        # Vérifier si le fichier log par défaut existe
+        self.check_log_file_status()
 
     def setup_data_tab(self, parent):
         """Configuration de l'onglet gestion des données"""
@@ -1034,7 +1352,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, model, comment, status, parent = data
+                name, prompt_values, workflow, url, parent, model, comment, status = data
 
                 # Mettre à jour les informations générales
                 self.name_var.set(name or "")
@@ -1179,7 +1497,7 @@ class cy8_prompts_manager:
                 messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
                 return
 
-            name, prompt_values, workflow, url, model, comment, status, parent = data
+            name, prompt_values, workflow, url, parent, model, comment, status = data
 
             # Utiliser le même nom que le prompt parent
             new_name = name
@@ -1295,7 +1613,7 @@ class cy8_prompts_manager:
                 messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
                 return
 
-            name, prompt_values, workflow, url, model, comment, status, parent = data
+            name, prompt_values, workflow, url, parent, model, comment, status = data
 
             # Ajouter à la pile d'exécution
             execution_id = f"exec_{int(time.time())}"
@@ -1568,7 +1886,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if data:
-                name, prompt_values, workflow, url, model, comment, status, parent = data
+                name, prompt_values, workflow, url, parent, model, comment, status = data
 
                 analysis = f"""ANALYSE DU PROMPT: {name}
 {'='*50}
@@ -2823,6 +3141,760 @@ WORKFLOW:
             # Afficher le frame des détails s'il n'est pas déjà visible
             if not self.details_frame.winfo_viewable():
                 self.details_frame.pack(fill="both", expand=True, pady=(20, 0))
+
+    def identify_comfyui_environment(self):
+        """Identifier l'environnement ComfyUI en récupérant les extra paths via le custom node"""
+        import logging
+        import time
+
+        # Configuration du logging pour cette fonction
+        logger = logging.getLogger(__name__)
+
+        print("\n" + "="*60)
+        print("🚀 DÉBUT - Identification de l'environnement ComfyUI")
+        print("="*60)
+        logger.info("Début de l'identification de l'environnement ComfyUI")
+
+        try:
+            # Importer notre classe de custom node caller
+            print("📦 Import de ComfyUICustomNodeCaller...")
+            logger.info("Import de ComfyUICustomNodeCaller")
+            from cy8_comfyui_customNode_call import ComfyUICustomNodeCaller
+
+            # Mettre à jour le statut
+            print("🔍 Mise à jour du statut de l'interface...")
+            logger.info("Mise à jour du statut de l'interface")
+            self.config_info_label.config(
+                text="🔍 Connexion à ComfyUI et récupération des extra paths...",
+                foreground="blue"
+            )
+            self.root.update()
+
+            # Utiliser le custom node caller pour appeler ExtraPathReader
+            print("🔧 Initialisation du ComfyUICustomNodeCaller...")
+            logger.info("Initialisation du ComfyUICustomNodeCaller")
+
+            with ComfyUICustomNodeCaller() as caller:
+                print("✅ ComfyUICustomNodeCaller initialisé avec succès")
+                logger.info("ComfyUICustomNodeCaller initialisé avec succès")
+
+                # Vérifier que ComfyUI est accessible
+                print("📡 Vérification du statut du serveur ComfyUI...")
+                logger.info("Vérification du statut du serveur ComfyUI")
+                status = caller.get_server_status()
+
+                print(f"📊 Statut du serveur: {status['status']}")
+                logger.info(f"Statut du serveur ComfyUI: {status}")
+
+                if status['status'] != 'online':
+                    error_msg = f"ComfyUI n'est pas accessible: {status.get('error', 'Serveur offline')}"
+                    print(f"❌ {error_msg}")
+                    logger.error(error_msg)
+                    raise Exception(error_msg)
+
+                print("🟢 Serveur ComfyUI accessible et en ligne")
+                logger.info("Serveur ComfyUI accessible et en ligne")
+
+                # Appeler le custom node ExtraPathReader
+                print("🚀 Appel du custom node ExtraPathReader...")
+                logger.info("Appel du custom node ExtraPathReader avec inputs vides")
+
+                start_time = time.time()
+                result = caller.call_custom_node(
+                    node_type="ExtraPathReader",
+                    inputs={}
+                )
+                end_time = time.time()
+
+                print(f"✅ Custom node appelé avec succès en {end_time - start_time:.2f}s")
+                print(f"📋 Résultat: {result}")
+                logger.info(f"Custom node ExtraPathReader appelé avec succès en {end_time - start_time:.2f}s: {result}")
+
+                # Récupérer la réponse (normalement contient un prompt_id)
+                if 'prompt_id' in result:
+                    prompt_id = result['prompt_id']
+                    print(f"🆔 Prompt ID reçu: {prompt_id}")
+                    logger.info(f"Prompt ID reçu: {prompt_id}")
+
+                    # Attendre un peu que le workflow s'exécute
+                    print("⏳ Attente de l'exécution du workflow (2s)...")
+                    logger.info("Attente de l'exécution du workflow")
+                    time.sleep(2)
+
+                    # Mise à jour de l'interface
+                    self.config_info_label.config(
+                        text="⏳ Exécution du custom node en cours...",
+                        foreground="orange"
+                    )
+                    self.root.update()
+
+                    # Récupération des extra paths depuis ComfyUI via le custom node
+                    print("📂 Récupération des extra paths...")
+                    logger.info("Début de récupération des extra paths")
+                    extra_paths_data = self._get_extra_paths_from_comfyui()
+
+                    if extra_paths_data:
+                        print("✅ Extra paths récupérés avec succès")
+                        print(f"📊 Données récupérées: {list(extra_paths_data.keys()) if isinstance(extra_paths_data, dict) else type(extra_paths_data)}")
+                        logger.info(f"Extra paths récupérés: {extra_paths_data}")
+
+                        # Stocker les extra paths dans le gestionnaire de chemins
+                        print("💾 Stockage des extra paths dans cy8_paths_manager...")
+                        from cy8_paths import set_extra_paths
+                        set_extra_paths(extra_paths_data)
+                        logger.info("Extra paths stockés dans cy8_paths_manager")
+
+                        # Mettre à jour les informations de l'onglet Env si il existe
+                        if hasattr(self, 'env_config_id_label') and hasattr(self, 'env_root_label'):
+                            comfyui_root = extra_paths_data.get('comfyui_root', 'Non détecté')
+                            self.env_root_label.config(text=comfyui_root, foreground="green")
+                            print(f"📍 Racine ComfyUI mise à jour: {comfyui_root}")
+
+                        # Actualiser immédiatement l'affichage des extra paths
+                        print("🔄 Actualisation immédiate du tableau des extra paths...")
+                        self.refresh_env_data()
+                        logger.info("Tableau des extra paths actualisé après stockage")
+                    else:
+                        print("❌ Aucune donnée extra paths récupérée")
+                        logger.warning("Aucune donnée extra paths récupérée")
+
+                    if extra_paths_data:
+                        # Le custom node retourne maintenant un objet avec comfyui_root, config_path et extra_paths
+                        print("🔍 Extraction de l'ID de configuration...")
+                        logger.info("Début de l'extraction de l'ID de configuration")
+
+                        config_id = self._extract_config_id_from_extra_paths(extra_paths_data)
+
+                        if config_id:
+                            print(f"🎯 ID de configuration extrait: {config_id}")
+                            logger.info(f"ID de configuration extrait avec succès: {config_id}")
+
+                            # Mettre à jour l'ID de configuration
+                            print("✏️ Mise à jour de l'ID de configuration...")
+                            self.comfyui_config_id.set(config_id)
+
+                            # Mettre à jour le champ si il existe (compatibilité ancienne interface)
+                            if self.config_id_entry and hasattr(self.config_id_entry, 'config'):
+                                self.config_id_entry.config(state="normal")
+                                self.config_id_entry.config(state="readonly")
+
+                            self.config_info_label.config(
+                                text=f"✅ Environnement identifié: {config_id}",
+                                foreground="green"
+                            )
+
+                            print("✅ Interface mise à jour avec succès")
+                            logger.info("Interface mise à jour avec l'ID de configuration")
+
+                            # Mettre à jour l'onglet Env si il existe
+                            if hasattr(self, 'env_config_id_label'):
+                                self.env_config_id_label.config(text=config_id, foreground="green")
+                                print(f"🆔 ID de configuration mis à jour dans l'onglet Env: {config_id}")
+
+                            messagebox.showinfo(
+                                "Environnement identifié",
+                                f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI"
+                            )
+
+                            print("🎉 SUCCÈS - Identification terminée avec succès")
+                            logger.info("Identification de l'environnement terminée avec succès")
+                        else:
+                            error_msg = "Aucun ID de configuration trouvé dans les extra paths"
+                            print(f"❌ {error_msg}")
+                            logger.error(error_msg)
+                            raise Exception(error_msg)
+                    else:
+                        error_msg = "Impossible de récupérer les extra paths depuis ComfyUI"
+                        print(f"❌ {error_msg}")
+                        logger.error(error_msg)
+                        raise Exception(error_msg)
+                else:
+                    error_msg = "Échec de l'exécution du custom node ExtraPathReader - Pas de prompt_id"
+                    print(f"❌ {error_msg}")
+                    logger.error(f"Résultat reçu sans prompt_id: {result}")
+                    raise Exception(error_msg)
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"\n❌ ERREUR lors de l'identification: {error_msg}")
+            logger.error(f"Erreur lors de l'identification de l'environnement: {error_msg}")
+
+            # Afficher les détails de l'erreur pour le debugging
+            import traceback
+            traceback_str = traceback.format_exc()
+            print(f"📋 Traceback complet:\n{traceback_str}")
+            logger.error(f"Traceback: {traceback_str}")
+
+            self.config_info_label.config(
+                text=f"❌ Erreur: {str(e)[:50]}...",
+                foreground="red"
+            )
+            messagebox.showerror(
+                "Erreur d'identification",
+                f"Impossible d'identifier l'environnement ComfyUI:\n\n{str(e)}\n\n"
+                "Vérifiez que:\n"
+                "• ComfyUI est démarré sur 127.0.0.1:8188\n"
+                "• Le custom node ExtraPathReader est installé\n"
+                "• Les extra paths sont configurés"
+            )
+
+        finally:
+            print("🏁 FIN - Identification de l'environnement ComfyUI")
+            print("="*60 + "\n")
+            logger.info("Fin de l'identification de l'environnement ComfyUI")
+
+    def refresh_env_data(self):
+        """Actualiser les données de l'onglet environnement"""
+        try:
+            # Importer le gestionnaire de chemins
+            from cy8_paths import cy8_paths_manager, get_all_extra_paths
+
+            # Récupérer tous les extra paths stockés
+            all_paths = get_all_extra_paths()
+
+            # Vider le treeview
+            for item in self.env_tree.get_children():
+                self.env_tree.delete(item)
+
+            if not all_paths:
+                # Aucun chemin disponible
+                self.env_tree.insert("", "end", values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"))
+                self.env_config_id_label.config(text="Non identifié", foreground="gray")
+                self.env_root_label.config(text="Non détecté", foreground="gray")
+                return
+
+            # Remplir le treeview avec les données
+            for key, path_info in all_paths.items():
+                self.env_tree.insert("", "end", values=(
+                    key,
+                    path_info.get('type', 'N/A'),
+                    path_info.get('path', 'N/A'),
+                    path_info.get('section', 'N/A')
+                ))
+
+            # Mettre à jour les informations générales si disponibles
+            # (Ces informations seraient mises à jour lors de l'identification)
+
+        except Exception as e:
+            print(f"Erreur lors de l'actualisation des données environnement: {e}")
+            # Afficher l'erreur dans le treeview
+            for item in self.env_tree.get_children():
+                self.env_tree.delete(item)
+            self.env_tree.insert("", "end", values=("Erreur", "N/A", f"Erreur: {str(e)}", "N/A"))
+
+    def filter_env_paths(self, *args):
+        """Filtrer les chemins affichés selon les critères de recherche"""
+        try:
+            from cy8_paths import get_all_extra_paths
+
+            search_term = self.env_search_var.get().lower()
+            type_filter = self.env_type_filter.get()
+
+            # Vider le treeview
+            for item in self.env_tree.get_children():
+                self.env_tree.delete(item)
+
+            # Récupérer tous les paths
+            all_paths = get_all_extra_paths()
+
+            if not all_paths:
+                self.env_tree.insert("", "end", values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"))
+                return
+
+            # Filtrer et afficher
+            for key, path_info in all_paths.items():
+                path_type = path_info.get('type', '')
+                path_value = path_info.get('path', '')
+
+                # Appliquer le filtre de recherche
+                if search_term and search_term not in key.lower() and search_term not in path_value.lower():
+                    continue
+
+                # Appliquer le filtre de type
+                if type_filter != "Tous" and path_type != type_filter:
+                    continue
+
+                # Ajouter l'item filtré
+                self.env_tree.insert("", "end", values=(
+                    key,
+                    path_type,
+                    path_value,
+                    path_info.get('section', 'N/A')
+                ))
+
+        except Exception as e:
+            print(f"Erreur lors du filtrage: {e}")
+
+    def copy_selected_path(self):
+        """Copier le chemin sélectionné dans le presse-papiers"""
+        try:
+            selection = self.env_tree.selection()
+            if not selection:
+                messagebox.showwarning("Attention", "Veuillez sélectionner un chemin à copier.")
+                return
+
+            # Récupérer le chemin de l'item sélectionné
+            item = self.env_tree.item(selection[0])
+            path = item['values'][2]  # Colonne "path"
+
+            # Copier dans le presse-papiers
+            self.root.clipboard_clear()
+            self.root.clipboard_append(path)
+
+            messagebox.showinfo("Copié", f"Chemin copié dans le presse-papiers:\n{path}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de copier le chemin:\n{str(e)}")
+
+    def _get_extra_paths_from_comfyui(self):
+        """Récupérer les extra paths depuis ComfyUI (méthode temporaire)"""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        try:
+            # Pour l'instant, on lit directement le fichier de configuration
+            import os
+            import yaml
+
+            print("  📁 Recherche du fichier extra_model_paths.yaml...")
+            logger.info("Début de recherche du fichier de configuration extra_model_paths.yaml")
+
+            config_path = os.path.expanduser("~/.config/ComfyUI/extra_model_paths.yaml")
+            print(f"  🔍 Vérification: {config_path}")
+
+            if os.path.exists(config_path):
+                print(f"  ✅ Fichier trouvé: {config_path}")
+                logger.info(f"Fichier de configuration trouvé: {config_path}")
+
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f)
+
+                print(f"  ✅ Configuration chargée: {len(config) if config else 0} entrées")
+                logger.info(f"Configuration chargée avec {len(config) if config else 0} entrées")
+                return config
+            else:
+                print("  ❌ Fichier non trouvé à l'emplacement standard")
+                logger.info("Fichier non trouvé à l'emplacement standard, recherche dans d'autres emplacements")
+
+                # Essayer d'autres emplacements possibles
+                possible_paths = [
+                    os.path.expanduser("~/ComfyUI/extra_model_paths.yaml"),
+                    "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+                    "C:/ComfyUI/extra_model_paths.yaml"
+                ]
+
+                for path in possible_paths:
+                    print(f"  🔍 Vérification: {path}")
+                    if os.path.exists(path):
+                        print(f"  ✅ Fichier trouvé: {path}")
+                        logger.info(f"Fichier de configuration trouvé: {path}")
+
+                        with open(path, "r", encoding="utf-8") as f:
+                            config = yaml.safe_load(f)
+
+                        print(f"  ✅ Configuration chargée: {len(config) if config else 0} entrées")
+                        logger.info(f"Configuration chargée avec {len(config) if config else 0} entrées")
+
+                        # Retourner dans le format attendu par _extract_config_id_from_extra_paths
+                        result = {
+                            'comfyui_root': os.path.dirname(path),  # Racine du ComfyUI trouvé
+                            'config_path': path,
+                            'extra_paths': config
+                        }
+                        print(f"  📋 Format de retour: comfyui_root={result['comfyui_root']}")
+                        logger.info(f"Données formatées avec comfyui_root: {result['comfyui_root']}")
+                        return result
+
+                print("  ❌ Aucun fichier de configuration trouvé")
+                logger.warning("Aucun fichier de configuration extra_model_paths.yaml trouvé")
+                return None
+
+        except Exception as e:
+            print(f"  ❌ Erreur lors de la lecture: {e}")
+            logger.error(f"Erreur lors de la lecture du fichier de configuration: {e}")
+            return None
+
+    def _extract_config_id_from_extra_paths(self, extra_paths_data):
+        """Extraire l'ID de configuration depuis les extra paths"""
+        if not extra_paths_data or not isinstance(extra_paths_data, dict):
+            return None
+
+        import re
+
+        # Extraire les informations du custom node
+        comfyui_root = extra_paths_data.get('comfyui_root', '')
+        extra_paths_config = extra_paths_data.get('extra_paths', {})
+
+        # D'abord, chercher dans les chemins custom_nodes (priorité la plus haute)
+        custom_nodes_config_id = None
+        other_config_id = None
+
+        for key, paths in extra_paths_config.items():
+            if isinstance(paths, dict):
+                # Parcourir tous les chemins dans cette section
+                for path_key, path_value in paths.items():
+                    if isinstance(path_value, str):
+                        # Priorité aux chemins custom_nodes
+                        if 'custom_nodes' in path_value.lower():
+                            # Pattern: H:/comfyui/G11_04/custom_nodes -> G11_04
+                            pattern = r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]custom_nodes"
+                            match = re.search(pattern, path_value, re.IGNORECASE)
+                            if match:
+                                candidate_id = match.group(1)
+                                if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae']:
+                                    custom_nodes_config_id = candidate_id
+                                    break
+
+                        # Autres patterns pour fallback
+                        patterns = [
+                            r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]",  # H:/comfyui/ID/...
+                            r".*[/\\]([^/\\]+)[/\\]ComfyUI[/\\]",  # H:/ID/ComfyUI/...
+                            r".*[/\\]comfyui[/\\]([^/\\]+)$",      # H:/comfyui/ID (fin de chemin)
+                        ]
+
+                        for pattern in patterns:
+                            match = re.search(pattern, path_value, re.IGNORECASE)
+                            if match:
+                                candidate_id = match.group(1)
+                                # Exclure certains noms génériques
+                                if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae', 'custom_nodes']:
+                                    if not other_config_id:  # Prendre le premier trouvé
+                                        other_config_id = candidate_id
+
+                # Si on a trouvé un ID via custom_nodes, le retourner immédiatement
+                if custom_nodes_config_id:
+                    break
+
+            elif isinstance(paths, str):
+                # Traiter le cas où la valeur est directement une chaîne
+                if 'custom_nodes' in paths.lower():
+                    pattern = r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]custom_nodes"
+                    match = re.search(pattern, paths, re.IGNORECASE)
+                    if match:
+                        candidate_id = match.group(1)
+                        if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae']:
+                            custom_nodes_config_id = candidate_id
+                            break
+
+        # Priorité 1: ID trouvé via custom_nodes
+        if custom_nodes_config_id:
+            return custom_nodes_config_id
+
+        # Priorité 2: Autres IDs trouvés
+        if other_config_id:
+            return other_config_id
+
+        # Priorité 3: Essayer d'extraire l'ID depuis la racine ComfyUI détectée
+        if comfyui_root:
+            # Pattern: E:\Comfyui_G11\ComfyUI -> G11
+            # Pattern: H:\comfyui\G11_04\ComfyUI -> G11_04
+            patterns = [
+                r".*[/\\]Comfyui_([^/\\]+)[/\\]ComfyUI",  # E:\Comfyui_G11\ComfyUI -> G11
+                r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]ComfyUI",  # H:\comfyui\G11_04\ComfyUI -> G11_04
+                r".*[/\\]([^/\\]+)_ComfyUI[/\\]ComfyUI",  # X:\G11_ComfyUI\ComfyUI -> G11
+            ]
+
+            for pattern in patterns:
+                match = re.search(pattern, comfyui_root, re.IGNORECASE)
+                if match:
+                    candidate_id = match.group(1)
+                    return candidate_id
+
+        # Priorité 4: ID par défaut basé sur le base_path si disponible
+        if 'comfyui' in extra_paths_config and isinstance(extra_paths_config['comfyui'], dict):
+            base_path = extra_paths_config['comfyui'].get('base_path', '')
+            if base_path:
+                pattern = r".*[/\\]([^/\\]+)[/\\]ComfyUI"
+                match = re.search(pattern, base_path, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+
+        return None
+
+    def browse_log_file(self):
+        """Ouvrir un dialogue pour sélectionner le fichier de log ComfyUI"""
+        from tkinter import filedialog
+
+        initial_dir = os.path.dirname(self.comfyui_log_path.get()) if self.comfyui_log_path.get() else "."
+
+        filename = filedialog.askopenfilename(
+            title="Sélectionner le fichier de log ComfyUI",
+            initialdir=initial_dir,
+            filetypes=[
+                ("Fichiers log", "*.log"),
+                ("Fichiers texte", "*.txt"),
+                ("Tous les fichiers", "*.*")
+            ]
+        )
+
+        if filename:
+            self.comfyui_log_path.set(filename)
+
+    def analyze_comfyui_log(self):
+        """Analyser le fichier de log ComfyUI"""
+        log_path = self.comfyui_log_path.get().strip()
+
+        if not log_path:
+            messagebox.showwarning("Attention", "Veuillez spécifier un fichier de log à analyser.")
+            return
+
+        if not os.path.exists(log_path):
+            messagebox.showerror("Erreur", f"Le fichier de log n'existe pas :\n{log_path}")
+            return
+
+        # Désactiver le bouton pendant l'analyse
+        self.analyze_log_btn.config(state="disabled", text="⏳ Analyse en cours...")
+        self.log_status_label.config(text="Analyse en cours...", foreground="blue")
+
+        # Vider le tableau des résultats précédents
+        for item in self.log_results_tree.get_children():
+            self.log_results_tree.delete(item)
+
+        # Mettre à jour l'affichage
+        self.root.update()
+
+        try:
+            # Analyser le fichier de log
+            result = self.log_analyzer.analyze_log_file(log_path)
+
+            if not result["success"]:
+                messagebox.showerror("Erreur d'analyse", result["error"])
+                self.log_status_label.config(text="Erreur lors de l'analyse", foreground="red")
+                return
+
+            # Stocker les résultats pour le filtrage
+            entries = result["entries"]
+            self._original_log_results = entries
+
+            # Vider le tableau avant d'afficher les nouveaux résultats
+            for item in self.log_results_tree.get_children():
+                self.log_results_tree.delete(item)
+
+            # Afficher les résultats dans le tableau
+            for entry in entries:
+                # Déterminer la couleur selon le type
+                tag = entry["type"]
+
+                # Insérer dans le tableau
+                item = self.log_results_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        entry["type"],
+                        entry["category"],
+                        entry["element"],
+                        entry["message"],
+                        entry["line"]
+                    ),
+                    tags=(tag,)
+                )
+
+            # Mettre à jour le compteur de résultats
+            if hasattr(self, 'log_results_count_label'):
+                self.log_results_count_label.config(text=f"{len(entries)} résultats")
+
+            # Mettre à jour l'ID de configuration s'il est trouvé dans le log
+            detected_config_id = result.get("config_id")
+            current_config_id = self.comfyui_config_id.get().strip()
+
+            if detected_config_id and not current_config_id:
+                # Si un ID est détecté et qu'il n'y en a pas déjà un saisi
+                self.comfyui_config_id.set(detected_config_id)
+                self.config_info_label.config(
+                    text=f"✅ ID détecté automatiquement lors de l'analyse : {detected_config_id}",
+                    foreground="green"
+                )
+            elif detected_config_id and current_config_id != detected_config_id:
+                # Si un ID différent est détecté
+                self.config_info_label.config(
+                    text=f"ℹ️ ID détecté dans le log : {detected_config_id} (vous pouvez le remplacer)",
+                    foreground="blue"
+                )
+            elif not detected_config_id and not current_config_id:
+                # Aucun ID détecté ni saisi
+                self.config_info_label.config(
+                    text="💡 Aucun ID détecté dans le log. Saisissez-le manuellement si nécessaire.",
+                    foreground="gray"
+                )
+
+            # Utiliser l'ID saisi ou détecté pour l'affichage
+            display_config_id = current_config_id or detected_config_id
+
+            # Mettre à jour le statut
+            summary = result["summary"]
+            status_text = f"Analyse terminée - {len(entries)} éléments trouvés (OK: {summary['custom_nodes_ok'] + summary['info_messages']}, Erreurs: {summary['custom_nodes_failed'] + summary['errors']}, Warnings: {summary['warnings']})"
+            self.log_status_label.config(text=status_text, foreground="green")
+
+            # Afficher un résumé dans une popup avec l'ID de configuration
+            summary_text = self.log_analyzer.get_summary_text()
+            config_info = f"\n🆔 ID Configuration: {display_config_id}" if display_config_id else "\n🆔 ID Configuration: Non spécifié"
+
+            if entries:
+                messagebox.showinfo("Analyse terminée", f"Analyse du log ComfyUI terminée avec succès !{config_info}\n\n{summary_text}")
+            else:
+                messagebox.showinfo("Analyse terminée", f"Aucun élément significatif trouvé dans le log.{config_info}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'analyse du log :\n{str(e)}")
+            self.log_status_label.config(text="Erreur lors de l'analyse", foreground="red")
+
+        finally:
+            # Réactiver le bouton
+            self.analyze_log_btn.config(state="normal", text="🔍 Analyser le log")
+
+
+    def check_log_file_status(self):
+        """Vérifier le statut du fichier log et mettre à jour l'interface"""
+        log_path = self.comfyui_log_path.get()
+        if os.path.exists(log_path):
+            try:
+                # Obtenir les informations du fichier
+                stat = os.stat(log_path)
+                size_mb = stat.st_size / (1024 * 1024)
+                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+
+                info_text = f"✅ Fichier trouvé ({size_mb:.1f} MB, modifié le {mtime})"
+                self.log_file_info_label.config(text=info_text, foreground="green")
+            except Exception as e:
+                self.log_file_info_label.config(text=f"⚠️ Erreur lecture fichier: {e}", foreground="orange")
+        else:
+            self.log_file_info_label.config(text="❌ Fichier log non trouvé", foreground="red")
+
+    def refresh_log_analysis(self):
+        """Actualiser l'analyse des logs"""
+        # Vérifier le statut du fichier
+        self.check_log_file_status()
+
+        # Relancer l'analyse si des résultats existent déjà
+        if len(self.log_results_tree.get_children()) > 0:
+            self.analyze_comfyui_log()
+
+    def export_log_analysis(self):
+        """Exporter les résultats de l'analyse vers un fichier"""
+        if len(self.log_results_tree.get_children()) == 0:
+            messagebox.showwarning("Aucun résultat", "Aucun résultat d'analyse à exporter.")
+            return
+
+        from tkinter import filedialog
+        filename = filedialog.asksaveasfilename(
+            title="Exporter l'analyse des logs",
+            defaultextension=".csv",
+            filetypes=[
+                ("Fichiers CSV", "*.csv"),
+                ("Fichiers texte", "*.txt"),
+                ("Tous les fichiers", "*.*")
+            ]
+        )
+
+        if filename:
+            try:
+                import csv
+                with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    # En-têtes
+                    writer.writerow(["État", "Catégorie", "Élément", "Message", "Ligne"])
+
+                    # Données
+                    for item in self.log_results_tree.get_children():
+                        values = self.log_results_tree.item(item)['values']
+                        writer.writerow(values)
+
+                messagebox.showinfo("Export réussi", f"Analyse exportée vers:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur d'export", f"Impossible d'exporter: {e}")
+
+    def filter_log_results(self, event=None):
+        """Filtrer les résultats selon le type sélectionné"""
+        filter_type = self.log_filter_var.get()
+        search_term = self.log_search_var.get().lower()
+
+        # Masquer tous les éléments d'abord
+        for item in self.log_results_tree.get_children():
+            self.log_results_tree.delete(item)
+
+        # Réinsérer les éléments filtrés
+        if hasattr(self, '_original_log_results'):
+            visible_count = 0
+            for entry in self._original_log_results:
+                # Filtre par type
+                if filter_type != "Tous" and entry["type"] != filter_type:
+                    continue
+
+                # Filtre par recherche
+                if search_term and search_term not in entry["message"].lower() and search_term not in entry["element"].lower():
+                    continue
+
+                # Ajouter l'élément
+                item = self.log_results_tree.insert(
+                    "",
+                    "end",
+                    values=(entry["type"], entry["category"], entry["element"], entry["message"], entry["line"]),
+                    tags=(entry["type"],)
+                )
+                visible_count += 1
+
+            # Mettre à jour le compteur
+            self.log_results_count_label.config(text=f"{visible_count} résultats")
+
+    def search_log_results(self, *args):
+        """Rechercher dans les résultats"""
+        self.filter_log_results()
+
+    def show_log_detail(self, event):
+        """Afficher les détails d'une entrée de log (double-clic)"""
+        selection = self.log_results_tree.selection()
+        if not selection:
+            return
+
+        item = selection[0]
+        values = self.log_results_tree.item(item)['values']
+
+        if len(values) >= 4:
+            type_val, category, element, message, line = values
+
+            # Créer une fenêtre de détails
+            detail_window = tk.Toplevel(self.root)
+            detail_window.title(f"Détails - {type_val}")
+            detail_window.geometry("600x400")
+            detail_window.transient(self.root)
+            detail_window.grab_set()
+
+            # Contenu de la fenêtre
+            main_frame = ttk.Frame(detail_window, padding="10")
+            main_frame.pack(fill="both", expand=True)
+
+            # Informations
+            info_frame = ttk.LabelFrame(main_frame, text="Informations", padding="10")
+            info_frame.pack(fill="x", pady=(0, 10))
+
+            ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=type_val).grid(row=0, column=1, sticky="w")
+
+            ttk.Label(info_frame, text="Catégorie:", font=("TkDefaultFont", 9, "bold")).grid(row=1, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=category).grid(row=1, column=1, sticky="w")
+
+            ttk.Label(info_frame, text="Élément:", font=("TkDefaultFont", 9, "bold")).grid(row=2, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=element).grid(row=2, column=1, sticky="w")
+
+            ttk.Label(info_frame, text="Ligne:", font=("TkDefaultFont", 9, "bold")).grid(row=3, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=line).grid(row=3, column=1, sticky="w")
+
+            # Message détaillé
+            message_frame = ttk.LabelFrame(main_frame, text="Message complet", padding="10")
+            message_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+            text_widget = tk.Text(message_frame, wrap="word", font=("Consolas", 9))
+            text_scrollbar = ttk.Scrollbar(message_frame, orient="vertical", command=text_widget.yview)
+            text_widget.configure(yscrollcommand=text_scrollbar.set)
+
+            text_widget.insert("1.0", message)
+            text_widget.config(state="disabled")
+
+            text_widget.pack(side="left", fill="both", expand=True)
+            text_scrollbar.pack(side="right", fill="y")
+
+            # Bouton fermer
+            ttk.Button(main_frame, text="Fermer", command=detail_window.destroy).pack(pady=(10, 0))
 
 
 def main():

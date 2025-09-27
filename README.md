@@ -77,6 +77,41 @@ python main.py  # Point d'entrée avec gestion d'erreurs
 - **`start.bat/sh`** : Scripts de démarrage avec vérifications
 - **`activate.bat/sh`** : Activation rapide de l'environnement virtuel
 
+### 🧪 Tests
+
+Le projet inclut une suite de tests complète dans le répertoire `tests/`.
+
+#### Exécution des tests
+
+```bash
+# Exécuter tous les tests
+cd tests
+python run_tests.py
+
+# Exécuter un test spécifique
+cd tests
+python test_custom_node_caller.py
+```
+
+#### Tests disponibles
+
+- **`test_custom_node_caller.py`** : Test de la classe d'appel aux custom nodes ComfyUI
+- **`test_log_analyzer.py`** : Test de l'analyseur de logs ComfyUI
+- **`test_comfyui_connection.py`** : Test de connexion à ComfyUI
+- **`test_images_tab.py`** : Test de l'onglet Images
+- **`test_execution_progress.py`** : Test du suivi d'exécution
+- Et bien d'autres...
+
+#### Structure des tests
+
+```
+tests/
+├── __init__.py              # Configuration des imports
+├── run_tests.py             # Script d'exécution de tous les tests
+├── test_*.py                # Fichiers de test individuels
+└── __pycache__/             # Cache Python
+```
+
 ## 🎮 Guide d'utilisation
 
 ### Interface principale
