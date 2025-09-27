@@ -5,7 +5,8 @@ Test spécifique pour l'exemple fourni par l'utilisateur
 
 import os
 import sys
-sys.path.append('../src')
+
+sys.path.append("../src")
 
 from cy8_log_analyzer import cy8_log_analyzer
 
@@ -16,7 +17,9 @@ def test_user_example():
     print("=" * 50)
 
     # Ligne exacte fournie par l'utilisateur
-    test_line = "Adding extra search path custom_nodes H:\\comfyui\\G11_04\\custom_nodes"
+    test_line = (
+        "Adding extra search path custom_nodes H:\\comfyui\\G11_04\\custom_nodes"
+    )
     print(f"📝 Ligne à analyser: {test_line}")
 
     # Tester l'extraction
@@ -65,10 +68,10 @@ Import times for custom nodes:
 2025-09-26 10:00:15,123 - INFO - Server started on 127.0.0.1:8188
 """
 
-    with open('test_user_example.log', 'w', encoding='utf-8') as f:
+    with open("test_user_example.log", "w", encoding="utf-8") as f:
         f.write(test_content)
 
-    return 'test_user_example.log'
+    return "test_user_example.log"
 
 
 def test_complete_analysis():

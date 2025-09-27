@@ -15,7 +15,9 @@ class cy8_user_preferences:
     def __init__(self, app_name="cy8_prompts_manager"):
         self.app_name = app_name
         self.preferences_dir = self._get_preferences_directory()
-        self.preferences_file = os.path.join(self.preferences_dir, "user_preferences.json")
+        self.preferences_file = os.path.join(
+            self.preferences_dir, "user_preferences.json"
+        )
         self.cookies_file = os.path.join(self.preferences_dir, "cookies.json")
 
         # Créer le répertoire s'il n'existe pas

@@ -5,7 +5,9 @@ Test de démonstration complète - Simulation du clic sur "Identifier l'environn
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def simulate_user_workflow():
     """Simuler exactement ce que fait l'utilisateur dans l'interface"""
@@ -19,6 +21,7 @@ def simulate_user_workflow():
         from cy8_prompts_manager_main import cy8_prompts_manager
 
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()
 
@@ -31,7 +34,7 @@ def simulate_user_workflow():
         print(f"   📊 Nombre d'éléments: {len(initial_items)}")
 
         for item in initial_items:
-            values = app.env_tree.item(item)['values']
+            values = app.env_tree.item(item)["values"]
             print(f"   📋 {values}")
 
         # 3. Vérification que ComfyUI est accessible
@@ -40,9 +43,10 @@ def simulate_user_workflow():
         # Simuler un test de connexion
         try:
             from cy8_comfyui_customNode_call import ComfyUICustomNodeCaller
+
             with ComfyUICustomNodeCaller() as caller:
                 status = caller.get_server_status()
-                if status['status'] == 'online':
+                if status["status"] == "online":
                     print("   ✅ ComfyUI est accessible")
                     comfyui_available = True
                 else:
@@ -64,37 +68,40 @@ def simulate_user_workflow():
 
             # Utiliser les vraies données du diagnostic précédent
             test_data = {
-                'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-                'config_path': 'E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml',
-                'extra_paths': {
-                    'comfyui': {
-                        'base_path': 'G:/ComfyUI_G11/ComfyUI',
-                        'is_default': True,
-                        'checkpoints': 'H:/comfyui/models/checkpoints',
-                        'embeddings': 'H:/comfyui/models/embeddings',
-                        'loras': 'H:/comfyui/models/loras',
-                        'custom_nodes': 'H:/comfyui/G11_04/custom_nodes',
-                        'clip': 'H:/comfyui/models/clip',
-                        'controlnet': 'H:/comfyui/models/controlnet',
-                        'vae': 'H:/comfyui/models/vae',
-                        'upscale_models': 'H:/comfyui/models/upscale_models'
+                "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+                "config_path": "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+                "extra_paths": {
+                    "comfyui": {
+                        "base_path": "G:/ComfyUI_G11/ComfyUI",
+                        "is_default": True,
+                        "checkpoints": "H:/comfyui/models/checkpoints",
+                        "embeddings": "H:/comfyui/models/embeddings",
+                        "loras": "H:/comfyui/models/loras",
+                        "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
+                        "clip": "H:/comfyui/models/clip",
+                        "controlnet": "H:/comfyui/models/controlnet",
+                        "vae": "H:/comfyui/models/vae",
+                        "upscale_models": "H:/comfyui/models/upscale_models",
                     }
-                }
+                },
             }
 
             # Simuler le stockage et le rafraîchissement
             print("   💾 Stockage des extra paths...")
             from cy8_paths import set_extra_paths
+
             set_extra_paths(test_data)
 
             print("   🔄 Rafraîchissement du tableau...")
             app.refresh_env_data()
 
             # Simuler la mise à jour des labels
-            if hasattr(app, 'env_config_id_label'):
+            if hasattr(app, "env_config_id_label"):
                 app.env_config_id_label.config(text="G11_04", foreground="green")
-            if hasattr(app, 'env_root_label'):
-                app.env_root_label.config(text="E:/Comfyui_G11/ComfyUI", foreground="green")
+            if hasattr(app, "env_root_label"):
+                app.env_root_label.config(
+                    text="E:/Comfyui_G11/ComfyUI", foreground="green"
+                )
 
             print("   ✅ Identification simulée terminée")
 
@@ -110,7 +117,7 @@ def simulate_user_workflow():
         if len(final_items) > 1:  # Plus que le message par défaut
             print("   ✅ SUCCÈS - Le tableau contient maintenant des extra paths:")
             for item in final_items:
-                values = app.env_tree.item(item)['values']
+                values = app.env_tree.item(item)["values"]
                 print(f"   📋 {values[0]:15} | {values[1]:12} | {values[2]}")
         else:
             print("   ❌ ÉCHEC - Le tableau est encore vide")
@@ -119,11 +126,13 @@ def simulate_user_workflow():
         print("\n6️⃣ Test des fonctionnalités de recherche...")
 
         # Simuler une recherche
-        if hasattr(app, 'env_search_var'):
+        if hasattr(app, "env_search_var"):
             app.env_search_var.set("checkpoints")
             app.filter_env_paths()
             filtered_items = app.env_tree.get_children()
-            print(f"   🔍 Résultats de recherche 'checkpoints': {len(filtered_items)} éléments")
+            print(
+                f"   🔍 Résultats de recherche 'checkpoints': {len(filtered_items)} éléments"
+            )
 
             # Reset
             app.env_search_var.set("")
@@ -131,11 +140,11 @@ def simulate_user_workflow():
 
         # 7. État des labels d'information
         print("\n7️⃣ État des informations d'environnement...")
-        if hasattr(app, 'env_config_id_label'):
-            config_text = app.env_config_id_label.cget('text')
+        if hasattr(app, "env_config_id_label"):
+            config_text = app.env_config_id_label.cget("text")
             print(f"   🆔 ID Configuration: {config_text}")
-        if hasattr(app, 'env_root_label'):
-            root_text = app.env_root_label.cget('text')
+        if hasattr(app, "env_root_label"):
+            root_text = app.env_root_label.cget("text")
             print(f"   📁 Racine ComfyUI: {root_text}")
 
         root.destroy()
@@ -146,8 +155,10 @@ def simulate_user_workflow():
     except Exception as e:
         print(f"❌ Erreur pendant la simulation: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = simulate_user_workflow()

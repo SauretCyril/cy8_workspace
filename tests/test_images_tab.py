@@ -11,14 +11,14 @@ import shutil
 from PIL import Image
 
 # Ajouter le répertoire parent au chemin Python
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cy8_database_manager import cy8_database_manager
 
 
 def create_test_image(path, size=(100, 100), color=(255, 0, 0)):
     """Créer une image de test"""
-    img = Image.new('RGB', size, color)
+    img = Image.new("RGB", size, color)
     img.save(path)
     return path
 
@@ -28,7 +28,7 @@ def test_prompt_image_database():
     print("=== Test des opérations de base de données pour les images ===")
 
     # Créer une base de données temporaire
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_db:
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_db:
         db_path = tmp_db.name
 
     try:
@@ -44,7 +44,7 @@ def test_prompt_image_database():
             url="",
             model="test_model.ckpt",
             status="test",
-            comment="Test prompt pour images"
+            comment="Test prompt pour images",
         )
 
         print(f"✓ Prompt créé avec ID: {prompt_id}")
@@ -69,15 +69,21 @@ def test_prompt_image_database():
 
         # Test récupération des images
         retrieved_images = db_manager.get_prompt_images(prompt_id)
-        assert len(retrieved_images) == len(test_images), f"Nombre d'images incorrect: {len(retrieved_images)} vs {len(test_images)}"
+        assert len(retrieved_images) == len(
+            test_images
+        ), f"Nombre d'images incorrect: {len(retrieved_images)} vs {len(test_images)}"
 
         print(f"✓ {len(retrieved_images)} images récupérées de la base")
 
         # Vérifier les données récupérées
         for i, (image_id, image_path, created_at) in enumerate(retrieved_images):
-            assert os.path.basename(image_path) in [os.path.basename(p) for p in test_images], f"Image inattendue: {image_path}"
+            assert os.path.basename(image_path) in [
+                os.path.basename(p) for p in test_images
+            ], f"Image inattendue: {image_path}"
             assert created_at is not None, "Date de création manquante"
-            print(f"✓ Image {i+1}: ID={image_id}, Path={os.path.basename(image_path)}, Date={created_at}")
+            print(
+                f"✓ Image {i+1}: ID={image_id}, Path={os.path.basename(image_path)}, Date={created_at}"
+            )
 
         # Test suppression d'une image
         first_image_id = retrieved_images[0][0]
@@ -85,16 +91,22 @@ def test_prompt_image_database():
         assert success, "Échec suppression image"
 
         remaining_images = db_manager.get_prompt_images(prompt_id)
-        assert len(remaining_images) == len(test_images) - 1, f"Nombre d'images après suppression incorrect: {len(remaining_images)}"
+        assert (
+            len(remaining_images) == len(test_images) - 1
+        ), f"Nombre d'images après suppression incorrect: {len(remaining_images)}"
 
-        print(f"✓ Suppression d'image réussie, {len(remaining_images)} images restantes")
+        print(
+            f"✓ Suppression d'image réussie, {len(remaining_images)} images restantes"
+        )
 
         # Test suppression de toutes les images du prompt
         success = db_manager.delete_prompt_images(prompt_id)
         assert success, "Échec suppression de toutes les images"
 
         final_images = db_manager.get_prompt_images(prompt_id)
-        assert len(final_images) == 0, f"Images restantes après suppression complète: {len(final_images)}"
+        assert (
+            len(final_images) == 0
+        ), f"Images restantes après suppression complète: {len(final_images)}"
 
         print("✓ Suppression de toutes les images réussie")
 
@@ -132,7 +144,7 @@ def test_image_format_handling():
 
         for filename, format_name in formats:
             img_path = os.path.join(temp_dir, filename)
-            img = Image.new('RGB', (50, 50), (255, 128, 0))
+            img = Image.new("RGB", (50, 50), (255, 128, 0))
             img.save(img_path, format_name)
             created_images.append(img_path)
 
@@ -160,7 +172,7 @@ def test_image_path_validation():
     print("\n=== Test de validation des chemins d'images ===")
 
     # Créer une base de données temporaire
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_db:
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_db:
         db_path = tmp_db.name
 
     try:
@@ -170,12 +182,12 @@ def test_image_path_validation():
         # Créer un prompt de test
         prompt_id = db_manager.create_prompt(
             name="test_path_validation",
-            prompt_values='{}',
-            workflow='{}',
+            prompt_values="{}",
+            workflow="{}",
             url="",
             model="test.ckpt",
             status="test",
-            comment="Test validation chemins"
+            comment="Test validation chemins",
         )
 
         # Test avec un chemin valide

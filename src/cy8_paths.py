@@ -23,7 +23,7 @@ class cy8_paths_manager:
             return
 
         # Parcourir les configurations extra paths
-        extra_paths_config = extra_paths_data.get('extra_paths', {})
+        extra_paths_config = extra_paths_data.get("extra_paths", {})
         for section_name, section_paths in extra_paths_config.items():
             if isinstance(section_paths, dict):
                 for path_type, path_value in section_paths.items():
@@ -32,9 +32,9 @@ class cy8_paths_manager:
                         last_dir = cls._get_last_directory_name(path_value)
                         if last_dir:
                             cls._extra_paths[last_dir] = {
-                                'path': path_value,
-                                'type': path_type,
-                                'section': section_name
+                                "path": path_value,
+                                "type": path_type,
+                                "section": section_name,
                             }
 
     @classmethod
@@ -69,7 +69,7 @@ class cy8_paths_manager:
         """Trouver tous les paths contenant un terme de recherche"""
         results = {}
         for key, path_info in cls._extra_paths.items():
-            if search_term.lower() in path_info['path'].lower():
+            if search_term.lower() in path_info["path"].lower():
                 results[key] = path_info
         return results
 
@@ -78,7 +78,7 @@ class cy8_paths_manager:
         """Récupérer tous les paths d'un type donné (checkpoints, loras, etc.)"""
         results = {}
         for key, path_info in cls._extra_paths.items():
-            if path_info['type'] == path_type:
+            if path_info["type"] == path_type:
                 results[key] = path_info
         return results
 
@@ -213,7 +213,11 @@ class cy8_paths_manager:
         sanitized = sanitized.strip()
 
         # Éviter les noms réservés sur Windows
-        reserved_names = ["CON", "PRN", "AUX", "NUL"] + [f"COM{i}" for i in range(1, 10)] + [f"LPT{i}" for i in range(1, 10)]
+        reserved_names = (
+            ["CON", "PRN", "AUX", "NUL"]
+            + [f"COM{i}" for i in range(1, 10)]
+            + [f"LPT{i}" for i in range(1, 10)]
+        )
 
         # Vérifier le nom sans extension
         name_without_ext, ext = os.path.splitext(sanitized)

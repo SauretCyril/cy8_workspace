@@ -9,6 +9,7 @@ import os
 # Ajouter le chemin src
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 def test_identify_environment_integrated():
     """Test du bouton identifier l'environnement dans l'onglet intégré"""
     print("🧪 Test du bouton 'Identifier l'environnement' intégré")
@@ -21,7 +22,7 @@ def test_identify_environment_integrated():
         import logging
 
         # Configuration du logging pour voir les détails
-        logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 
         # Créer une instance de l'application
         root = tk.Tk()
@@ -32,13 +33,13 @@ def test_identify_environment_integrated():
 
         # Vérifier les composants nécessaires
         required_components = [
-            'comfyui_config_id',  # Variable pour l'ID dans la section analyse
-            'config_id_entry',    # Champ d'affichage ID
-            'config_info_label',  # Label d'information
-            'env_config_id_label', # Label ID dans la section env
-            'env_root_label',     # Label racine ComfyUI dans section env
-            'env_tree',           # TreeView des extra paths
-            'identify_comfyui_environment', # Méthode d'identification
+            "comfyui_config_id",  # Variable pour l'ID dans la section analyse
+            "config_id_entry",  # Champ d'affichage ID
+            "config_info_label",  # Label d'information
+            "env_config_id_label",  # Label ID dans la section env
+            "env_root_label",  # Label racine ComfyUI dans section env
+            "env_tree",  # TreeView des extra paths
+            "identify_comfyui_environment",  # Méthode d'identification
         ]
 
         print("📋 Vérification des composants nécessaires...")
@@ -70,7 +71,7 @@ def test_identify_environment_integrated():
             print("📡 Test de l'identification (simulation)...")
 
             # Vérifier que la méthode existe et est callable
-            if callable(getattr(app, 'identify_comfyui_environment', None)):
+            if callable(getattr(app, "identify_comfyui_environment", None)):
                 print("✅ Méthode identify_comfyui_environment disponible")
             else:
                 print("❌ Méthode identify_comfyui_environment non disponible")
@@ -80,17 +81,17 @@ def test_identify_environment_integrated():
             from cy8_paths import set_extra_paths
 
             simulated_data = {
-                'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-                'config_path': 'E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml',
-                'extra_paths': {
-                    'comfyui': {
-                        'base_path': 'G:/ComfyUI_G11/ComfyUI',
-                        'checkpoints': 'H:/comfyui/models/checkpoints',
-                        'loras': 'H:/comfyui/models/loras',
-                        'custom_nodes': 'H:/comfyui/G11_04/custom_nodes',
-                        'vae': 'H:/comfyui/models/vae'
+                "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+                "config_path": "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+                "extra_paths": {
+                    "comfyui": {
+                        "base_path": "G:/ComfyUI_G11/ComfyUI",
+                        "checkpoints": "H:/comfyui/models/checkpoints",
+                        "loras": "H:/comfyui/models/loras",
+                        "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
+                        "vae": "H:/comfyui/models/vae",
                     }
-                }
+                },
             }
 
             # Stocker les données comme le ferait l'identification réelle
@@ -98,11 +99,13 @@ def test_identify_environment_integrated():
 
             # Simuler les mises à jour d'interface comme le ferait l'identification
             config_id = "G11_04"
-            comfyui_root = simulated_data['comfyui_root']
+            comfyui_root = simulated_data["comfyui_root"]
 
             # Mise à jour de la section analyse
             app.comfyui_config_id.set(config_id)
-            app.config_info_label.config(text=f"✅ Environnement identifié: {config_id}", foreground="green")
+            app.config_info_label.config(
+                text=f"✅ Environnement identifié: {config_id}", foreground="green"
+            )
 
             # Mise à jour de la section environnement
             app.env_config_id_label.config(text=config_id, foreground="green")
@@ -133,14 +136,17 @@ def test_identify_environment_integrated():
         except Exception as e:
             print(f"❌ Erreur lors de la simulation: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     print("🧪 Test final du bouton 'Identifier l'environnement' intégré")

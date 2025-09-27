@@ -4,10 +4,12 @@ Test de diagnostic rapide ComfyUI
 """
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import urllib.request
 import json
+
 
 def test_comfyui_connection():
     """Test de base de la connexion ComfyUI"""
@@ -22,9 +24,9 @@ def test_comfyui_connection():
 
         # Test 2: Tester l'endpoint /prompt avec une requête vide
         test_prompt = {"prompt": {}, "client_id": "test_client"}
-        data = json.dumps(test_prompt).encode('utf-8')
+        data = json.dumps(test_prompt).encode("utf-8")
         req = urllib.request.Request(f"http://{server_address}/prompt", data=data)
-        req.add_header('Content-Type', 'application/json')
+        req.add_header("Content-Type", "application/json")
 
         try:
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -42,6 +44,7 @@ def test_comfyui_connection():
         return False
 
     return True
+
 
 if __name__ == "__main__":
     test_comfyui_connection()

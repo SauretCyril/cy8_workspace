@@ -9,6 +9,7 @@ import os
 # Ajouter le chemin src
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 def test_complete_env_workflow():
     """Test complet du workflow de l'onglet Env"""
     print("🧪 Test complet du workflow Env")
@@ -29,12 +30,12 @@ def test_complete_env_workflow():
 
         # Vérifier les composants de l'onglet Env
         components = [
-            ('env_tree', 'TreeView des paths'),
-            ('env_config_id_label', 'Label ID de configuration'),
-            ('env_root_label', 'Label racine ComfyUI'),
-            ('env_search_var', 'Variable de recherche'),
-            ('env_type_filter', 'Filtre par type'),
-            ('refresh_env_data', 'Méthode d\'actualisation')
+            ("env_tree", "TreeView des paths"),
+            ("env_config_id_label", "Label ID de configuration"),
+            ("env_root_label", "Label racine ComfyUI"),
+            ("env_search_var", "Variable de recherche"),
+            ("env_type_filter", "Filtre par type"),
+            ("refresh_env_data", "Méthode d'actualisation"),
         ]
 
         for attr, desc in components:
@@ -55,23 +56,23 @@ def test_complete_env_workflow():
 
         # Simuler les données d'identification
         test_data = {
-            'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-            'config_path': 'E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml',
-            'extra_paths': {
-                'comfyui': {
-                    'base_path': 'G:/ComfyUI_G11/ComfyUI',
-                    'is_default': True,
-                    'checkpoints': 'H:/comfyui/models/checkpoints',
-                    'embeddings': 'H:/comfyui/models/embeddings',
-                    'loras': 'H:/comfyui/models/loras',
-                    'custom_nodes': 'H:/comfyui/G11_04/custom_nodes',
-                    'clip': 'H:/comfyui/models/clip',
-                    'clip_vision': 'H:/comfyui/models/clip_vision',
-                    'controlnet': 'H:/comfyui/models/controlnet',
-                    'upscale_models': 'H:/comfyui/models/upscale_models',
-                    'vae': 'H:/comfyui/models/vae'
+            "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+            "config_path": "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+            "extra_paths": {
+                "comfyui": {
+                    "base_path": "G:/ComfyUI_G11/ComfyUI",
+                    "is_default": True,
+                    "checkpoints": "H:/comfyui/models/checkpoints",
+                    "embeddings": "H:/comfyui/models/embeddings",
+                    "loras": "H:/comfyui/models/loras",
+                    "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
+                    "clip": "H:/comfyui/models/clip",
+                    "clip_vision": "H:/comfyui/models/clip_vision",
+                    "controlnet": "H:/comfyui/models/controlnet",
+                    "upscale_models": "H:/comfyui/models/upscale_models",
+                    "vae": "H:/comfyui/models/vae",
                 }
-            }
+            },
         }
 
         # Stocker les données
@@ -119,8 +120,10 @@ def test_complete_env_workflow():
     except Exception as e:
         print(f"❌ Erreur lors du test complet: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     print("🧪 Test complet de l'onglet Env")

@@ -5,10 +5,12 @@ Test de la nouvelle interface réorganisée de l'onglet ComfyUI
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tkinter as tk
 from tkinter import ttk
+
 
 def test_reorganized_interface():
     """Test de la nouvelle interface réorganisée"""
@@ -28,16 +30,16 @@ def test_reorganized_interface():
 
         # Vérifier les composants principaux
         components_to_check = [
-            ('env_tree', 'Tableau des extra paths'),
-            ('env_search_var', 'Variable de recherche'),
-            ('env_type_filter', 'Filtre de type'),
-            ('env_config_id_label', 'Label ID configuration'),
-            ('env_root_label', 'Label racine ComfyUI'),
-            ('status_icon_label', 'Icône de statut'),
-            ('status_text_label', 'Texte de statut'),
-            ('test_connection_btn', 'Bouton test connexion'),
-            ('log_results_tree', 'Tableau d\'analyse des logs'),
-            ('details_text', 'Zone de détails techniques')
+            ("env_tree", "Tableau des extra paths"),
+            ("env_search_var", "Variable de recherche"),
+            ("env_type_filter", "Filtre de type"),
+            ("env_config_id_label", "Label ID configuration"),
+            ("env_root_label", "Label racine ComfyUI"),
+            ("status_icon_label", "Icône de statut"),
+            ("status_text_label", "Texte de statut"),
+            ("test_connection_btn", "Bouton test connexion"),
+            ("log_results_tree", "Tableau d'analyse des logs"),
+            ("details_text", "Zone de détails techniques"),
         ]
 
         print("\n📋 Vérification des composants:")
@@ -52,7 +54,7 @@ def test_reorganized_interface():
 
         # Test du tableau des extra paths
         print("\n🌍 Test du tableau des extra paths:")
-        if hasattr(app, 'env_tree'):
+        if hasattr(app, "env_tree"):
             env_tree = app.env_tree
             print(f"   📊 Colonnes: {env_tree['columns']}")
             print(f"   📏 Hauteur: {env_tree['height']}")
@@ -63,9 +65,19 @@ def test_reorganized_interface():
 
             # Ajouter des données de test
             test_data = [
-                ("checkpoints", "checkpoints", "H:/comfyui/models/checkpoints", "comfyui"),
+                (
+                    "checkpoints",
+                    "checkpoints",
+                    "H:/comfyui/models/checkpoints",
+                    "comfyui",
+                ),
                 ("loras", "loras", "H:/comfyui/models/loras", "comfyui"),
-                ("custom_nodes", "custom_nodes", "H:/comfyui/G11_04/custom_nodes", "comfyui")
+                (
+                    "custom_nodes",
+                    "custom_nodes",
+                    "H:/comfyui/G11_04/custom_nodes",
+                    "comfyui",
+                ),
             ]
 
             for key, type_name, path, section in test_data:
@@ -81,11 +93,11 @@ def test_reorganized_interface():
         # Test des boutons d'action
         print("\n🔘 Test des boutons d'action:")
         buttons_to_check = [
-            ('identify_comfyui_environment', 'Identifier environnement'),
-            ('test_comfyui_connection', 'Test connexion'),
-            ('refresh_env_data', 'Actualiser données'),
-            ('filter_env_paths', 'Filtrer paths'),
-            ('copy_selected_path', 'Copier chemin sélectionné')
+            ("identify_comfyui_environment", "Identifier environnement"),
+            ("test_comfyui_connection", "Test connexion"),
+            ("refresh_env_data", "Actualiser données"),
+            ("filter_env_paths", "Filtrer paths"),
+            ("copy_selected_path", "Copier chemin sélectionné"),
         ]
 
         for method_name, description in buttons_to_check:
@@ -96,7 +108,7 @@ def test_reorganized_interface():
 
         # Test de la recherche
         print("\n🔍 Test de la fonctionnalité de recherche:")
-        if hasattr(app, 'env_search_var') and hasattr(app, 'filter_env_paths'):
+        if hasattr(app, "env_search_var") and hasattr(app, "filter_env_paths"):
             app.env_search_var.set("checkpoints")
             app.filter_env_paths()
             print("   ✅ Recherche 'checkpoints' effectuée")
@@ -107,7 +119,7 @@ def test_reorganized_interface():
 
         # Test du filtrage par type
         print("\n🏷️ Test du filtrage par type:")
-        if hasattr(app, 'env_type_filter'):
+        if hasattr(app, "env_type_filter"):
             filter_combo = app.env_type_filter
             print(f"   📋 Valeurs disponibles: {filter_combo['values']}")
             print(f"   🔧 Valeur actuelle: {filter_combo.get()}")
@@ -129,8 +141,10 @@ def test_reorganized_interface():
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False, []
+
 
 if __name__ == "__main__":
     success, missing = test_reorganized_interface()

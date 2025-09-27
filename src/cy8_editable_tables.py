@@ -32,7 +32,9 @@ class cy8_editable_tables:
 
         # Treeview pour les values
         columns = ("key", "id", "type", "value", "action")
-        values_tree = ttk.Treeview(values_frame, columns=columns, show="headings", height=8)
+        values_tree = ttk.Treeview(
+            values_frame, columns=columns, show="headings", height=8
+        )
 
         # Configuration des colonnes
         values_tree.heading("key", text="Clé")
@@ -48,9 +50,15 @@ class cy8_editable_tables:
         values_tree.column("action", width=80)
 
         # Scrollbars
-        v_scrollbar = ttk.Scrollbar(values_frame, orient="vertical", command=values_tree.yview)
-        h_scrollbar = ttk.Scrollbar(values_frame, orient="horizontal", command=values_tree.xview)
-        values_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        v_scrollbar = ttk.Scrollbar(
+            values_frame, orient="vertical", command=values_tree.yview
+        )
+        h_scrollbar = ttk.Scrollbar(
+            values_frame, orient="horizontal", command=values_tree.xview
+        )
+        values_tree.configure(
+            yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set
+        )
 
         # Placement
         values_tree.grid(row=0, column=0, sticky="nsew")
@@ -101,7 +109,9 @@ class cy8_editable_tables:
 
         # Treeview pour le workflow
         columns = ("id", "class_type", "inputs", "title")
-        workflow_tree = ttk.Treeview(workflow_frame, columns=columns, show="headings", height=8)
+        workflow_tree = ttk.Treeview(
+            workflow_frame, columns=columns, show="headings", height=8
+        )
 
         # Configuration des colonnes
         workflow_tree.heading("id", text="ID")
@@ -115,9 +125,15 @@ class cy8_editable_tables:
         workflow_tree.column("title", width=120)
 
         # Scrollbars
-        v_scrollbar = ttk.Scrollbar(workflow_frame, orient="vertical", command=workflow_tree.yview)
-        h_scrollbar = ttk.Scrollbar(workflow_frame, orient="horizontal", command=workflow_tree.xview)
-        workflow_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        v_scrollbar = ttk.Scrollbar(
+            workflow_frame, orient="vertical", command=workflow_tree.yview
+        )
+        h_scrollbar = ttk.Scrollbar(
+            workflow_frame, orient="horizontal", command=workflow_tree.xview
+        )
+        workflow_tree.configure(
+            yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set
+        )
 
         # Placement
         workflow_tree.grid(row=0, column=0, sticky="nsew")
@@ -139,7 +155,9 @@ class cy8_editable_tables:
         ttk.Button(
             btn_frame,
             text="Supprimer",
-            command=lambda: self.delete_workflow_node(workflow_tree, on_change_callback),
+            command=lambda: self.delete_workflow_node(
+                workflow_tree, on_change_callback
+            ),
         ).pack(side="left", padx=5)
 
         # Bouton de sauvegarde
@@ -153,7 +171,9 @@ class cy8_editable_tables:
         # Événements
         workflow_tree.bind(
             "<Double-1>",
-            lambda e: self.on_workflow_double_click(e, workflow_tree, on_change_callback),
+            lambda e: self.on_workflow_double_click(
+                e, workflow_tree, on_change_callback
+            ),
         )
 
         return workflow_frame, workflow_tree
@@ -175,7 +195,11 @@ class cy8_editable_tables:
                 display_value = entry.get("value", "")
 
                 # Gérer les données extra
-                extras = {ek: ev for ek, ev in entry.items() if ek not in {"id", "type", "value", "__display_value"}}
+                extras = {
+                    ek: ev
+                    for ek, ev in entry.items()
+                    if ek not in {"id", "type", "value", "__display_value"}
+                }
                 if not display_value and extras:
                     display_value = json.dumps(extras, ensure_ascii=False)
                     entry["__display_value"] = display_value
@@ -221,7 +245,9 @@ class cy8_editable_tables:
                     title = node_data.get("_meta", {}).get("title", "")
 
                     # Convertir inputs en string pour l'affichage
-                    inputs_str = json.dumps(inputs, ensure_ascii=False) if inputs else "{}"
+                    inputs_str = (
+                        json.dumps(inputs, ensure_ascii=False) if inputs else "{}"
+                    )
 
                     workflow_tree.insert(
                         "",
@@ -264,7 +290,9 @@ class cy8_editable_tables:
                     self.show_output_images(display_value)
                 elif type_val == "multiLoras":
                     # 1.1.2) Popup multiloras
-                    self.edit_multiloras(item, display_value, values_tree, on_change_callback)
+                    self.edit_multiloras(
+                        item, display_value, values_tree, on_change_callback
+                    )
                 else:
                     # 1.1.3) Popup d'édition plus grande
                     self.edit_value_popup(
@@ -295,7 +323,9 @@ class cy8_editable_tables:
 
             # Édition des inputs avec tableau
             elif column == "#3":  # inputs
-                self.edit_inputs_popup(node_id, inputs_str, workflow_tree, on_change_callback)
+                self.edit_inputs_popup(
+                    node_id, inputs_str, workflow_tree, on_change_callback
+                )
 
     def edit_cell_inline(self, tree, item, column, on_change_callback):
         """Édition inline d'une cellule"""
@@ -375,7 +405,9 @@ class cy8_editable_tables:
 
         self.popup_manager.open_multi_loras_popup(item_id, current_value, on_save)
 
-    def edit_value_popup(self, item_id, key, type_val, current_value, tree, on_change_callback):
+    def edit_value_popup(
+        self, item_id, key, type_val, current_value, tree, on_change_callback
+    ):
         """Popup d'édition plus grande - 1.1.3)
         POPUP-ID: CY8-POPUP-006
         """
@@ -411,7 +443,9 @@ class cy8_editable_tables:
         text_frame.pack(fill="both", expand=True, pady=(0, 10))
 
         text_widget = tk.Text(text_frame, wrap="word", font=("Consolas", 10))
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+        scrollbar = ttk.Scrollbar(
+            text_frame, orient="vertical", command=text_widget.yview
+        )
         text_widget.configure(yscrollcommand=scrollbar.set)
 
         text_widget.pack(side="left", fill="both", expand=True)
@@ -441,8 +475,12 @@ class cy8_editable_tables:
 
             popup.destroy()
 
-        ttk.Button(button_frame, text="Sauvegarder", command=save_value).pack(side="right", padx=5)
-        ttk.Button(button_frame, text="Annuler", command=popup.destroy).pack(side="right")
+        ttk.Button(button_frame, text="Sauvegarder", command=save_value).pack(
+            side="right", padx=5
+        )
+        ttk.Button(button_frame, text="Annuler", command=popup.destroy).pack(
+            side="right"
+        )
 
         text_widget.focus_set()
 
@@ -481,7 +519,9 @@ class cy8_editable_tables:
         table_frame.pack(fill="both", expand=True, pady=(0, 10))
 
         columns = ("attribute", "separator", "value")
-        inputs_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
+        inputs_tree = ttk.Treeview(
+            table_frame, columns=columns, show="headings", height=10
+        )
 
         inputs_tree.heading("attribute", text="Attribut")
         inputs_tree.heading("separator", text="")
@@ -492,9 +532,15 @@ class cy8_editable_tables:
         inputs_tree.column("value", width=300)
 
         # Scrollbars
-        v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=inputs_tree.yview)
-        h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=inputs_tree.xview)
-        inputs_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        v_scrollbar = ttk.Scrollbar(
+            table_frame, orient="vertical", command=inputs_tree.yview
+        )
+        h_scrollbar = ttk.Scrollbar(
+            table_frame, orient="horizontal", command=inputs_tree.xview
+        )
+        inputs_tree.configure(
+            yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set
+        )
 
         inputs_tree.grid(row=0, column=0, sticky="nsew")
         v_scrollbar.grid(row=0, column=1, sticky="ns")
@@ -516,9 +562,13 @@ class cy8_editable_tables:
 
             for attr, value in inputs_data.items():
                 display_value = (
-                    json.dumps(value, ensure_ascii=False) if not isinstance(value, (str, int, float, bool)) else str(value)
+                    json.dumps(value, ensure_ascii=False)
+                    if not isinstance(value, (str, int, float, bool))
+                    else str(value)
                 )
-                inputs_tree.insert("", "end", iid=attr, values=(attr, ":", display_value))
+                inputs_tree.insert(
+                    "", "end", iid=attr, values=(attr, ":", display_value)
+                )
 
         refresh_inputs_table()
 
@@ -537,7 +587,9 @@ class cy8_editable_tables:
         def edit_input():
             selection = inputs_tree.selection()
             if not selection:
-                messagebox.showwarning("Attention", "Sélectionnez un attribut à modifier.")
+                messagebox.showwarning(
+                    "Attention", "Sélectionnez un attribut à modifier."
+                )
                 return
 
             attr = selection[0]
@@ -569,7 +621,9 @@ class cy8_editable_tables:
 
             # Insérer la valeur actuelle
             if isinstance(current_value, (dict, list)):
-                text_widget.insert("1.0", json.dumps(current_value, indent=2, ensure_ascii=False))
+                text_widget.insert(
+                    "1.0", json.dumps(current_value, indent=2, ensure_ascii=False)
+                )
             else:
                 text_widget.insert("1.0", str(current_value))
 
@@ -598,13 +652,19 @@ class cy8_editable_tables:
 
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill="x", pady=10)
-            ttk.Button(btn_frame, text="Sauvegarder", command=save_input).pack(side="right", padx=5)
-            ttk.Button(btn_frame, text="Annuler", command=edit_popup.destroy).pack(side="right")
+            ttk.Button(btn_frame, text="Sauvegarder", command=save_input).pack(
+                side="right", padx=5
+            )
+            ttk.Button(btn_frame, text="Annuler", command=edit_popup.destroy).pack(
+                side="right"
+            )
 
         def delete_input():
             selection = inputs_tree.selection()
             if not selection:
-                messagebox.showwarning("Attention", "Sélectionnez un attribut à supprimer.")
+                messagebox.showwarning(
+                    "Attention", "Sélectionnez un attribut à supprimer."
+                )
                 return
 
             if messagebox.askyesno("Confirmer", "Supprimer cet attribut ?"):
@@ -613,9 +673,15 @@ class cy8_editable_tables:
                     del inputs_data[attr]
                 refresh_inputs_table()
 
-        ttk.Button(edit_frame, text="Ajouter", command=add_input).pack(side="left", padx=5)
-        ttk.Button(edit_frame, text="Modifier", command=edit_input).pack(side="left", padx=5)
-        ttk.Button(edit_frame, text="Supprimer", command=delete_input).pack(side="left", padx=5)
+        ttk.Button(edit_frame, text="Ajouter", command=add_input).pack(
+            side="left", padx=5
+        )
+        ttk.Button(edit_frame, text="Modifier", command=edit_input).pack(
+            side="left", padx=5
+        )
+        ttk.Button(edit_frame, text="Supprimer", command=delete_input).pack(
+            side="left", padx=5
+        )
 
         # Double-clic pour éditer
         inputs_tree.bind("<Double-1>", lambda e: edit_input())
@@ -640,8 +706,12 @@ class cy8_editable_tables:
 
             popup.destroy()
 
-        ttk.Button(button_frame, text="Sauvegarder", command=save_inputs).pack(side="right", padx=5)
-        ttk.Button(button_frame, text="Annuler", command=popup.destroy).pack(side="right")
+        ttk.Button(button_frame, text="Sauvegarder", command=save_inputs).pack(
+            side="right", padx=5
+        )
+        ttk.Button(button_frame, text="Annuler", command=popup.destroy).pack(
+            side="right"
+        )
 
     def add_prompt_value(self, values_tree, on_change_callback):
         """Ajouter une nouvelle ligne dans prompt_values"""
@@ -753,7 +823,9 @@ class cy8_editable_tables:
             try:
                 self.save_callback()
             except Exception as e:
-                messagebox.showerror("Erreur de sauvegarde", f"Erreur lors de la sauvegarde: {e}")
+                messagebox.showerror(
+                    "Erreur de sauvegarde", f"Erreur lors de la sauvegarde: {e}"
+                )
         else:
             # Si pas de callback, appeler on_change_callback et afficher un message d'aide
             if on_change_callback:

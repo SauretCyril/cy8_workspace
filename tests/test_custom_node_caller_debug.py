@@ -9,6 +9,7 @@ import os
 # Ajouter le chemin src
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 def test_custom_node_caller():
     """Test rapide de la classe ComfyUICustomNodeCaller"""
     print("🔧 Test de ComfyUICustomNodeCaller")
@@ -24,15 +25,14 @@ def test_custom_node_caller():
             status = caller.get_server_status()
             print(f"📡 Statut du serveur: {status}")
 
-            if status['status'] == 'online':
+            if status["status"] == "online":
                 print("🟢 Serveur ComfyUI en ligne")
 
                 # Test d'appel du custom node
                 try:
                     print("🚀 Tentative d'appel du custom node ExtraPathReader...")
                     result = caller.call_custom_node(
-                        node_type="ExtraPathReader",
-                        inputs={}
+                        node_type="ExtraPathReader", inputs={}
                     )
                     print(f"✅ Appel du custom node réussi: {result}")
 
@@ -40,17 +40,22 @@ def test_custom_node_caller():
                     print(f"❌ Erreur lors de l'appel du custom node: {e}")
                     print(f"🔍 Type d'erreur: {type(e).__name__}")
                     import traceback
+
                     traceback.print_exc()
 
             else:
-                print(f"🔴 Serveur ComfyUI hors ligne: {status.get('error', 'Raison inconnue')}")
+                print(
+                    f"🔴 Serveur ComfyUI hors ligne: {status.get('error', 'Raison inconnue')}"
+                )
 
     except ImportError as e:
         print(f"❌ Erreur d'import: {e}")
     except Exception as e:
         print(f"❌ Erreur inattendue: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_custom_node_caller()

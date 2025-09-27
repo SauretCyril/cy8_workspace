@@ -10,6 +10,7 @@ import json
 # Ajouter le chemin src
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 def test_workflow_generation():
     """Tester la génération du workflow pour ExtraPathReader"""
     print("🔧 Test de génération de workflow")
@@ -23,8 +24,7 @@ def test_workflow_generation():
 
             # Générer le workflow pour ExtraPathReader
             workflow = caller.create_custom_node_workflow(
-                node_type="ExtraPathReader",
-                node_inputs={}
+                node_type="ExtraPathReader", node_inputs={}
             )
 
             print("📋 Workflow généré:")
@@ -42,7 +42,9 @@ def test_workflow_generation():
             else:
                 print("❌ ExtraPathReader non trouvé dans ComfyUI")
                 print("💡 Nodes disponibles:")
-                for node_name in list(nodes_info.keys())[:10]:  # Limiter à 10 pour la lisibilité
+                for node_name in list(nodes_info.keys())[
+                    :10
+                ]:  # Limiter à 10 pour la lisibilité
                     print(f"   - {node_name}")
                 if len(nodes_info) > 10:
                     print(f"   ... et {len(nodes_info) - 10} autres")
@@ -53,9 +55,7 @@ def test_workflow_generation():
                 "1": {
                     "inputs": {},
                     "class_type": "ExtraPathReader",
-                    "_meta": {
-                        "title": "Extra Path Reader"
-                    }
+                    "_meta": {"title": "Extra Path Reader"},
                 }
             }
 
@@ -64,11 +64,14 @@ def test_workflow_generation():
 
             # Essayer de l'envoyer manuellement
             import requests
+
             payload = {"prompt": minimal_workflow}
 
             print("\n📤 Test d'envoi du workflow minimal...")
             try:
-                response = requests.post("http://127.0.0.1:8188/prompt", json=payload, timeout=10)
+                response = requests.post(
+                    "http://127.0.0.1:8188/prompt", json=payload, timeout=10
+                )
                 print(f"📨 Status: {response.status_code}")
 
                 if response.status_code == 200:
@@ -83,7 +86,9 @@ def test_workflow_generation():
     except Exception as e:
         print(f"❌ Erreur: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_workflow_generation()

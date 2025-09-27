@@ -35,7 +35,9 @@ class cy8_popup_manager:
                     text_widget.delete("1.0", "end")
                     text_widget.insert("1.0", formatted_json)
             except Exception as e:
-                messagebox.showerror("Erreur", f"Impossible de charger le fichier JSON: {e}")
+                messagebox.showerror(
+                    "Erreur", f"Impossible de charger le fichier JSON: {e}"
+                )
 
     def prompt_form(self, mode="new", prompt_id=None, on_save=None):
         """
@@ -44,7 +46,10 @@ class cy8_popup_manager:
         POPUP-ID: CY8-POPUP-001
         """
         popup = tk.Toplevel(self.root)
-        popup.title("CY8-POPUP-001 | " + ("Créer un nouveau prompt" if mode == "new" else "Modifier le prompt"))
+        popup.title(
+            "CY8-POPUP-001 | "
+            + ("Créer un nouveau prompt" if mode == "new" else "Modifier le prompt")
+        )
         popup.transient(self.root)
         popup.grab_set()
 
@@ -61,7 +66,9 @@ class cy8_popup_manager:
         if mode == "edit" and prompt_id:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = data
+                name, prompt_values, workflow, url, parent, model, comment, status = (
+                    data
+                )
                 name_var.set(name or "")
                 url_var.set(url or "")
                 prompt_values_var = prompt_values or "{}"
@@ -80,7 +87,9 @@ class cy8_popup_manager:
                 "3": {"id": "3", "type": "seed", "value": 1234567},
                 "4": {"id": "9", "type": "SaveImage", "filename_prefix": "basic"},
             }
-            prompt_values_var = json.dumps(default_prompt_values, indent=2, ensure_ascii=False)
+            prompt_values_var = json.dumps(
+                default_prompt_values, indent=2, ensure_ascii=False
+            )
 
         # Interface utilisateur avec style professionnel
         main_frame = ttk.Frame(popup, padding="10")
@@ -97,7 +106,9 @@ class cy8_popup_manager:
         ).pack(anchor="e")
 
         # Informations générales
-        info_frame = ttk.LabelFrame(main_frame, text="Informations générales", padding="10")
+        info_frame = ttk.LabelFrame(
+            main_frame, text="Informations générales", padding="10"
+        )
         info_frame.pack(fill="x", pady=(0, 10))
 
         # Nom
@@ -127,7 +138,9 @@ class cy8_popup_manager:
         status_combo.grid(row=3, column=1, sticky="w", padx=(10, 0), pady=2)
 
         # Commentaire
-        ttk.Label(info_frame, text="Commentaire:").grid(row=4, column=0, sticky="w", pady=2)
+        ttk.Label(info_frame, text="Commentaire:").grid(
+            row=4, column=0, sticky="w", pady=2
+        )
         comment_entry = ttk.Entry(info_frame, textvariable=comment_var, width=50)
         comment_entry.grid(row=4, column=1, sticky="ew", padx=(10, 0), pady=2)
 
@@ -141,13 +154,17 @@ class cy8_popup_manager:
         prompt_values_frame = ttk.Frame(json_notebook)
         json_notebook.add(prompt_values_frame, text="Prompt Values")
 
-        ttk.Label(prompt_values_frame, text="Prompt Values (JSON):").pack(anchor="w", pady=5)
+        ttk.Label(prompt_values_frame, text="Prompt Values (JSON):").pack(
+            anchor="w", pady=5
+        )
 
         pv_text_frame = ttk.Frame(prompt_values_frame)
         pv_text_frame.pack(fill="both", expand=True, pady=5)
 
         prompt_values_text = tk.Text(pv_text_frame, wrap="word", font=("Consolas", 10))
-        pv_scrollbar = ttk.Scrollbar(pv_text_frame, orient="vertical", command=prompt_values_text.yview)
+        pv_scrollbar = ttk.Scrollbar(
+            pv_text_frame, orient="vertical", command=prompt_values_text.yview
+        )
         prompt_values_text.configure(yscrollcommand=pv_scrollbar.set)
 
         prompt_values_text.pack(side="left", fill="both", expand=True)
@@ -170,7 +187,9 @@ class cy8_popup_manager:
         wf_text_frame.pack(fill="both", expand=True, pady=5)
 
         workflow_text = tk.Text(wf_text_frame, wrap="word", font=("Consolas", 10))
-        wf_scrollbar = ttk.Scrollbar(wf_text_frame, orient="vertical", command=workflow_text.yview)
+        wf_scrollbar = ttk.Scrollbar(
+            wf_text_frame, orient="vertical", command=workflow_text.yview
+        )
         workflow_text.configure(yscrollcommand=wf_scrollbar.set)
 
         workflow_text.pack(side="left", fill="both", expand=True)
@@ -187,7 +206,9 @@ class cy8_popup_manager:
         # Remplir les textes
         try:
             if prompt_values_var != "{}":
-                formatted_json = json.dumps(json.loads(prompt_values_var), indent=2, ensure_ascii=False)
+                formatted_json = json.dumps(
+                    json.loads(prompt_values_var), indent=2, ensure_ascii=False
+                )
             else:
                 formatted_json = prompt_values_var
             prompt_values_text.insert("1.0", formatted_json)
@@ -196,7 +217,9 @@ class cy8_popup_manager:
 
         try:
             if workflow_var != "{}":
-                formatted_json = json.dumps(json.loads(workflow_var), indent=2, ensure_ascii=False)
+                formatted_json = json.dumps(
+                    json.loads(workflow_var), indent=2, ensure_ascii=False
+                )
             else:
                 formatted_json = workflow_var
             workflow_text.insert("1.0", formatted_json)
@@ -267,7 +290,9 @@ class cy8_popup_manager:
                         status_value,
                         comment_value,
                     )
-                    messagebox.showinfo("Succès", f"Prompt créé avec succès (ID: {new_id}).")
+                    messagebox.showinfo(
+                        "Succès", f"Prompt créé avec succès (ID: {new_id})."
+                    )
 
                 if on_save:
                     on_save()
@@ -279,7 +304,9 @@ class cy8_popup_manager:
         def cancel():
             popup.destroy()
 
-        ttk.Button(button_frame, text="Sauvegarder", command=save_prompt).pack(side="right", padx=5)
+        ttk.Button(button_frame, text="Sauvegarder", command=save_prompt).pack(
+            side="right", padx=5
+        )
         ttk.Button(button_frame, text="Annuler", command=cancel).pack(side="right")
 
         # Focus sur le nom
@@ -332,7 +359,9 @@ class cy8_popup_manager:
 
         # Scrollbars
         v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
-        h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=tree.xview)
+        h_scrollbar = ttk.Scrollbar(
+            table_frame, orient="horizontal", command=tree.xview
+        )
         tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
         tree.grid(row=0, column=0, sticky="nsew")
@@ -408,8 +437,12 @@ class cy8_popup_manager:
 
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill="x", pady=10)
-            ttk.Button(btn_frame, text="Ajouter", command=save_lora).pack(side="right", padx=5)
-            ttk.Button(btn_frame, text="Annuler", command=add_popup.destroy).pack(side="right")
+            ttk.Button(btn_frame, text="Ajouter", command=save_lora).pack(
+                side="right", padx=5
+            )
+            ttk.Button(btn_frame, text="Annuler", command=add_popup.destroy).pack(
+                side="right"
+            )
 
         def edit_lora():
             selection = tree.selection()
@@ -463,8 +496,12 @@ class cy8_popup_manager:
 
             btn_frame = ttk.Frame(frame)
             btn_frame.pack(fill="x", pady=10)
-            ttk.Button(btn_frame, text="Sauvegarder", command=save_edit).pack(side="right", padx=5)
-            ttk.Button(btn_frame, text="Annuler", command=edit_popup.destroy).pack(side="right")
+            ttk.Button(btn_frame, text="Sauvegarder", command=save_edit).pack(
+                side="right", padx=5
+            )
+            ttk.Button(btn_frame, text="Annuler", command=edit_popup.destroy).pack(
+                side="right"
+            )
 
         def delete_lora():
             selection = tree.selection()
@@ -478,9 +515,15 @@ class cy8_popup_manager:
                 loras_data[:] = [x for x in loras_data if x != values]
                 refresh_table()
 
-        ttk.Button(edit_frame, text="Ajouter", command=add_lora).pack(side="left", padx=5)
-        ttk.Button(edit_frame, text="Modifier", command=edit_lora).pack(side="left", padx=5)
-        ttk.Button(edit_frame, text="Supprimer", command=delete_lora).pack(side="left", padx=5)
+        ttk.Button(edit_frame, text="Ajouter", command=add_lora).pack(
+            side="left", padx=5
+        )
+        ttk.Button(edit_frame, text="Modifier", command=edit_lora).pack(
+            side="left", padx=5
+        )
+        ttk.Button(edit_frame, text="Supprimer", command=delete_lora).pack(
+            side="left", padx=5
+        )
 
         # Boutons principaux
         button_frame = ttk.Frame(main_frame)
@@ -500,7 +543,9 @@ class cy8_popup_manager:
         def cancel():
             popup.destroy()
 
-        ttk.Button(button_frame, text="Sauvegarder", command=save_multiloras).pack(side="right", padx=5)
+        ttk.Button(button_frame, text="Sauvegarder", command=save_multiloras).pack(
+            side="right", padx=5
+        )
         ttk.Button(button_frame, text="Annuler", command=cancel).pack(side="right")
 
     def show_output_images_popup(self, images_paths, title="Images générées"):
@@ -530,7 +575,9 @@ class cy8_popup_manager:
         scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
-        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
@@ -562,7 +609,9 @@ class cy8_popup_manager:
                     img_label.image = photo  # Garder la référence
 
                     # Chemin complet
-                    ttk.Label(img_frame, text=img_path, font=("TkDefaultFont", 8)).pack()
+                    ttk.Label(
+                        img_frame, text=img_path, font=("TkDefaultFont", 8)
+                    ).pack()
 
                 except Exception as e:
                     ttk.Label(
@@ -570,7 +619,9 @@ class cy8_popup_manager:
                         text=f"Erreur lors du chargement de {img_path}: {e}",
                     ).pack(pady=5)
             else:
-                ttk.Label(scrollable_frame, text=f"Image non trouvée: {img_path}").pack(pady=5)
+                ttk.Label(scrollable_frame, text=f"Image non trouvée: {img_path}").pack(
+                    pady=5
+                )
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")

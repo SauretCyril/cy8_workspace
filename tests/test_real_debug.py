@@ -5,7 +5,8 @@ Test avec un vrai log ComfyUI pour voir si l'ID est détecté
 
 import os
 import sys
-sys.path.append('../src')
+
+sys.path.append("../src")
 
 from cy8_log_analyzer import cy8_log_analyzer
 
@@ -26,10 +27,10 @@ Import times for custom nodes:
 2025-09-26 10:00:15,123 - Server started on 127.0.0.1:8188
 2025-09-26 10:00:16,456 - Loading model: checkpoints/sd_xl_base_1.0.safetensors"""
 
-    with open('real_comfyui_test.log', 'w', encoding='utf-8') as f:
+    with open("real_comfyui_test.log", "w", encoding="utf-8") as f:
         f.write(content)
 
-    return 'real_comfyui_test.log'
+    return "real_comfyui_test.log"
 
 
 def test_with_debug():
@@ -41,11 +42,11 @@ def test_with_debug():
     print(f"✅ Fichier créé: {log_file}")
 
     # Lire le contenu pour vérification
-    with open(log_file, 'r', encoding='utf-8') as f:
+    with open(log_file, "r", encoding="utf-8") as f:
         content = f.read()
 
     print("📋 Contenu du log:")
-    lines = content.split('\n')
+    lines = content.split("\n")
     for i, line in enumerate(lines, 1):
         if line.strip():
             print(f"  {i:2d}: {line}")

@@ -69,7 +69,9 @@ class cy8_database_manager:
             self.cursor = self.conn.cursor()
 
             # Vérifier si la table prompts existe déjà
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+            )
             table_exists = self.cursor.fetchone() is not None
 
             if table_exists:
@@ -85,7 +87,9 @@ class cy8_database_manager:
                             print(f"Structure corrigée: {fix_message}")
                         else:
                             print(f"Erreur lors de la correction: {fix_message}")
-                            raise Exception(f"Impossible de corriger la structure de la base: {fix_message}")
+                            raise Exception(
+                                f"Impossible de corriger la structure de la base: {fix_message}"
+                            )
                     else:
                         # Table manquante, la créer normalement
                         self.cursor.execute(
@@ -183,7 +187,9 @@ class cy8_database_manager:
             if comment_missing:
                 alterations.append("ALTER TABLE prompts ADD COLUMN comment TEXT")
             if status_missing:
-                alterations.append("ALTER TABLE prompts ADD COLUMN status TEXT DEFAULT 'new'")
+                alterations.append(
+                    "ALTER TABLE prompts ADD COLUMN status TEXT DEFAULT 'new'"
+                )
 
             for statement in alterations:
                 self.cursor.execute(statement)
@@ -194,13 +200,17 @@ class cy8_database_manager:
             # Mise à jour des valeurs par défaut pour le statut
             if status_missing:
                 try:
-                    self.cursor.execute("UPDATE prompts SET status='new' WHERE status IS NULL OR TRIM(status)=''")
+                    self.cursor.execute(
+                        "UPDATE prompts SET status='new' WHERE status IS NULL OR TRIM(status)=''"
+                    )
                     self.conn.commit()
                 except sqlite3.OperationalError:
                     pass
 
             # S'assurer que la table prompt_image existe
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_image'")
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_image'"
+            )
             if not self.cursor.fetchone():
                 self.cursor.execute(
                     """
@@ -281,7 +291,9 @@ class cy8_database_manager:
 
             insert_columns = ", ".join(desired_columns)
             select_clause = ", ".join(select_parts)
-            self.cursor.execute(f"INSERT INTO prompts ({insert_columns}) SELECT {select_clause} FROM prompts_old")
+            self.cursor.execute(
+                f"INSERT INTO prompts ({insert_columns}) SELECT {select_clause} FROM prompts_old"
+            )
             self.cursor.execute("DROP TABLE prompts_old")
             self.conn.commit()
 
@@ -422,7 +434,9 @@ class cy8_database_manager:
 
     def get_all_prompts(self):
         """Récupérer tous les prompts avec toutes les colonnes"""
-        self.cursor.execute("SELECT id, name, parent, model, workflow, status, comment FROM prompts")
+        self.cursor.execute(
+            "SELECT id, name, parent, model, workflow, status, comment FROM prompts"
+        )
         results = []
         for row in self.cursor.fetchall():
             prompt_id, name, parent, model, workflow, status, comment = row
@@ -440,7 +454,9 @@ class cy8_database_manager:
         )
         return self.cursor.fetchone()
 
-    def update_prompt(self, prompt_id, name, prompt_values, workflow, url, model, comment, status):
+    def update_prompt(
+        self, prompt_id, name, prompt_values, workflow, url, model, comment, status
+    ):
         """Mettre à jour un prompt complet"""
         self.cursor.execute(
             "UPDATE prompts SET name=?, prompt_values=?, workflow=?, url=?, model=?, comment=?, status=? WHERE id=?",
@@ -448,7 +464,9 @@ class cy8_database_manager:
         )
         self.conn.commit()
 
-    def create_prompt(self, name, prompt_values, workflow, url, model, status, comment, parent=None):
+    def create_prompt(
+        self, name, prompt_values, workflow, url, model, status, comment, parent=None
+    ):
         """Créer un nouveau prompt"""
         self.cursor.execute(
             "INSERT INTO prompts (name, prompt_values, workflow, url, model, status, comment, parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -471,7 +489,9 @@ class cy8_database_manager:
         """Valider la structure de la base de données"""
         try:
             # Vérifier que la table prompts existe
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+            )
             if not self.cursor.fetchone():
                 return False, "Table 'prompts' manquante"
 
@@ -618,7 +638,7 @@ class cy8_database_manager:
         try:
             self.cursor.execute(
                 "INSERT INTO prompt_image (prompt_id, image_path) VALUES (?, ?)",
-                (prompt_id, image_path)
+                (prompt_id, image_path),
             )
             self.conn.commit()
             return True
@@ -636,7 +656,7 @@ class cy8_database_manager:
                 WHERE prompt_id = ?
                 ORDER BY created_at DESC
                 """,
-                (prompt_id,)
+                (prompt_id,),
             )
             return self.cursor.fetchall()
         except sqlite3.Error as e:
@@ -656,7 +676,9 @@ class cy8_database_manager:
     def delete_prompt_images(self, prompt_id):
         """Supprimer toutes les images d'un prompt"""
         try:
-            self.cursor.execute("DELETE FROM prompt_image WHERE prompt_id = ?", (prompt_id,))
+            self.cursor.execute(
+                "DELETE FROM prompt_image WHERE prompt_id = ?", (prompt_id,)
+            )
             self.conn.commit()
             return True
         except sqlite3.Error as e:

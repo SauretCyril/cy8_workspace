@@ -10,6 +10,7 @@ import json
 # Ajouter le chemin src
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 def test_final_environment_identification():
     """Test final de l'identification d'environnement"""
     print("🧪 Test final de l'identification d'environnement ComfyUI")
@@ -26,17 +27,17 @@ def test_final_environment_identification():
 
         # Simuler les données du custom node
         test_data = {
-            'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-            'config_path': 'E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml',
-            'extra_paths': {
-                'comfyui': {
-                    'base_path': 'G:/ComfyUI_G11/ComfyUI',
-                    'is_default': True,
-                    'checkpoints': 'H:/comfyui/G11_04/models/checkpoints',
-                    'embeddings': 'H:/comfyui/G11_04/models/embeddings',
-                    'custom_nodes': 'H:/comfyui/G11_04/custom_nodes'
+            "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+            "config_path": "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+            "extra_paths": {
+                "comfyui": {
+                    "base_path": "G:/ComfyUI_G11/ComfyUI",
+                    "is_default": True,
+                    "checkpoints": "H:/comfyui/G11_04/models/checkpoints",
+                    "embeddings": "H:/comfyui/G11_04/models/embeddings",
+                    "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
                 }
-            }
+            },
         }
 
         # Tester l'extraction d'ID
@@ -45,7 +46,9 @@ def test_final_environment_identification():
         print("✅ Résultats du test:")
         print(f"   📁 Racine ComfyUI détectée: {test_data['comfyui_root']}")
         print(f"   🆔 ID de configuration extrait: {config_id}")
-        print(f"   🔧 Chemin custom_nodes: {test_data['extra_paths']['comfyui']['custom_nodes']}")
+        print(
+            f"   🔧 Chemin custom_nodes: {test_data['extra_paths']['comfyui']['custom_nodes']}"
+        )
         print(f"   📄 Chemin config: {test_data['config_path']}")
 
         print("\n🎉 SUCCÈS: L'erreur 400 est résolue !")
@@ -66,8 +69,10 @@ def test_final_environment_identification():
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_final_environment_identification()

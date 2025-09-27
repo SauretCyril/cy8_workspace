@@ -9,7 +9,7 @@ import tkinter as tk
 import tempfile
 
 # Ajouter le chemin src au PYTHONPATH
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cy8_prompts_manager_main import cy8_prompts_manager
 
@@ -25,19 +25,23 @@ def test_comfyui_tab_creation():
         app = cy8_prompts_manager(root=root)
 
         # Vérifier que la méthode setup_comfyui_tab existe
-        assert hasattr(app, 'setup_comfyui_tab'), "La méthode setup_comfyui_tab doit exister"
+        assert hasattr(
+            app, "setup_comfyui_tab"
+        ), "La méthode setup_comfyui_tab doit exister"
         print("   ✅ Méthode setup_comfyui_tab trouvée")
 
         # Vérifier que la méthode test_comfyui_connection existe
-        assert hasattr(app, 'test_comfyui_connection'), "La méthode test_comfyui_connection doit exister"
+        assert hasattr(
+            app, "test_comfyui_connection"
+        ), "La méthode test_comfyui_connection doit exister"
         print("   ✅ Méthode test_comfyui_connection trouvée")
 
         # Vérifier que les widgets de l'onglet ComfyUI existent
-        assert hasattr(app, 'test_connection_btn'), "Le bouton de test doit exister"
-        assert hasattr(app, 'status_icon_label'), "L'icône de statut doit exister"
-        assert hasattr(app, 'status_text_label'), "Le texte de statut doit exister"
-        assert hasattr(app, 'details_frame'), "Le frame des détails doit exister"
-        assert hasattr(app, 'details_text'), "La zone de texte des détails doit exister"
+        assert hasattr(app, "test_connection_btn"), "Le bouton de test doit exister"
+        assert hasattr(app, "status_icon_label"), "L'icône de statut doit exister"
+        assert hasattr(app, "status_text_label"), "Le texte de statut doit exister"
+        assert hasattr(app, "details_frame"), "Le frame des détails doit exister"
+        assert hasattr(app, "details_text"), "La zone de texte des détails doit exister"
         print("   ✅ Tous les widgets de l'onglet ComfyUI sont présents")
 
         # Vérifier l'état initial
@@ -72,8 +76,12 @@ def test_connection_button_state():
         print(f"   📍 Bouton - État: {initial_state}, Texte: {initial_text}")
 
         # Le bouton doit être actif initialement
-        assert str(initial_state) == "normal", f"Le bouton doit être actif, trouvé: {initial_state}"
-        assert "Tester la connexion" in initial_text, f"Le texte doit contenir 'Tester la connexion', trouvé: {initial_text}"
+        assert (
+            str(initial_state) == "normal"
+        ), f"Le bouton doit être actif, trouvé: {initial_state}"
+        assert (
+            "Tester la connexion" in initial_text
+        ), f"Le texte doit contenir 'Tester la connexion', trouvé: {initial_text}"
 
         print("✅ Test de l'état du bouton réussi !")
         return True
@@ -104,7 +112,9 @@ def test_interface_elements():
         print(f"   📍 Détails techniques visibles: {details_visible}")
 
         # Le frame des détails ne doit pas être visible au départ
-        assert not details_visible, "Le frame des détails ne doit pas être visible initialement"
+        assert (
+            not details_visible
+        ), "Le frame des détails ne doit pas être visible initialement"
 
         print("✅ Test des éléments d'interface réussi !")
         return True

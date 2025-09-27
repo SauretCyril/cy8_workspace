@@ -7,10 +7,11 @@ import sys
 import os
 
 # Ajouter le répertoire src au chemin Python
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 try:
     from cy6_websocket_api_client import get_queue_status, is_prompt_in_queue
+
     print("✓ Import des nouvelles fonctions réussi")
 
     # Test de la fonction get_queue_status
@@ -19,8 +20,12 @@ try:
         queue_status = get_queue_status()
         if queue_status is not None:
             print(f"✓ Queue status récupéré: {type(queue_status)}")
-            print(f"  - Queue pending: {len(queue_status.get('queue_pending', []))} éléments")
-            print(f"  - Queue running: {len(queue_status.get('queue_running', []))} éléments")
+            print(
+                f"  - Queue pending: {len(queue_status.get('queue_pending', []))} éléments"
+            )
+            print(
+                f"  - Queue running: {len(queue_status.get('queue_running', []))} éléments"
+            )
         else:
             print("⚠ Queue status est None (ComfyUI probablement non démarré)")
     except Exception as e:

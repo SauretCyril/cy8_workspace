@@ -146,7 +146,9 @@ class cy8_prompts_manager:
         db_menu = tk.Menu(file_menu, tearoff=0)
         file_menu.add_cascade(label="Base de données", menu=db_menu)
         db_menu.add_command(label="Changer de base...", command=self.change_database)
-        db_menu.add_command(label="Créer nouvelle base...", command=self.create_new_database)
+        db_menu.add_command(
+            label="Créer nouvelle base...", command=self.create_new_database
+        )
         db_menu.add_separator()
 
         # Bases récentes
@@ -170,7 +172,9 @@ class cy8_prompts_manager:
         exec_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Exécution", menu=exec_menu)
         exec_menu.add_command(label="Exécuter prompt", command=self.execute_workflow)
-        exec_menu.add_command(label="Analyser prompt", command=self.open_prompt_analysis)
+        exec_menu.add_command(
+            label="Analyser prompt", command=self.open_prompt_analysis
+        )
 
     def setup_ribbon(self):
         """Configuration du ruban de boutons style Microsoft Office"""
@@ -180,9 +184,15 @@ class cy8_prompts_manager:
 
         # Style pour le ruban
         style = ttk.Style()
-        style.configure("Ribbon.TFrame", relief="raised", borderwidth=2, background="#f0f0f0")
-        style.configure("RibbonButton.TButton", padding=(5, 3), font=("TkDefaultFont", 9))
-        style.configure("RibbonMain.TButton", padding=(8, 5), font=("TkDefaultFont", 9, "bold"))
+        style.configure(
+            "Ribbon.TFrame", relief="raised", borderwidth=2, background="#f0f0f0"
+        )
+        style.configure(
+            "RibbonButton.TButton", padding=(5, 3), font=("TkDefaultFont", 9)
+        )
+        style.configure(
+            "RibbonMain.TButton", padding=(8, 5), font=("TkDefaultFont", 9, "bold")
+        )
 
         # Frame principal du ruban avec style
         main_ribbon = ttk.Frame(ribbon_frame, style="Ribbon.TFrame", padding="3")
@@ -202,13 +212,25 @@ class cy8_prompts_manager:
             text="✚ Nouveau",
             command=self.new_prompt,
             style="RibbonMain.TButton",
-            width=16
+            width=16,
         )
         new_btn.grid(row=0, column=0, columnspan=2, sticky="ew", pady=1)
 
         # Éditer et Hériter (côte à côte)
-        ttk.Button(file_buttons_frame, text="✏️ Éditer", command=self.edit_prompt, style="RibbonButton.TButton", width=8).grid(row=1, column=0, padx=1, pady=1)
-        ttk.Button(file_buttons_frame, text="📋 Hériter", command=self.inherit_prompt, style="RibbonButton.TButton", width=8).grid(row=1, column=1, padx=1, pady=1)
+        ttk.Button(
+            file_buttons_frame,
+            text="✏️ Éditer",
+            command=self.edit_prompt,
+            style="RibbonButton.TButton",
+            width=8,
+        ).grid(row=1, column=0, padx=1, pady=1)
+        ttk.Button(
+            file_buttons_frame,
+            text="📋 Hériter",
+            command=self.inherit_prompt,
+            style="RibbonButton.TButton",
+            width=8,
+        ).grid(row=1, column=1, padx=1, pady=1)
 
         # Supprimer (rouge)
         style.configure("Danger.TButton", foreground="red", padding=(5, 3))
@@ -217,11 +239,13 @@ class cy8_prompts_manager:
             text="🗑️ Supprimer",
             command=self.delete_prompt,
             style="Danger.TButton",
-            width=16
+            width=16,
         ).grid(row=2, column=0, columnspan=2, sticky="ew", pady=1)
 
         # Séparateur vertical
-        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+        ttk.Separator(main_ribbon, orient="vertical").pack(
+            side="left", fill="y", padx=5
+        )
 
         # === GROUPE EXÉCUTION ===
         exec_group = ttk.LabelFrame(main_ribbon, text="Exécution", padding="5")
@@ -236,7 +260,7 @@ class cy8_prompts_manager:
             text="▶️ Exécuter",
             command=self.execute_workflow,
             style="RibbonMain.TButton",
-            width=16
+            width=16,
         ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=1)
 
         # Analyser
@@ -245,11 +269,13 @@ class cy8_prompts_manager:
             text="🔍 Analyser",
             command=self.open_prompt_analysis,
             style="RibbonButton.TButton",
-            width=16
+            width=16,
         ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=1)
 
         # Séparateur vertical
-        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+        ttk.Separator(main_ribbon, orient="vertical").pack(
+            side="left", fill="y", padx=5
+        )
 
         # === GROUPE AFFICHAGE ===
         view_group = ttk.LabelFrame(main_ribbon, text="Affichage", padding="5")
@@ -264,7 +290,7 @@ class cy8_prompts_manager:
             text="🔄 Actualiser",
             command=self.refresh_prompts_display,
             style="RibbonButton.TButton",
-            width=16
+            width=16,
         ).grid(row=0, column=0, sticky="ew", pady=1)
 
         # Filtres (raccourci)
@@ -273,11 +299,13 @@ class cy8_prompts_manager:
             text="🔽 Filtres",
             command=self.toggle_filters_tab,
             style="RibbonButton.TButton",
-            width=16
+            width=16,
         ).grid(row=1, column=0, sticky="ew", pady=1)
 
         # Séparateur vertical
-        ttk.Separator(main_ribbon, orient="vertical").pack(side="left", fill="y", padx=5)
+        ttk.Separator(main_ribbon, orient="vertical").pack(
+            side="left", fill="y", padx=5
+        )
 
         # === GROUPE BASE DE DONNÉES ===
         db_group = ttk.LabelFrame(main_ribbon, text="Base de données", padding="5")
@@ -292,7 +320,7 @@ class cy8_prompts_manager:
             text="📂 Changer",
             command=self.change_database,
             style="RibbonButton.TButton",
-            width=12
+            width=12,
         ).grid(row=0, column=0, padx=1, pady=1)
 
         # Créer base
@@ -301,7 +329,7 @@ class cy8_prompts_manager:
             text="➕ Créer",
             command=self.create_new_database,
             style="RibbonButton.TButton",
-            width=12
+            width=12,
         ).grid(row=0, column=1, padx=1, pady=1)
 
         # Espace flexible pour pousser les éléments à droite
@@ -321,7 +349,7 @@ class cy8_prompts_manager:
             text="❓ À propos",
             command=self.show_about,
             style="RibbonButton.TButton",
-            width=14
+            width=14,
         ).grid(row=0, column=0, pady=1)
 
     def toggle_filters_tab(self):
@@ -333,10 +361,14 @@ class cy8_prompts_manager:
                     for pane in widget.panes():
                         pane_widget = widget.nametowidget(pane)
                         for child in pane_widget.winfo_children():
-                            if isinstance(child, ttk.LabelFrame) and "Détails" in child.cget("text"):
+                            if isinstance(
+                                child, ttk.LabelFrame
+                            ) and "Détails" in child.cget("text"):
                                 for notebook_child in child.winfo_children():
                                     if isinstance(notebook_child, ttk.Notebook):
-                                        notebook_child.select(4)  # Onglet filtres (index 4)
+                                        notebook_child.select(
+                                            4
+                                        )  # Onglet filtres (index 4)
                                         return
         except Exception as e:
             print(f"Erreur lors du basculement vers les filtres: {e}")
@@ -349,7 +381,7 @@ class cy8_prompts_manager:
             "Version cy8\n\n"
             "Application de gestion de prompts et workflows\n"
             "pour ComfyUI avec interface moderne.\n\n"
-            "© 2025 - Développé avec Python & Tkinter"
+            "© 2025 - Développé avec Python & Tkinter",
         )
 
     def setup_prompts_table(self, parent):
@@ -362,7 +394,9 @@ class cy8_prompts_manager:
 
         # Treeview pour les prompts
         columns = ("id", "name", "status", "model", "comment", "parent")
-        self.prompts_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+        self.prompts_tree = ttk.Treeview(
+            table_frame, columns=columns, show="headings", height=15
+        )
 
         # Configuration des colonnes
         self.prompts_tree.heading("id", text="ID")
@@ -380,9 +414,15 @@ class cy8_prompts_manager:
         self.prompts_tree.column("parent", width=60)
 
         # Scrollbars
-        v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.prompts_tree.yview)
-        h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.prompts_tree.xview)
-        self.prompts_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        v_scrollbar = ttk.Scrollbar(
+            table_frame, orient="vertical", command=self.prompts_tree.yview
+        )
+        h_scrollbar = ttk.Scrollbar(
+            table_frame, orient="horizontal", command=self.prompts_tree.xview
+        )
+        self.prompts_tree.configure(
+            yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set
+        )
 
         # Placement
         self.prompts_tree.grid(row=0, column=0, sticky="nsew")
@@ -412,7 +452,11 @@ class cy8_prompts_manager:
         values_tab = ttk.Frame(notebook)
         notebook.add(values_tab, text="Prompt Values")
 
-        self.values_frame, self.values_tree = self.table_manager.create_prompt_values_table(values_tab, self.on_data_change)
+        self.values_frame, self.values_tree = (
+            self.table_manager.create_prompt_values_table(
+                values_tab, self.on_data_change
+            )
+        )
         self.values_frame.pack(fill="both", expand=True)
         self.current_values_tree = self.values_tree
         self.table_manager._current_values_tree = self.values_tree
@@ -421,7 +465,9 @@ class cy8_prompts_manager:
         workflow_tab = ttk.Frame(notebook)
         notebook.add(workflow_tab, text="Workflow")
 
-        self.workflow_frame, self.workflow_tree = self.table_manager.create_workflow_table(workflow_tab, self.on_data_change)
+        self.workflow_frame, self.workflow_tree = (
+            self.table_manager.create_workflow_table(workflow_tab, self.on_data_change)
+        )
         self.workflow_frame.pack(fill="both", expand=True)
         self.current_workflow_tree = self.workflow_tree
         self.table_manager._current_workflow_tree = self.workflow_tree
@@ -477,8 +523,7 @@ class cy8_prompts_manager:
         scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
@@ -489,11 +534,21 @@ class cy8_prompts_manager:
         header_frame.pack(fill="x", padx=5, pady=5)
 
         # Colonnes: [✓] | Type de filtre | Critère | Valeur
-        ttk.Label(header_frame, text="Actif", font=("Arial", 9, "bold")).grid(row=0, column=0, padx=5, pady=2)
-        ttk.Label(header_frame, text="Type de filtre", font=("Arial", 9, "bold")).grid(row=0, column=1, padx=5, pady=2)
-        ttk.Label(header_frame, text="Critère", font=("Arial", 9, "bold")).grid(row=0, column=2, padx=5, pady=2)
-        ttk.Label(header_frame, text="Valeur", font=("Arial", 9, "bold")).grid(row=0, column=3, padx=5, pady=2)
-        ttk.Label(header_frame, text="Actions", font=("Arial", 9, "bold")).grid(row=0, column=4, padx=5, pady=2)
+        ttk.Label(header_frame, text="Actif", font=("Arial", 9, "bold")).grid(
+            row=0, column=0, padx=5, pady=2
+        )
+        ttk.Label(header_frame, text="Type de filtre", font=("Arial", 9, "bold")).grid(
+            row=0, column=1, padx=5, pady=2
+        )
+        ttk.Label(header_frame, text="Critère", font=("Arial", 9, "bold")).grid(
+            row=0, column=2, padx=5, pady=2
+        )
+        ttk.Label(header_frame, text="Valeur", font=("Arial", 9, "bold")).grid(
+            row=0, column=3, padx=5, pady=2
+        )
+        ttk.Label(header_frame, text="Actions", font=("Arial", 9, "bold")).grid(
+            row=0, column=4, padx=5, pady=2
+        )
 
         # Initialiser la liste des filtres
         self.filters_list = []
@@ -506,9 +561,15 @@ class cy8_prompts_manager:
         action_frame = ttk.Frame(scrollable_frame)
         action_frame.pack(fill="x", padx=5, pady=10)
 
-        ttk.Button(action_frame, text="+ Ajouter filtre", command=self.add_new_filter).pack(side="left", padx=5)
-        ttk.Button(action_frame, text="Appliquer filtres", command=self.apply_filters).pack(side="left", padx=5)
-        ttk.Button(action_frame, text="Réinitialiser", command=self.reset_filters).pack(side="left", padx=5)
+        ttk.Button(
+            action_frame, text="+ Ajouter filtre", command=self.add_new_filter
+        ).pack(side="left", padx=5)
+        ttk.Button(
+            action_frame, text="Appliquer filtres", command=self.apply_filters
+        ).pack(side="left", padx=5)
+        ttk.Button(action_frame, text="Réinitialiser", command=self.reset_filters).pack(
+            side="left", padx=5
+        )
 
         # Statistiques des filtres
         stats_frame = ttk.LabelFrame(scrollable_frame, text="Statistiques")
@@ -537,18 +598,28 @@ class cy8_prompts_manager:
         row = 0
 
         ttk.Label(info_frame, text="Nom:").grid(row=row, column=0, sticky="w", pady=5)
-        ttk.Entry(info_frame, textvariable=self.name_var, width=50).grid(row=row, column=1, sticky="ew", padx=10)
+        ttk.Entry(info_frame, textvariable=self.name_var, width=50).grid(
+            row=row, column=1, sticky="ew", padx=10
+        )
         row += 1
 
         ttk.Label(info_frame, text="URL:").grid(row=row, column=0, sticky="w", pady=5)
-        ttk.Entry(info_frame, textvariable=self.url_var, width=50).grid(row=row, column=1, sticky="ew", padx=10)
+        ttk.Entry(info_frame, textvariable=self.url_var, width=50).grid(
+            row=row, column=1, sticky="ew", padx=10
+        )
         row += 1
 
-        ttk.Label(info_frame, text="Modèle:").grid(row=row, column=0, sticky="w", pady=5)
-        ttk.Entry(info_frame, textvariable=self.model_var, width=50).grid(row=row, column=1, sticky="ew", padx=10)
+        ttk.Label(info_frame, text="Modèle:").grid(
+            row=row, column=0, sticky="w", pady=5
+        )
+        ttk.Entry(info_frame, textvariable=self.model_var, width=50).grid(
+            row=row, column=1, sticky="ew", padx=10
+        )
         row += 1
 
-        ttk.Label(info_frame, text="Statut:").grid(row=row, column=0, sticky="w", pady=5)
+        ttk.Label(info_frame, text="Statut:").grid(
+            row=row, column=0, sticky="w", pady=5
+        )
         status_combo = ttk.Combobox(
             info_frame,
             textvariable=self.status_var,
@@ -559,8 +630,12 @@ class cy8_prompts_manager:
         status_combo.grid(row=row, column=1, sticky="w", padx=10)
         row += 1
 
-        ttk.Label(info_frame, text="Commentaire:").grid(row=row, column=0, sticky="w", pady=5)
-        ttk.Entry(info_frame, textvariable=self.comment_var, width=50).grid(row=row, column=1, sticky="ew", padx=10)
+        ttk.Label(info_frame, text="Commentaire:").grid(
+            row=row, column=0, sticky="w", pady=5
+        )
+        ttk.Entry(info_frame, textvariable=self.comment_var, width=50).grid(
+            row=row, column=1, sticky="ew", padx=10
+        )
         row += 1
 
         info_frame.grid_columnconfigure(1, weight=1)
@@ -580,8 +655,7 @@ class cy8_prompts_manager:
         scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
@@ -601,7 +675,9 @@ class cy8_prompts_manager:
         ).pack(pady=(0, 10))
 
         # === SECTION 1: ENVIRONNEMENT COMFYUI (MISE EN AVANT) ===
-        env_main_frame = ttk.LabelFrame(comfyui_frame, text="🌍 Environnement ComfyUI - Extra Paths", padding="10")
+        env_main_frame = ttk.LabelFrame(
+            comfyui_frame, text="🌍 Environnement ComfyUI - Extra Paths", padding="10"
+        )
         env_main_frame.pack(fill="both", expand=True, pady=(0, 10))
 
         # Ligne d'information rapide
@@ -610,15 +686,27 @@ class cy8_prompts_manager:
 
         # Serveur et statut en une ligne compacte
         server_info = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
-        ttk.Label(env_info_line, text="🖥️ Serveur:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
-        ttk.Label(env_info_line, text=server_info, font=("Consolas", 8)).pack(side="left", padx=(5, 20))
+        ttk.Label(
+            env_info_line, text="🖥️ Serveur:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left")
+        ttk.Label(env_info_line, text=server_info, font=("Consolas", 8)).pack(
+            side="left", padx=(5, 20)
+        )
 
-        ttk.Label(env_info_line, text="🆔 ID:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
-        self.env_config_id_label = ttk.Label(env_info_line, text="Non identifié", foreground="gray", font=("Consolas", 8))
+        ttk.Label(env_info_line, text="🆔 ID:", font=("TkDefaultFont", 9, "bold")).pack(
+            side="left"
+        )
+        self.env_config_id_label = ttk.Label(
+            env_info_line, text="Non identifié", foreground="gray", font=("Consolas", 8)
+        )
         self.env_config_id_label.pack(side="left", padx=(5, 20))
 
-        ttk.Label(env_info_line, text="📁 Racine:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
-        self.env_root_label = ttk.Label(env_info_line, text="Non détecté", foreground="gray", font=("Consolas", 8))
+        ttk.Label(
+            env_info_line, text="📁 Racine:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left")
+        self.env_root_label = ttk.Label(
+            env_info_line, text="Non détecté", foreground="gray", font=("Consolas", 8)
+        )
         self.env_root_label.pack(side="left", padx=(5, 0))
 
         # Boutons d'action principaux
@@ -630,51 +718,73 @@ class cy8_prompts_manager:
             buttons_frame,
             text="� Identifier l'environnement",
             command=self.identify_comfyui_environment,
-            style="Accent.TButton"
+            style="Accent.TButton",
         )
         identify_btn.pack(side="left", padx=(0, 10))
 
         # Bouton test connexion plus discret
         self.test_connection_btn = ttk.Button(
-            buttons_frame,
-            text="🔗 Test",
-            command=self.test_comfyui_connection,
-            width=8
+            buttons_frame, text="🔗 Test", command=self.test_comfyui_connection, width=8
         )
         self.test_connection_btn.pack(side="left", padx=(0, 10))
 
         # Bouton actualiser
         ttk.Button(
-            buttons_frame,
-            text="🔄 Actualiser",
-            command=self.refresh_env_data,
-            width=12
+            buttons_frame, text="🔄 Actualiser", command=self.refresh_env_data, width=12
         ).pack(side="left", padx=(0, 10))
 
         # Indicateur de statut compact
-        self.status_icon_label = ttk.Label(buttons_frame, text="⚪", font=("TkDefaultFont", 12))
+        self.status_icon_label = ttk.Label(
+            buttons_frame, text="⚪", font=("TkDefaultFont", 12)
+        )
         self.status_icon_label.pack(side="left", padx=(10, 5))
 
-        self.status_text_label = ttk.Label(buttons_frame, text="Prêt", font=("TkDefaultFont", 8), foreground="gray")
+        self.status_text_label = ttk.Label(
+            buttons_frame, text="Prêt", font=("TkDefaultFont", 8), foreground="gray"
+        )
         self.status_text_label.pack(side="left")
 
         # Outils de recherche et filtrage
         search_frame = ttk.Frame(env_main_frame)
         search_frame.pack(fill="x", pady=(10, 5))
 
-        ttk.Label(search_frame, text="🔍 Rechercher:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
+        ttk.Label(
+            search_frame, text="🔍 Rechercher:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left", padx=(0, 5))
         self.env_search_var = tk.StringVar()
         self.env_search_var.trace("w", self.filter_env_paths)
-        search_entry = ttk.Entry(search_frame, textvariable=self.env_search_var, width=25)
+        search_entry = ttk.Entry(
+            search_frame, textvariable=self.env_search_var, width=25
+        )
         search_entry.pack(side="left", padx=(0, 15))
 
-        ttk.Label(search_frame, text="🏷️ Type:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
-        self.env_type_filter = ttk.Combobox(search_frame, values=["Tous", "checkpoints", "loras", "embeddings", "vae", "custom_nodes", "controlnet"], state="readonly", width=15)
+        ttk.Label(search_frame, text="🏷️ Type:", font=("TkDefaultFont", 9, "bold")).pack(
+            side="left", padx=(0, 5)
+        )
+        self.env_type_filter = ttk.Combobox(
+            search_frame,
+            values=[
+                "Tous",
+                "checkpoints",
+                "loras",
+                "embeddings",
+                "vae",
+                "custom_nodes",
+                "controlnet",
+            ],
+            state="readonly",
+            width=15,
+        )
         self.env_type_filter.set("Tous")
         self.env_type_filter.bind("<<ComboboxSelected>>", self.filter_env_paths)
         self.env_type_filter.pack(side="left", padx=(0, 15))
 
-        ttk.Button(search_frame, text="📋 Copier chemin", command=self.copy_selected_path, width=15).pack(side="left")
+        ttk.Button(
+            search_frame,
+            text="📋 Copier chemin",
+            command=self.copy_selected_path,
+            width=15,
+        ).pack(side="left")
 
         # TABLEAU DES EXTRA PATHS (PRINCIPAL ET VISIBLE)
         env_tree_frame = ttk.Frame(env_main_frame)
@@ -690,7 +800,9 @@ class cy8_prompts_manager:
 
         # Colonnes: Clé, Type, Chemin, Section
         env_columns = ("key", "type", "path", "section")
-        self.env_tree = ttk.Treeview(env_main_content_frame, columns=env_columns, show="headings", height=12)
+        self.env_tree = ttk.Treeview(
+            env_main_content_frame, columns=env_columns, show="headings", height=12
+        )
 
         # Configuration des colonnes avec largeurs adaptives
         self.env_tree.heading("key", text="Clé")
@@ -705,9 +817,16 @@ class cy8_prompts_manager:
         self.env_tree.column("section", width=100, minwidth=80, anchor="w")
 
         # Scrollbars pour le treeview des paths
-        env_tree_v_scrollbar = ttk.Scrollbar(env_main_content_frame, orient="vertical", command=self.env_tree.yview)
-        env_tree_h_scrollbar = ttk.Scrollbar(env_h_scroll_frame, orient="horizontal", command=self.env_tree.xview)
-        self.env_tree.configure(yscrollcommand=env_tree_v_scrollbar.set, xscrollcommand=env_tree_h_scrollbar.set)
+        env_tree_v_scrollbar = ttk.Scrollbar(
+            env_main_content_frame, orient="vertical", command=self.env_tree.yview
+        )
+        env_tree_h_scrollbar = ttk.Scrollbar(
+            env_h_scroll_frame, orient="horizontal", command=self.env_tree.xview
+        )
+        self.env_tree.configure(
+            yscrollcommand=env_tree_v_scrollbar.set,
+            xscrollcommand=env_tree_h_scrollbar.set,
+        )
 
         # Placement optimisé avec pack
         self.env_tree.pack(side="left", fill="both", expand=True)
@@ -722,11 +841,15 @@ class cy8_prompts_manager:
         self.env_tree.tag_configure("vae", background="#ffe8f0")
 
         # === SECTION 2: OUTILS COMPLEMENTAIRES (COLLAPSIBLE) ===
-        tools_frame = ttk.LabelFrame(comfyui_frame, text="🔧 Outils complémentaires", padding="10")
+        tools_frame = ttk.LabelFrame(
+            comfyui_frame, text="🔧 Outils complémentaires", padding="10"
+        )
         tools_frame.pack(fill="x", pady=(10, 0))
 
         # Frame pour les détails techniques (masqué par défaut)
-        self.details_frame = ttk.LabelFrame(tools_frame, text="Détails techniques", padding="5")
+        self.details_frame = ttk.LabelFrame(
+            tools_frame, text="Détails techniques", padding="5"
+        )
         # Note: On n'utilise pas pack() ici, le frame sera affiché uniquement après un test
 
         # Zone de texte pour les détails (avec scrollbar) - plus compacte
@@ -738,20 +861,22 @@ class cy8_prompts_manager:
             height=6,  # Réduit de 10 à 6
             wrap="word",
             state="disabled",
-            font=("Consolas", 8)  # Police plus petite
+            font=("Consolas", 8),  # Police plus petite
         )
-        details_scrollbar = ttk.Scrollbar(details_text_frame, orient="vertical", command=self.details_text.yview)
+        details_scrollbar = ttk.Scrollbar(
+            details_text_frame, orient="vertical", command=self.details_text.yview
+        )
         self.details_text.configure(yscrollcommand=details_scrollbar.set)
 
         self.details_text.pack(side="left", fill="both", expand=True)
         details_scrollbar.pack(side="right", fill="y")
 
-
-
         # Variables pour compatibilité avec le code existant
         self.comfyui_config_id = tk.StringVar(value="")
         self.config_id_entry = None  # Plus utilisé dans la nouvelle interface
-        self.config_info_label = self.status_text_label  # Redirection vers le nouveau label de statut
+        self.config_info_label = (
+            self.status_text_label
+        )  # Redirection vers le nouveau label de statut
 
         # Chargement initial des données environnement
         self.refresh_env_data()
@@ -777,24 +902,34 @@ class cy8_prompts_manager:
             title_frame,
             text="Analysez les logs ComfyUI pour détecter les erreurs et problèmes",
             font=("TkDefaultFont", 9),
-            foreground="gray"
+            foreground="gray",
         )
         info_label.pack(side="right")
 
         # === SECTION 1: CONFIGURATION DU FICHIER LOG ===
-        config_frame = ttk.LabelFrame(log_frame, text="📁 Configuration du fichier log", padding="10")
+        config_frame = ttk.LabelFrame(
+            log_frame, text="📁 Configuration du fichier log", padding="10"
+        )
         config_frame.pack(fill="x", pady=(0, 15))
 
         # Ligne de sélection du fichier
         file_selection_frame = ttk.Frame(config_frame)
         file_selection_frame.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(file_selection_frame, text="Fichier log:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+        ttk.Label(
+            file_selection_frame, text="Fichier log:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left", padx=(0, 10))
 
         # Zone de texte pour le chemin avec valeur par défaut
-        default_log_path = os.getenv("COMFYUI_FILE_LOG", "E:/Comfyui_G11/ComfyUI/user/comfyui.log")
+        default_log_path = os.getenv(
+            "COMFYUI_FILE_LOG", "E:/Comfyui_G11/ComfyUI/user/comfyui.log"
+        )
         self.comfyui_log_path = tk.StringVar(value=default_log_path)
-        log_path_entry = ttk.Entry(file_selection_frame, textvariable=self.comfyui_log_path, font=("Consolas", 9))
+        log_path_entry = ttk.Entry(
+            file_selection_frame,
+            textvariable=self.comfyui_log_path,
+            font=("Consolas", 9),
+        )
         log_path_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         # Bouton parcourir
@@ -802,7 +937,7 @@ class cy8_prompts_manager:
             file_selection_frame,
             text="📂 Parcourir...",
             command=self.browse_log_file,
-            width=15
+            width=15,
         )
         browse_log_btn.pack(side="right")
 
@@ -814,12 +949,14 @@ class cy8_prompts_manager:
             file_info_frame,
             text="💡 Sélectionnez un fichier log ComfyUI pour commencer l'analyse",
             font=("TkDefaultFont", 8),
-            foreground="gray"
+            foreground="gray",
         )
         self.log_file_info_label.pack(anchor="w")
 
         # === SECTION 2: ACTIONS D'ANALYSE ===
-        actions_frame = ttk.LabelFrame(log_frame, text="🔍 Actions d'analyse", padding="10")
+        actions_frame = ttk.LabelFrame(
+            log_frame, text="🔍 Actions d'analyse", padding="10"
+        )
         actions_frame.pack(fill="x", pady=(0, 15))
 
         # Boutons d'action
@@ -832,7 +969,7 @@ class cy8_prompts_manager:
             text="🔍 Analyser le log",
             command=self.analyze_comfyui_log,
             style="Accent.TButton",
-            width=20
+            width=20,
         )
         self.analyze_log_btn.pack(side="left", padx=(0, 15))
 
@@ -841,7 +978,7 @@ class cy8_prompts_manager:
             buttons_frame,
             text="🔄 Actualiser",
             command=self.refresh_log_analysis,
-            width=15
+            width=15,
         )
         refresh_log_btn.pack(side="left", padx=(0, 15))
 
@@ -850,7 +987,7 @@ class cy8_prompts_manager:
             buttons_frame,
             text="📤 Exporter",
             command=self.export_log_analysis,
-            width=15
+            width=15,
         )
         export_log_btn.pack(side="left")
 
@@ -858,18 +995,22 @@ class cy8_prompts_manager:
         status_frame = ttk.Frame(actions_frame)
         status_frame.pack(fill="x")
 
-        ttk.Label(status_frame, text="Statut:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+        ttk.Label(status_frame, text="Statut:", font=("TkDefaultFont", 9, "bold")).pack(
+            side="left", padx=(0, 10)
+        )
 
         self.log_status_label = ttk.Label(
             status_frame,
             text="Aucune analyse effectuée",
             font=("TkDefaultFont", 9),
-            foreground="gray"
+            foreground="gray",
         )
         self.log_status_label.pack(side="left")
 
         # === SECTION 3: RESULTATS D'ANALYSE ===
-        results_main_frame = ttk.LabelFrame(log_frame, text="📋 Résultats de l'analyse", padding="10")
+        results_main_frame = ttk.LabelFrame(
+            log_frame, text="📋 Résultats de l'analyse", padding="10"
+        )
         results_main_frame.pack(fill="both", expand=True)
 
         # Barre d'outils pour les résultats
@@ -877,7 +1018,9 @@ class cy8_prompts_manager:
         results_toolbar.pack(fill="x", pady=(0, 10))
 
         # Filtres pour les résultats
-        ttk.Label(results_toolbar, text="Filtrer:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 10))
+        ttk.Label(
+            results_toolbar, text="Filtrer:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left", padx=(0, 10))
 
         self.log_filter_var = tk.StringVar(value="Tous")
         log_filter_combo = ttk.Combobox(
@@ -885,17 +1028,21 @@ class cy8_prompts_manager:
             textvariable=self.log_filter_var,
             values=["Tous", "ERREUR", "ATTENTION", "OK", "INFO"],
             state="readonly",
-            width=15
+            width=15,
         )
         log_filter_combo.pack(side="left", padx=(0, 15))
         log_filter_combo.bind("<<ComboboxSelected>>", self.filter_log_results)
 
         # Recherche dans les résultats
-        ttk.Label(results_toolbar, text="Rechercher:", font=("TkDefaultFont", 9, "bold")).pack(side="left", padx=(0, 5))
+        ttk.Label(
+            results_toolbar, text="Rechercher:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left", padx=(0, 5))
 
         self.log_search_var = tk.StringVar()
         self.log_search_var.trace("w", self.search_log_results)
-        log_search_entry = ttk.Entry(results_toolbar, textvariable=self.log_search_var, width=25)
+        log_search_entry = ttk.Entry(
+            results_toolbar, textvariable=self.log_search_var, width=25
+        )
         log_search_entry.pack(side="left", padx=(0, 15))
 
         # Compteur de résultats
@@ -903,7 +1050,7 @@ class cy8_prompts_manager:
             results_toolbar,
             text="0 résultats",
             font=("TkDefaultFont", 8),
-            foreground="gray"
+            foreground="gray",
         )
         self.log_results_count_label.pack(side="right")
 
@@ -921,7 +1068,9 @@ class cy8_prompts_manager:
 
         # Créer le Treeview pour afficher les résultats
         columns = ("type", "category", "element", "message", "line")
-        self.log_results_tree = ttk.Treeview(main_content_frame, columns=columns, show="headings", height=15)
+        self.log_results_tree = ttk.Treeview(
+            main_content_frame, columns=columns, show="headings", height=15
+        )
 
         # Configuration des colonnes
         self.log_results_tree.heading("type", text="État")
@@ -938,9 +1087,15 @@ class cy8_prompts_manager:
         self.log_results_tree.column("line", width=70, minwidth=50)
 
         # Scrollbars
-        tree_v_scrollbar = ttk.Scrollbar(main_content_frame, orient="vertical", command=self.log_results_tree.yview)
-        tree_h_scrollbar = ttk.Scrollbar(h_scroll_frame, orient="horizontal", command=self.log_results_tree.xview)
-        self.log_results_tree.configure(yscrollcommand=tree_v_scrollbar.set, xscrollcommand=tree_h_scrollbar.set)
+        tree_v_scrollbar = ttk.Scrollbar(
+            main_content_frame, orient="vertical", command=self.log_results_tree.yview
+        )
+        tree_h_scrollbar = ttk.Scrollbar(
+            h_scroll_frame, orient="horizontal", command=self.log_results_tree.xview
+        )
+        self.log_results_tree.configure(
+            yscrollcommand=tree_v_scrollbar.set, xscrollcommand=tree_h_scrollbar.set
+        )
 
         # Placement
         self.log_results_tree.pack(side="left", fill="both", expand=True)
@@ -948,10 +1103,18 @@ class cy8_prompts_manager:
         tree_h_scrollbar.pack(side="bottom", fill="x")
 
         # Configuration des couleurs selon le type d'entrée
-        self.log_results_tree.tag_configure("OK", background="#d4edda", foreground="#155724")
-        self.log_results_tree.tag_configure("ERREUR", background="#f8d7da", foreground="#721c24")
-        self.log_results_tree.tag_configure("ATTENTION", background="#fff3cd", foreground="#856404")
-        self.log_results_tree.tag_configure("INFO", background="#d1ecf1", foreground="#0c5460")
+        self.log_results_tree.tag_configure(
+            "OK", background="#d4edda", foreground="#155724"
+        )
+        self.log_results_tree.tag_configure(
+            "ERREUR", background="#f8d7da", foreground="#721c24"
+        )
+        self.log_results_tree.tag_configure(
+            "ATTENTION", background="#fff3cd", foreground="#856404"
+        )
+        self.log_results_tree.tag_configure(
+            "INFO", background="#d1ecf1", foreground="#0c5460"
+        )
 
         # Bind pour double-clic (détails)
         self.log_results_tree.bind("<Double-1>", self.show_log_detail)
@@ -975,14 +1138,20 @@ class cy8_prompts_manager:
         ).pack(pady=(0, 20))
 
         # Localisation actuelle de la base
-        location_frame = ttk.LabelFrame(data_frame, text="Base de données actuelle", padding="10")
+        location_frame = ttk.LabelFrame(
+            data_frame, text="Base de données actuelle", padding="10"
+        )
         location_frame.pack(fill="x", pady=(0, 20))
 
         # Affichage du chemin
-        ttk.Label(location_frame, text="Chemin:").grid(row=0, column=0, sticky="w", pady=5)
+        ttk.Label(location_frame, text="Chemin:").grid(
+            row=0, column=0, sticky="w", pady=5
+        )
 
         self.db_path_var = tk.StringVar(value=self.db_path)
-        db_path_entry = ttk.Entry(location_frame, textvariable=self.db_path_var, state="readonly", width=60)
+        db_path_entry = ttk.Entry(
+            location_frame, textvariable=self.db_path_var, state="readonly", width=60
+        )
         db_path_entry.grid(row=0, column=1, sticky="ew", padx=(10, 0))
 
         location_frame.grid_columnconfigure(1, weight=1)
@@ -992,7 +1161,9 @@ class cy8_prompts_manager:
         actions_frame.pack(fill="x", pady=(0, 20))
 
         # Bouton changer de base
-        ttk.Button(actions_frame, text="Changer de base...", command=self.change_database).pack(side="left", padx=(0, 10))
+        ttk.Button(
+            actions_frame, text="Changer de base...", command=self.change_database
+        ).pack(side="left", padx=(0, 10))
 
         # Bouton créer nouvelle base
         ttk.Button(
@@ -1019,7 +1190,9 @@ class cy8_prompts_manager:
 
         # Liste des bases récentes
         self.recent_listbox = tk.Listbox(list_frame, height=8)
-        recent_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.recent_listbox.yview)
+        recent_scroll = ttk.Scrollbar(
+            list_frame, orient="vertical", command=self.recent_listbox.yview
+        )
         self.recent_listbox.configure(yscrollcommand=recent_scroll.set)
 
         self.recent_listbox.grid(row=0, column=0, sticky="nsew")
@@ -1037,7 +1210,9 @@ class cy8_prompts_manager:
             width=12,
         ).pack(pady=(0, 5))
 
-        ttk.Button(buttons_frame, text="Actualiser", command=self.refresh_recent_list, width=12).pack(pady=(0, 5))
+        ttk.Button(
+            buttons_frame, text="Actualiser", command=self.refresh_recent_list, width=12
+        ).pack(pady=(0, 5))
 
         ttk.Button(
             buttons_frame,
@@ -1058,11 +1233,17 @@ class cy8_prompts_manager:
         ).pack(pady=(5, 0))
 
         # Affichage du répertoire d'images
-        images_frame = ttk.LabelFrame(data_frame, text="Répertoire des images générées", padding="10")
+        images_frame = ttk.LabelFrame(
+            data_frame, text="Répertoire des images générées", padding="10"
+        )
         images_frame.pack(fill="x", pady=(0, 20))
 
         # Répertoire principal des images (IMAGES_COLLECTE) - LECTURE SEULE
-        ttk.Label(images_frame, text="IMAGES_COLLECTE (défini dans .env):", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        ttk.Label(
+            images_frame,
+            text="IMAGES_COLLECTE (défini dans .env):",
+            font=("TkDefaultFont", 9, "bold"),
+        ).grid(row=0, column=0, sticky="w", pady=(0, 5))
 
         images_main_frame = ttk.Frame(images_frame)
         images_main_frame.grid(row=1, column=0, sticky="ew", pady=(0, 15))
@@ -1070,7 +1251,9 @@ class cy8_prompts_manager:
 
         # Variable pour afficher le chemin des images (lecture seule)
         self.images_path_var = tk.StringVar()
-        current_images_path = os.getenv("IMAGES_COLLECTE") or "E:/Comfyui_G11/ComfyUI/output"
+        current_images_path = (
+            os.getenv("IMAGES_COLLECTE") or "E:/Comfyui_G11/ComfyUI/output"
+        )
         self.images_path_var.set(current_images_path)
 
         # Champ en lecture seule avec style différent pour indiquer qu'il n'est pas modifiable
@@ -1079,7 +1262,7 @@ class cy8_prompts_manager:
             textvariable=self.images_path_var,
             state="readonly",
             width=70,
-            font=("Consolas", 9)
+            font=("Consolas", 9),
         )
         images_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
 
@@ -1088,7 +1271,7 @@ class cy8_prompts_manager:
             images_main_frame,
             text="🗂️ Ouvrir l'explorateur",
             command=self.open_images_in_explorer,
-            width=18
+            width=18,
         ).grid(row=0, column=1)
 
         # Note explicative
@@ -1096,7 +1279,7 @@ class cy8_prompts_manager:
             images_frame,
             text="� Ce répertoire est configuré dans le fichier .env et ne peut pas être modifié depuis l'interface.",
             font=("TkDefaultFont", 8),
-            foreground="gray"
+            foreground="gray",
         )
         note_label.grid(row=2, column=0, sticky="w", pady=(10, 0))
 
@@ -1142,7 +1325,9 @@ class cy8_prompts_manager:
 
         # TreeView pour afficher les exécutions
         columns = ("id", "prompt", "status", "progress", "timestamp")
-        self.executions_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=10)
+        self.executions_tree = ttk.Treeview(
+            tree_frame, columns=columns, show="headings", height=10
+        )
 
         # Configuration des colonnes
         self.executions_tree.heading("id", text="ID Exécution")
@@ -1159,9 +1344,15 @@ class cy8_prompts_manager:
         self.executions_tree.column("timestamp", width=150)
 
         # Scrollbars pour le TreeView
-        exec_v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.executions_tree.yview)
-        exec_h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.executions_tree.xview)
-        self.executions_tree.configure(yscrollcommand=exec_v_scrollbar.set, xscrollcommand=exec_h_scrollbar.set)
+        exec_v_scrollbar = ttk.Scrollbar(
+            tree_frame, orient="vertical", command=self.executions_tree.yview
+        )
+        exec_h_scrollbar = ttk.Scrollbar(
+            tree_frame, orient="horizontal", command=self.executions_tree.xview
+        )
+        self.executions_tree.configure(
+            yscrollcommand=exec_v_scrollbar.set, xscrollcommand=exec_h_scrollbar.set
+        )
 
         # Pack du TreeView avec scrollbars
         self.executions_tree.grid(row=0, column=0, sticky="nsew")
@@ -1173,15 +1364,21 @@ class cy8_prompts_manager:
         tree_frame.grid_columnconfigure(0, weight=1)
 
         # Frame pour les détails de l'exécution sélectionnée
-        details_frame = ttk.LabelFrame(exec_frame, text="Détails de l'exécution", padding="10")
+        details_frame = ttk.LabelFrame(
+            exec_frame, text="Détails de l'exécution", padding="10"
+        )
         details_frame.pack(fill="both", expand=True, pady=(10, 0))
 
         # Text widget pour les détails avec scrollbar
         details_text_frame = ttk.Frame(details_frame)
         details_text_frame.pack(fill="both", expand=True)
 
-        self.execution_details = tk.Text(details_text_frame, height=12, wrap="word", state="disabled")
-        details_scrollbar = ttk.Scrollbar(details_text_frame, orient="vertical", command=self.execution_details.yview)
+        self.execution_details = tk.Text(
+            details_text_frame, height=12, wrap="word", state="disabled"
+        )
+        details_scrollbar = ttk.Scrollbar(
+            details_text_frame, orient="vertical", command=self.execution_details.yview
+        )
         self.execution_details.configure(yscrollcommand=details_scrollbar.set)
 
         self.execution_details.pack(side="left", fill="both", expand=True)
@@ -1237,7 +1434,9 @@ class cy8_prompts_manager:
 
         # TreeView pour la liste des images
         columns = ("filename", "path", "date")
-        self.images_tree = ttk.Treeview(left_frame, columns=columns, show="headings", height=15)
+        self.images_tree = ttk.Treeview(
+            left_frame, columns=columns, show="headings", height=15
+        )
 
         # Configuration des colonnes
         self.images_tree.heading("filename", text="Nom du fichier")
@@ -1250,9 +1449,15 @@ class cy8_prompts_manager:
         self.images_tree.column("date", width=150)
 
         # Scrollbars pour la liste
-        images_v_scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=self.images_tree.yview)
-        images_h_scrollbar = ttk.Scrollbar(left_frame, orient="horizontal", command=self.images_tree.xview)
-        self.images_tree.configure(yscrollcommand=images_v_scrollbar.set, xscrollcommand=images_h_scrollbar.set)
+        images_v_scrollbar = ttk.Scrollbar(
+            left_frame, orient="vertical", command=self.images_tree.yview
+        )
+        images_h_scrollbar = ttk.Scrollbar(
+            left_frame, orient="horizontal", command=self.images_tree.xview
+        )
+        self.images_tree.configure(
+            yscrollcommand=images_v_scrollbar.set, xscrollcommand=images_h_scrollbar.set
+        )
 
         # Pack du TreeView avec scrollbars
         self.images_tree.pack(side="left", fill="both", expand=True)
@@ -1264,7 +1469,9 @@ class cy8_prompts_manager:
         right_frame.configure(width=350)  # Largeur fixe pour la prévisualisation
 
         # Label pour l'image de prévisualisation
-        self.preview_label = ttk.Label(right_frame, text="Sélectionnez une image\npour la prévisualiser")
+        self.preview_label = ttk.Label(
+            right_frame, text="Sélectionnez une image\npour la prévisualiser"
+        )
         self.preview_label.pack(pady=10)
 
         # Boutons pour actions sur l'image sélectionnée
@@ -1302,12 +1509,16 @@ class cy8_prompts_manager:
 
         self.status_text = tk.StringVar()
         self.status_text.set("Prêt")
-        ttk.Label(self.status_bar, textvariable=self.status_text).pack(side="left", padx=5)
+        ttk.Label(self.status_bar, textvariable=self.status_text).pack(
+            side="left", padx=5
+        )
 
         # Indicateur d'exécution
         self.execution_text = tk.StringVar()
         self.execution_text.set("")
-        ttk.Label(self.status_bar, textvariable=self.execution_text).pack(side="right", padx=5)
+        ttk.Label(self.status_bar, textvariable=self.execution_text).pack(
+            side="right", padx=5
+        )
 
     def load_prompts(self):
         """Charger tous les prompts dans le tableau"""
@@ -1352,7 +1563,9 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = data
+                name, prompt_values, workflow, url, parent, model, comment, status = (
+                    data
+                )
 
                 # Mettre à jour les informations générales
                 self.name_var.set(name or "")
@@ -1362,10 +1575,14 @@ class cy8_prompts_manager:
                 self.status_var.set(status or "new")
 
                 # 1.1) Charger les prompt_values dans le tableau
-                self.table_manager.load_prompt_values_data(self.values_tree, prompt_values or "{}")
+                self.table_manager.load_prompt_values_data(
+                    self.values_tree, prompt_values or "{}"
+                )
 
                 # 1.2) Charger le workflow dans le tableau
-                self.table_manager.load_workflow_data(self.workflow_tree, workflow or "{}")
+                self.table_manager.load_workflow_data(
+                    self.workflow_tree, workflow or "{}"
+                )
 
                 self.update_status(f"Prompt '{name}' chargé")
 
@@ -1464,7 +1681,7 @@ class cy8_prompts_manager:
                     "Nouveau prompt créé avec succès !\n\n"
                     "Il se peut que le nouveau prompt ne soit pas visible "
                     "avec les filtres actuels. Vous pouvez modifier les filtres "
-                    "ou les réinitialiser pour le voir."
+                    "ou les réinitialiser pour le voir.",
                 )
 
         self.popup_manager.prompt_form("new", None, on_save)
@@ -1494,7 +1711,9 @@ class cy8_prompts_manager:
             # Récupérer les données du prompt parent
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if not data:
-                messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
+                messagebox.showerror(
+                    "Erreur", "Impossible de récupérer les données du prompt."
+                )
                 return
 
             name, prompt_values, workflow, url, parent, model, comment, status = data
@@ -1530,7 +1749,9 @@ class cy8_prompts_manager:
             # Informer l'utilisateur
             if prompt_visible:
                 self.update_status(f"Prompt hérité créé: {new_name}")
-                messagebox.showinfo("Succès", f"Prompt hérité créé avec succès: {new_name}")
+                messagebox.showinfo(
+                    "Succès", f"Prompt hérité créé avec succès: {new_name}"
+                )
             else:
                 self.update_status(f"Prompt hérité créé: {new_name} (filtré)")
                 result = messagebox.askyesnocancel(
@@ -1540,7 +1761,7 @@ class cy8_prompts_manager:
                     "Voulez-vous réinitialiser les filtres pour le voir ?\n"
                     "• Oui: Réinitialiser les filtres\n"
                     "• Non: Garder les filtres actuels\n"
-                    "• Annuler: Aller à l'onglet Filtres"
+                    "• Annuler: Aller à l'onglet Filtres",
                 )
 
                 if result is True:  # Oui - Réinitialiser
@@ -1560,9 +1781,15 @@ class cy8_prompts_manager:
                                 for pane in widget.panes():
                                     pane_widget = widget.nametowidget(pane)
                                     for child in pane_widget.winfo_children():
-                                        if isinstance(child, ttk.LabelFrame) and "Détails" in child.cget("text"):
-                                            for notebook_child in child.winfo_children():
-                                                if isinstance(notebook_child, ttk.Notebook):
+                                        if isinstance(
+                                            child, ttk.LabelFrame
+                                        ) and "Détails" in child.cget("text"):
+                                            for (
+                                                notebook_child
+                                            ) in child.winfo_children():
+                                                if isinstance(
+                                                    notebook_child, ttk.Notebook
+                                                ):
                                                     # Activer l'onglet filtres (index 4)
                                                     notebook_child.select(4)
                                                     return
@@ -1583,7 +1810,9 @@ class cy8_prompts_manager:
         values = self.prompts_tree.item(item, "values")
         name = values[1] if len(values) > 1 else "Inconnu"
 
-        if messagebox.askyesno("Confirmer", f"Supprimer définitivement le prompt '{name}' ?"):
+        if messagebox.askyesno(
+            "Confirmer", f"Supprimer définitivement le prompt '{name}' ?"
+        ):
             try:
                 self.db_manager.delete_prompt(self.selected_prompt_id)
                 self.prompts_tree.delete(item)
@@ -1610,7 +1839,9 @@ class cy8_prompts_manager:
             # Récupérer les données
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if not data:
-                messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
+                messagebox.showerror(
+                    "Erreur", "Impossible de récupérer les données du prompt."
+                )
                 return
 
             name, prompt_values, workflow, url, parent, model, comment, status = data
@@ -1630,7 +1861,9 @@ class cy8_prompts_manager:
             self.update_status(f"Exécution démarrée pour: {name}")
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Erreur lors du démarrage de l'exécution: {e}")
+            messagebox.showerror(
+                "Erreur", f"Erreur lors du démarrage de l'exécution: {e}"
+            )
 
     def _execute_workflow_task(self, prompt_id, execution_id):
         """Tâche d'exécution du workflow (en thread séparé)"""
@@ -1640,7 +1873,9 @@ class cy8_prompts_manager:
             # Récupérer les données du prompt
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if not data:
-                self.update_execution_stack_status(execution_id, "Erreur: Prompt introuvable", 0)
+                self.update_execution_stack_status(
+                    execution_id, "Erreur: Prompt introuvable", 0
+                )
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -1650,7 +1885,9 @@ class cy8_prompts_manager:
             name, prompt_values_json, workflow_json, url, model, comment, status = data
 
             # Mettre à jour le statut
-            self.update_execution_stack_status(execution_id, f"Préparation des données", 25)
+            self.update_execution_stack_status(
+                execution_id, f"Préparation des données", 25
+            )
 
             # Créer le répertoire data/Workflows s'il n'existe pas
             os.makedirs("data/Workflows", exist_ok=True)
@@ -1677,33 +1914,45 @@ class cy8_prompts_manager:
             # Vérifier le contenu JSON
             try:
                 import json
-                with open(workflow_file_path, 'r', encoding='utf-8') as f:
+
+                with open(workflow_file_path, "r", encoding="utf-8") as f:
                     workflow_data = json.load(f)
                     print(f"DEBUG: Workflow JSON valide, {len(workflow_data)} nodes")
 
-                with open(prompt_values_file_path, 'r', encoding='utf-8') as f:
+                with open(prompt_values_file_path, "r", encoding="utf-8") as f:
                     values_data = json.load(f)
                     print(f"DEBUG: Values JSON valide, {len(values_data)} entrées")
             except json.JSONDecodeError as e:
                 self.update_execution_stack_status(execution_id, f"Erreur JSON: {e}", 0)
                 return
             except Exception as e:
-                self.update_execution_stack_status(execution_id, f"Erreur fichiers: {e}", 0)
+                self.update_execution_stack_status(
+                    execution_id, f"Erreur fichiers: {e}", 0
+                )
                 return
 
             # Exécuter le workflow avec ComfyUI
             try:
-                from cy6_websocket_api_client import workflow_is_running, is_prompt_in_queue
+                from cy6_websocket_api_client import (
+                    workflow_is_running,
+                    is_prompt_in_queue,
+                )
 
                 tsk1 = comfyui_basic_task()
 
                 # Étape 1: Ajout à la queue (50% -> 60%)
-                self.update_execution_stack_status(execution_id, "Ajout à la queue ComfyUI", 60)
-                comfyui_prompt_id = tsk1.addToQueue(workflow_file_path, prompt_values_file_path)
+                self.update_execution_stack_status(
+                    execution_id, "Ajout à la queue ComfyUI", 60
+                )
+                comfyui_prompt_id = tsk1.addToQueue(
+                    workflow_file_path, prompt_values_file_path
+                )
                 print(f"DEBUG: ComfyUI prompt ID: {comfyui_prompt_id}")
 
                 # Étape 2: Workflow en queue (60% -> 75%)
-                self.update_execution_stack_status(execution_id, f"En queue (ID: {comfyui_prompt_id})", 75)
+                self.update_execution_stack_status(
+                    execution_id, f"En queue (ID: {comfyui_prompt_id})", 75
+                )
 
                 # Étape 3: Génération en cours avec vérification progressive
                 max_wait_time = 600  # 10 minutes max
@@ -1716,15 +1965,25 @@ class cy8_prompts_manager:
                     check_count += 1
 
                     if elapsed_time > max_wait_time:
-                        self.update_execution_stack_status(execution_id, "Timeout - Workflow trop long", 0)
-                        print(f"DEBUG: Timeout après {elapsed_time:.1f}s pour prompt {comfyui_prompt_id}")
+                        self.update_execution_stack_status(
+                            execution_id, "Timeout - Workflow trop long", 0
+                        )
+                        print(
+                            f"DEBUG: Timeout après {elapsed_time:.1f}s pour prompt {comfyui_prompt_id}"
+                        )
                         return
 
                     # Mise à jour progressive du statut (75% -> 95%)
                     if elapsed_time > 5:  # Après 5 secondes, on augmente le progrès
-                        progress_increment = min(20, int(elapsed_time / 10) * 5)  # 5% toutes les 10 secondes
+                        progress_increment = min(
+                            20, int(elapsed_time / 10) * 5
+                        )  # 5% toutes les 10 secondes
                         progress_step = min(95, 75 + progress_increment)
-                        self.update_execution_stack_status(execution_id, f"Génération en cours ({int(elapsed_time)}s)", progress_step)
+                        self.update_execution_stack_status(
+                            execution_id,
+                            f"Génération en cours ({int(elapsed_time)}s)",
+                            progress_step,
+                        )
 
                     # Vérifier si le workflow est toujours en cours
                     workflow_finished = False
@@ -1733,9 +1992,11 @@ class cy8_prompts_manager:
 
                     # Méthode 1: Vérification WebSocket
                     try:
-                        if hasattr(tsk1, 'ws') and tsk1.ws:
+                        if hasattr(tsk1, "ws") and tsk1.ws:
                             is_running = workflow_is_running(tsk1.ws, comfyui_prompt_id)
-                            print(f"DEBUG: Check {check_count}: workflow_is_running = {is_running}")
+                            print(
+                                f"DEBUG: Check {check_count}: workflow_is_running = {is_running}"
+                            )
                             if not is_running:
                                 websocket_says_finished = True
                         else:
@@ -1746,17 +2007,23 @@ class cy8_prompts_manager:
                     # Méthode 2: Vérification via API HTTP de la queue
                     try:
                         queue_says_running = is_prompt_in_queue(comfyui_prompt_id)
-                        print(f"DEBUG: Check {check_count}: is_prompt_in_queue = {queue_says_running}")
+                        print(
+                            f"DEBUG: Check {check_count}: is_prompt_in_queue = {queue_says_running}"
+                        )
                     except Exception as queue_error:
                         print(f"DEBUG: Erreur queue check: {queue_error}")
 
                     # Décision basée sur les deux méthodes
                     if websocket_says_finished and not queue_says_running:
-                        print(f"DEBUG: Workflow terminé après {elapsed_time:.1f}s (WebSocket ET Queue confirment)")
+                        print(
+                            f"DEBUG: Workflow terminé après {elapsed_time:.1f}s (WebSocket ET Queue confirment)"
+                        )
                         workflow_finished = True
                     elif not queue_says_running and elapsed_time > 10:
                         # Si la queue ne contient plus le prompt et que ça fait plus de 10s, c'est probablement fini
-                        print(f"DEBUG: Workflow probablement terminé après {elapsed_time:.1f}s (Plus dans la queue)")
+                        print(
+                            f"DEBUG: Workflow probablement terminé après {elapsed_time:.1f}s (Plus dans la queue)"
+                        )
                         workflow_finished = True
                     elif elapsed_time > max_wait_time:
                         print(f"DEBUG: Timeout général après {elapsed_time:.1f}s")
@@ -1768,11 +2035,15 @@ class cy8_prompts_manager:
                     time.sleep(3)  # Vérifier toutes les 3 secondes
 
                 # Étape 4: Récupération des images (95% -> 100%)
-                self.update_execution_stack_status(execution_id, "Récupération des images", 95)
+                self.update_execution_stack_status(
+                    execution_id, "Récupération des images", 95
+                )
 
             except Exception as comfy_error:
                 print(f"DEBUG: Erreur ComfyUI: {comfy_error}")
-                self.update_execution_stack_status(execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0)
+                self.update_execution_stack_status(
+                    execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0
+                )
                 return
 
             # Récupérer les images générées
@@ -1780,15 +2051,21 @@ class cy8_prompts_manager:
                 output_images = tsk1.GetImages(comfyui_prompt_id)
             except Exception as img_error:
                 print(f"DEBUG: Erreur récupération images: {img_error}")
-                self.update_execution_stack_status(execution_id, f"Erreur images: {str(img_error)}", 0)
+                self.update_execution_stack_status(
+                    execution_id, f"Erreur images: {str(img_error)}", 0
+                )
                 return
 
             if output_images:
                 # Ajouter les images à la base de données
-                images_added = self.add_output_images_to_database(prompt_id, output_images)
+                images_added = self.add_output_images_to_database(
+                    prompt_id, output_images
+                )
 
                 self.update_execution_stack_status(
-                    execution_id, f"Terminé avec succès - {len(output_images)} images générées ({images_added} ajoutées)", 100
+                    execution_id,
+                    f"Terminé avec succès - {len(output_images)} images générées ({images_added} ajoutées)",
+                    100,
                 )
 
                 # Actualiser la liste d'images si c'est le prompt actuellement sélectionné
@@ -1800,7 +2077,9 @@ class cy8_prompts_manager:
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
                 )
             else:
-                self.update_execution_stack_status(execution_id, "Terminé - Aucune image générée", 100)
+                self.update_execution_stack_status(
+                    execution_id, "Terminé - Aucune image générée", 100
+                )
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
@@ -1809,7 +2088,9 @@ class cy8_prompts_manager:
         except Exception as e:
             error_msg = f"Erreur ComfyUI: {str(e)}"
             self.update_execution_stack_status(execution_id, error_msg, 0)
-            self.root.after(0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok"))
+            self.root.after(
+                0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok")
+            )
             print(f"Erreur dans _execute_workflow_task: {e}")
 
     def update_prompt_status_after_execution(self, prompt_id, status):
@@ -1833,7 +2114,10 @@ class cy8_prompts_manager:
                 )
 
                 # Mettre à jour l'affichage
-                if str(prompt_id) in [self.prompts_tree.item(item, "values")[0] for item in self.prompts_tree.get_children()]:
+                if str(prompt_id) in [
+                    self.prompts_tree.item(item, "values")[0]
+                    for item in self.prompts_tree.get_children()
+                ]:
                     for item in self.prompts_tree.get_children():
                         if self.prompts_tree.item(item, "values")[0] == str(prompt_id):
                             values = list(self.prompts_tree.item(item, "values"))
@@ -1876,7 +2160,9 @@ class cy8_prompts_manager:
             foreground="blue",
         ).pack(anchor="e", pady=(0, 5))
 
-        ttk.Label(main_frame, text="Analyse du Prompt", style="Title.TLabel").pack(pady=10)
+        ttk.Label(main_frame, text="Analyse du Prompt", style="Title.TLabel").pack(
+            pady=10
+        )
 
         # Zone d'analyse
         analysis_text = tk.Text(main_frame, wrap="word", font=("Consolas", 10))
@@ -1886,7 +2172,9 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = data
+                name, prompt_values, workflow, url, parent, model, comment, status = (
+                    data
+                )
 
                 analysis = f"""ANALYSE DU PROMPT: {name}
 {'='*50}
@@ -1974,7 +2262,11 @@ WORKFLOW:
         """Mettre à jour l'affichage des exécutions dans la barre de statut"""
         if self.execution_stack:
             last_execution = self.execution_stack[-1]
-            progress_str = f" ({last_execution['progress']}%)" if last_execution["progress"] > 0 else ""
+            progress_str = (
+                f" ({last_execution['progress']}%)"
+                if last_execution["progress"] > 0
+                else ""
+            )
             display_text = f"{last_execution['prompt_name']}: {last_execution['message']}{progress_str}"
             self.execution_text.set(display_text)
         else:
@@ -1991,7 +2283,9 @@ WORKFLOW:
 
         # Ajouter les exécutions (les plus récentes en premier)
         for execution in reversed(self.execution_stack):
-            progress_display = f"{execution['progress']}%" if execution["progress"] > 0 else "-"
+            progress_display = (
+                f"{execution['progress']}%" if execution["progress"] > 0 else "-"
+            )
 
             self.executions_tree.insert(
                 "",
@@ -2059,7 +2353,7 @@ WORKFLOW:
 
     def refresh_images_list(self):
         """Actualiser la liste des images pour le prompt sélectionné"""
-        if not hasattr(self, 'images_tree') or not self.images_tree:
+        if not hasattr(self, "images_tree") or not self.images_tree:
             return
 
         # Effacer la liste actuelle
@@ -2079,16 +2373,20 @@ WORKFLOW:
         for image_id, image_path, created_at in images:
             if os.path.exists(image_path):
                 filename = os.path.basename(image_path)
-                self.images_tree.insert("", "end", values=(filename, image_path, created_at))
+                self.images_tree.insert(
+                    "", "end", values=(filename, image_path, created_at)
+                )
 
     def on_image_select(self, event):
         """Gérer la sélection d'une image pour la prévisualisation"""
-        if not hasattr(self, 'images_tree') or not self.images_tree:
+        if not hasattr(self, "images_tree") or not self.images_tree:
             return
 
         selection = self.images_tree.selection()
         if not selection:
-            self.preview_label.configure(image="", text="Sélectionnez une image\npour la prévisualiser")
+            self.preview_label.configure(
+                image="", text="Sélectionnez une image\npour la prévisualiser"
+            )
             return
 
         # Récupérer le chemin de l'image
@@ -2111,7 +2409,9 @@ WORKFLOW:
             self.current_preview_image = photo  # Garder une référence
 
         except Exception as e:
-            self.preview_label.configure(image="", text=f"Erreur lors du chargement:\n{str(e)}")
+            self.preview_label.configure(
+                image="", text=f"Erreur lors du chargement:\n{str(e)}"
+            )
             self.current_preview_image = None
 
     def add_images_to_prompt(self):
@@ -2119,7 +2419,9 @@ WORKFLOW:
         # Récupérer le prompt sélectionné
         selection = self.prompts_tree.selection()
         if not selection:
-            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un prompt")
+            messagebox.showwarning(
+                "Aucune sélection", "Veuillez sélectionner un prompt"
+            )
             return
 
         prompt_id = int(selection[0])
@@ -2129,12 +2431,11 @@ WORKFLOW:
             ("Images", "*.png *.jpg *.jpeg *.gif *.bmp *.tiff"),
             ("PNG", "*.png"),
             ("JPEG", "*.jpg *.jpeg"),
-            ("Tous les fichiers", "*.*")
+            ("Tous les fichiers", "*.*"),
         ]
 
         filenames = filedialog.askopenfilenames(
-            title="Sélectionner des images",
-            filetypes=filetypes
+            title="Sélectionner des images", filetypes=filetypes
         )
 
         if filenames:
@@ -2145,7 +2446,7 @@ WORKFLOW:
 
             messagebox.showinfo(
                 "Images ajoutées",
-                f"{success_count} image(s) ajoutée(s) sur {len(filenames)} sélectionnée(s)"
+                f"{success_count} image(s) ajoutée(s) sur {len(filenames)} sélectionnée(s)",
             )
 
             # Actualiser la liste
@@ -2155,7 +2456,9 @@ WORKFLOW:
         """Agrandir l'image sélectionnée dans une nouvelle fenêtre"""
         selection = self.images_tree.selection()
         if not selection:
-            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            messagebox.showwarning(
+                "Aucune sélection", "Veuillez sélectionner une image"
+            )
             return
 
         item = self.images_tree.item(selection[0])
@@ -2204,7 +2507,9 @@ WORKFLOW:
         """Ouvrir l'image sélectionnée avec l'application par défaut"""
         selection = self.images_tree.selection()
         if not selection:
-            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            messagebox.showwarning(
+                "Aucune sélection", "Veuillez sélectionner une image"
+            )
             return
 
         item = self.images_tree.item(selection[0])
@@ -2212,10 +2517,15 @@ WORKFLOW:
 
         try:
             # Ouvrir avec l'application par défaut du système
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 os.startfile(image_path)
-            elif os.name == 'posix':  # macOS et Linux
-                subprocess.call(['open' if os.uname().sysname == 'Darwin' else 'xdg-open', image_path])
+            elif os.name == "posix":  # macOS et Linux
+                subprocess.call(
+                    [
+                        "open" if os.uname().sysname == "Darwin" else "xdg-open",
+                        image_path,
+                    ]
+                )
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
@@ -2224,7 +2534,9 @@ WORKFLOW:
         """Supprimer l'image sélectionnée de la liste (pas du disque)"""
         selection = self.images_tree.selection()
         if not selection:
-            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner une image")
+            messagebox.showwarning(
+                "Aucune sélection", "Veuillez sélectionner une image"
+            )
             return
 
         item = self.images_tree.item(selection[0])
@@ -2233,7 +2545,7 @@ WORKFLOW:
         response = messagebox.askyesno(
             "Confirmer la suppression",
             f"Voulez-vous supprimer cette image de la liste ?\n\n{os.path.basename(image_path)}\n\n"
-            "Note: L'image ne sera pas supprimée du disque."
+            "Note: L'image ne sera pas supprimée du disque.",
         )
 
         if response:
@@ -2247,10 +2559,14 @@ WORKFLOW:
                 for image_id, db_image_path, created_at in images:
                     if db_image_path == image_path:
                         if self.db_manager.delete_prompt_image(image_id):
-                            messagebox.showinfo("Suppression", "Image supprimée de la liste")
+                            messagebox.showinfo(
+                                "Suppression", "Image supprimée de la liste"
+                            )
                             self.refresh_images_list()
                         else:
-                            messagebox.showerror("Erreur", "Impossible de supprimer l'image")
+                            messagebox.showerror(
+                                "Erreur", "Impossible de supprimer l'image"
+                            )
                         break
 
     def open_images_folder(self):
@@ -2262,15 +2578,25 @@ WORKFLOW:
                 images_path = "E:/Comfyui_G11/ComfyUI/output"
 
             if os.path.exists(images_path):
-                if os.name == 'nt':  # Windows
+                if os.name == "nt":  # Windows
                     os.startfile(images_path)
-                elif os.name == 'posix':  # macOS et Linux
-                    subprocess.call(['open' if os.uname().sysname == 'Darwin' else 'xdg-open', images_path])
+                elif os.name == "posix":  # macOS et Linux
+                    subprocess.call(
+                        [
+                            "open" if os.uname().sysname == "Darwin" else "xdg-open",
+                            images_path,
+                        ]
+                    )
             else:
-                messagebox.showwarning("Dossier introuvable", f"Le dossier d'images n'existe pas:\n{images_path}")
+                messagebox.showwarning(
+                    "Dossier introuvable",
+                    f"Le dossier d'images n'existe pas:\n{images_path}",
+                )
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible d'ouvrir le dossier d'images:\n{str(e)}")
+            messagebox.showerror(
+                "Erreur", f"Impossible d'ouvrir le dossier d'images:\n{str(e)}"
+            )
 
     def add_output_images_to_database(self, prompt_id, output_images):
         """Ajouter automatiquement les images de sortie à la base de données"""
@@ -2286,12 +2612,14 @@ WORKFLOW:
 
                 if isinstance(image_info, dict):
                     # Si c'est un dictionnaire avec des informations sur l'image
-                    image_path = image_info.get('path') or image_info.get('filename')
+                    image_path = image_info.get("path") or image_info.get("filename")
                 elif isinstance(image_info, str):
                     # Si c'est directement le chemin vers l'image
                     image_path = image_info
                 else:
-                    print(f"DEBUG: Format d'image non reconnu: {type(image_info)} - {image_info}")
+                    print(
+                        f"DEBUG: Format d'image non reconnu: {type(image_info)} - {image_info}"
+                    )
                     continue
 
                 # Vérifier que le fichier existe
@@ -2345,7 +2673,9 @@ WORKFLOW:
 
             stats_text = f"Total prompts: {total_prompts}"
             if status_counts:
-                stats_text += "\n" + " | ".join([f"{status}: {count}" for status, count in status_counts.items()])
+                stats_text += "\n" + " | ".join(
+                    [f"{status}: {count}" for status, count in status_counts.items()]
+                )
 
             self.stats_text.set(stats_text)
         except Exception as e:
@@ -2402,23 +2732,31 @@ WORKFLOW:
         name_entry.focus_set()
 
         # Chemin de destination
-        ttk.Label(main_frame, text="Répertoire de destination:").pack(anchor="w", pady=(0, 5))
+        ttk.Label(main_frame, text="Répertoire de destination:").pack(
+            anchor="w", pady=(0, 5)
+        )
 
         path_frame = ttk.Frame(main_frame)
         path_frame.pack(fill="x", pady=(0, 20))
 
-        path_var = tk.StringVar(value=cy8_paths_manager.get_directory_from_path(self.db_path))
+        path_var = tk.StringVar(
+            value=cy8_paths_manager.get_directory_from_path(self.db_path)
+        )
         path_entry = ttk.Entry(path_frame, textvariable=path_var, width=40)
         path_entry.pack(side="left", fill="x", expand=True)
 
         def browse_directory():
             from tkinter import filedialog
 
-            directory = filedialog.askdirectory(title="Sélectionner le répertoire", initialdir=path_var.get())
+            directory = filedialog.askdirectory(
+                title="Sélectionner le répertoire", initialdir=path_var.get()
+            )
             if directory:
                 path_var.set(directory)
 
-        ttk.Button(path_frame, text="Parcourir...", command=browse_directory).pack(side="right", padx=(5, 0))
+        ttk.Button(path_frame, text="Parcourir...", command=browse_directory).pack(
+            side="right", padx=(5, 0)
+        )
 
         # Boutons d'action
         button_frame = ttk.Frame(main_frame)
@@ -2445,7 +2783,9 @@ WORKFLOW:
             full_path = normalize_path(cy8_paths_manager.join_path(path, clean_name))
 
             if os.path.exists(full_path):
-                if not messagebox.askyesno("Confirmer", f"Le fichier {full_path} existe déjà. L'écraser ?"):
+                if not messagebox.askyesno(
+                    "Confirmer", f"Le fichier {full_path} existe déjà. L'écraser ?"
+                ):
                     return
 
             try:
@@ -2455,14 +2795,18 @@ WORKFLOW:
                 # Créer et basculer vers la nouvelle base
                 self.switch_to_database(full_path, create_new=True)
                 popup.destroy()
-                messagebox.showinfo("Succès", f"Base de données créée avec succès: {full_path}")
+                messagebox.showinfo(
+                    "Succès", f"Base de données créée avec succès: {full_path}"
+                )
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors de la création: {e}")
 
         def cancel():
             popup.destroy()
 
-        ttk.Button(button_frame, text="Créer", command=create_database).pack(side="right", padx=(5, 0))
+        ttk.Button(button_frame, text="Créer", command=create_database).pack(
+            side="right", padx=(5, 0)
+        )
         ttk.Button(button_frame, text="Annuler", command=cancel).pack(side="right")
 
     def switch_to_database(self, new_db_path, create_new=False):
@@ -2481,7 +2825,9 @@ WORKFLOW:
 
             # Initialiser la base (créer les tables si nécessaire)
             if create_new:
-                self.db_manager.init_database("init")  # Mode init pour créer avec prompt par défaut
+                self.db_manager.init_database(
+                    "init"
+                )  # Mode init pour créer avec prompt par défaut
             else:
                 self.db_manager.init_database("dev")  # Mode dev pour ouvrir existante
 
@@ -2514,10 +2860,14 @@ WORKFLOW:
             if hasattr(self, "recent_listbox"):
                 self.refresh_recent_list()
 
-            self.update_status(f"Base de données changée: {cy8_paths_manager.get_filename_from_path(normalized_path)}")
+            self.update_status(
+                f"Base de données changée: {cy8_paths_manager.get_filename_from_path(normalized_path)}"
+            )
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible de changer de base de données: {e}")
+            messagebox.showerror(
+                "Erreur", f"Impossible de changer de base de données: {e}"
+            )
 
     def import_json(self):
         """Importer des données JSON"""
@@ -2535,7 +2885,9 @@ WORKFLOW:
         recent_dbs = self.user_prefs.get_recent_databases()
 
         if not recent_dbs:
-            self.recent_db_menu.add_command(label="(Aucune base récente)", state="disabled")
+            self.recent_db_menu.add_command(
+                label="(Aucune base récente)", state="disabled"
+            )
         else:
             for db_path in recent_dbs:
                 db_name = os.path.basename(db_path)
@@ -2549,7 +2901,9 @@ WORKFLOW:
 
             # Séparateur et option pour effacer
             self.recent_db_menu.add_separator()
-            self.recent_db_menu.add_command(label="Effacer la liste", command=self.clear_recent_databases)
+            self.recent_db_menu.add_command(
+                label="Effacer la liste", command=self.clear_recent_databases
+            )
 
     def open_recent_database(self, db_path):
         """Ouvrir une base de données récente"""
@@ -2600,7 +2954,9 @@ WORKFLOW:
                         if not cy8_paths_manager.compare_paths(db_path, self.db_path):
                             self.switch_to_database(db_path)
                         else:
-                            messagebox.showinfo("Information", "Cette base est déjà ouverte.")
+                            messagebox.showinfo(
+                                "Information", "Cette base est déjà ouverte."
+                            )
                     else:
                         if messagebox.askyesno(
                             "Base introuvable",
@@ -2610,7 +2966,9 @@ WORKFLOW:
                             self.refresh_recent_list()
                             self.update_recent_databases_menu()
             else:
-                messagebox.showwarning("Sélection", "Sélectionnez une base dans la liste.")
+                messagebox.showwarning(
+                    "Sélection", "Sélectionnez une base dans la liste."
+                )
 
     def remove_selected_recent(self):
         """Retirer la base sélectionnée de la liste des récentes"""
@@ -2630,9 +2988,13 @@ WORKFLOW:
                         self.user_prefs.remove_recent_database(db_path)
                         self.refresh_recent_list()
                         self.update_recent_databases_menu()
-                        messagebox.showinfo("Succès", f"'{db_name}' retiré de la liste.")
+                        messagebox.showinfo(
+                            "Succès", f"'{db_name}' retiré de la liste."
+                        )
             else:
-                messagebox.showwarning("Sélection", "Sélectionnez une base à retirer de la liste.")
+                messagebox.showwarning(
+                    "Sélection", "Sélectionnez une base à retirer de la liste."
+                )
 
     def run(self):
         """Démarrer l'application"""
@@ -2667,7 +3029,7 @@ WORKFLOW:
             criteria="En cours d'exécution",
             value="",
             active=False,
-            filter_id="execution_running"
+            filter_id="execution_running",
         )
 
         # Filtre 2: Modèle spécifique
@@ -2676,7 +3038,7 @@ WORKFLOW:
             criteria="Égal à",
             value="",
             active=False,
-            filter_id="model_equals"
+            filter_id="model_equals",
         )
 
         # Filtre 3: Fils du prompt sélectionné
@@ -2685,7 +3047,7 @@ WORKFLOW:
             criteria="Fils du prompt sélectionné",
             value="",
             active=False,
-            filter_id="children_selected"
+            filter_id="children_selected",
         )
 
         # Filtre 4: Nom du prompt
@@ -2694,10 +3056,12 @@ WORKFLOW:
             criteria="Contient",
             value="",
             active=False,
-            filter_id="name_contains"
+            filter_id="name_contains",
         )
 
-    def add_filter_row(self, filter_type="", criteria="", value="", active=False, filter_id=None):
+    def add_filter_row(
+        self, filter_type="", criteria="", value="", active=False, filter_id=None
+    ):
         """Ajouter une ligne de filtre"""
 
         # Frame pour cette ligne de filtre
@@ -2706,21 +3070,22 @@ WORKFLOW:
 
         # Checkbox pour activer/désactiver
         active_var = tk.BooleanVar(value=active)
-        active_check = ttk.Checkbutton(filter_frame, variable=active_var, command=self.on_filter_changed)
+        active_check = ttk.Checkbutton(
+            filter_frame, variable=active_var, command=self.on_filter_changed
+        )
         active_check.grid(row=0, column=0, padx=5, pady=2)
 
         # Type de filtre (ComboBox)
-        filter_types = [
-            "Statut d'exécution",
-            "Modèle",
-            "Hiérarchie",
-            "Nom",
-            "Statut"
-        ]
+        filter_types = ["Statut d'exécution", "Modèle", "Hiérarchie", "Nom", "Statut"]
         type_var = tk.StringVar(value=filter_type)
-        type_combo = ttk.Combobox(filter_frame, textvariable=type_var, values=filter_types, width=15)
+        type_combo = ttk.Combobox(
+            filter_frame, textvariable=type_var, values=filter_types, width=15
+        )
         type_combo.grid(row=0, column=1, padx=5, pady=2)
-        type_combo.bind('<<ComboboxSelected>>', lambda e: self.on_filter_type_changed(filter_id, type_var.get()))
+        type_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self.on_filter_type_changed(filter_id, type_var.get()),
+        )
 
         # Critère (dépend du type)
         criteria_var = tk.StringVar(value=criteria)
@@ -2731,23 +3096,27 @@ WORKFLOW:
         value_var = tk.StringVar(value=value)
         value_widget = ttk.Entry(filter_frame, textvariable=value_var, width=20)
         value_widget.grid(row=0, column=3, padx=5, pady=2)
-        value_widget.bind('<KeyRelease>', lambda e: self.on_filter_changed())
+        value_widget.bind("<KeyRelease>", lambda e: self.on_filter_changed())
 
         # Bouton supprimer
-        delete_btn = ttk.Button(filter_frame, text="✕", width=3,
-                               command=lambda: self.remove_filter_row(filter_id))
+        delete_btn = ttk.Button(
+            filter_frame,
+            text="✕",
+            width=3,
+            command=lambda: self.remove_filter_row(filter_id),
+        )
         delete_btn.grid(row=0, column=4, padx=5, pady=2)
 
         # Stocker les références
         filter_data = {
-            'id': filter_id or f"filter_{len(self.filters_list)}",
-            'frame': filter_frame,
-            'active_var': active_var,
-            'type_var': type_var,
-            'criteria_var': criteria_var,
-            'value_var': value_var,
-            'criteria_combo': criteria_combo,
-            'value_widget': value_widget
+            "id": filter_id or f"filter_{len(self.filters_list)}",
+            "frame": filter_frame,
+            "active_var": active_var,
+            "type_var": type_var,
+            "criteria_var": criteria_var,
+            "value_var": value_var,
+            "criteria_combo": criteria_combo,
+            "value_widget": value_widget,
         }
 
         self.filters_list.append(filter_data)
@@ -2757,7 +3126,7 @@ WORKFLOW:
 
     def on_filter_type_changed(self, filter_id, new_type):
         """Quand le type de filtre change, mettre à jour les critères"""
-        filter_data = next((f for f in self.filters_list if f['id'] == filter_id), None)
+        filter_data = next((f for f in self.filters_list if f["id"] == filter_id), None)
         if filter_data:
             self.update_criteria_options(filter_data)
             self.on_filter_changed()
@@ -2765,28 +3134,48 @@ WORKFLOW:
     def update_criteria_options(self, filter_data):
         """Mettre à jour les options de critères selon le type de filtre"""
 
-        filter_type = filter_data['type_var'].get()
-        criteria_combo = filter_data['criteria_combo']
+        filter_type = filter_data["type_var"].get()
+        criteria_combo = filter_data["criteria_combo"]
 
         if filter_type == "Statut d'exécution":
-            criteria_combo['values'] = ["En cours d'exécution", "Terminé", "En erreur", "En attente"]
-            filter_data['criteria_var'].set("En cours d'exécution")
+            criteria_combo["values"] = [
+                "En cours d'exécution",
+                "Terminé",
+                "En erreur",
+                "En attente",
+            ]
+            filter_data["criteria_var"].set("En cours d'exécution")
 
         elif filter_type == "Modèle":
-            criteria_combo['values'] = ["Égal à", "Contient", "Commence par", "Finit par"]
-            filter_data['criteria_var'].set("Égal à")
+            criteria_combo["values"] = [
+                "Égal à",
+                "Contient",
+                "Commence par",
+                "Finit par",
+            ]
+            filter_data["criteria_var"].set("Égal à")
 
         elif filter_type == "Hiérarchie":
-            criteria_combo['values'] = ["Fils du prompt sélectionné", "Parent du prompt sélectionné", "Racine (sans parent)", "Avec enfants"]
-            filter_data['criteria_var'].set("Fils du prompt sélectionné")
+            criteria_combo["values"] = [
+                "Fils du prompt sélectionné",
+                "Parent du prompt sélectionné",
+                "Racine (sans parent)",
+                "Avec enfants",
+            ]
+            filter_data["criteria_var"].set("Fils du prompt sélectionné")
 
         elif filter_type == "Nom":
-            criteria_combo['values'] = ["Contient", "Égal à", "Commence par", "Finit par"]
-            filter_data['criteria_var'].set("Contient")
+            criteria_combo["values"] = [
+                "Contient",
+                "Égal à",
+                "Commence par",
+                "Finit par",
+            ]
+            filter_data["criteria_var"].set("Contient")
 
         elif filter_type == "Statut":
-            criteria_combo['values'] = ["Égal à", "Différent de"]
-            filter_data['criteria_var'].set("Égal à")
+            criteria_combo["values"] = ["Égal à", "Différent de"]
+            filter_data["criteria_var"].set("Égal à")
 
     def add_new_filter(self):
         """Ajouter un nouveau filtre vide"""
@@ -2794,9 +3183,9 @@ WORKFLOW:
 
     def remove_filter_row(self, filter_id):
         """Supprimer une ligne de filtre"""
-        filter_data = next((f for f in self.filters_list if f['id'] == filter_id), None)
+        filter_data = next((f for f in self.filters_list if f["id"] == filter_id), None)
         if filter_data:
-            filter_data['frame'].destroy()
+            filter_data["frame"].destroy()
             self.filters_list.remove(filter_data)
             self.on_filter_changed()
 
@@ -2808,7 +3197,7 @@ WORKFLOW:
     def apply_filters(self):
         """Appliquer tous les filtres actifs à la liste des prompts"""
 
-        if not hasattr(self, 'db_manager') or not self.db_manager:
+        if not hasattr(self, "db_manager") or not self.db_manager:
             return
 
         # Récupérer tous les prompts de base (utiliser get_all_prompts pour cohérence)
@@ -2823,15 +3212,17 @@ WORKFLOW:
 
         # Appliquer chaque filtre actif
         for filter_data in self.filters_list:
-            if not filter_data['active_var'].get():
+            if not filter_data["active_var"].get():
                 continue
 
             active_filters_count += 1
-            filter_type = filter_data['type_var'].get()
-            criteria = filter_data['criteria_var'].get()
-            value = filter_data['value_var'].get()
+            filter_type = filter_data["type_var"].get()
+            criteria = filter_data["criteria_var"].get()
+            value = filter_data["value_var"].get()
 
-            filtered_prompts = self.apply_single_filter(filtered_prompts, filter_type, criteria, value)
+            filtered_prompts = self.apply_single_filter(
+                filtered_prompts, filter_type, criteria, value
+            )
 
         # Si aucun filtre actif, utiliser la méthode standard
         if active_filters_count == 0:
@@ -2861,8 +3252,11 @@ WORKFLOW:
 
             if filter_type == "Statut d'exécution":
                 # Vérifier si le prompt est en cours d'exécution
-                is_executing = any(exec_item['prompt_name'] == name and exec_item['message'] in ['En cours', 'Génération']
-                                 for exec_item in self.execution_stack)
+                is_executing = any(
+                    exec_item["prompt_name"] == name
+                    and exec_item["message"] in ["En cours", "Génération"]
+                    for exec_item in self.execution_stack
+                )
 
                 if criteria == "En cours d'exécution":
                     include_prompt = is_executing
@@ -2883,7 +3277,9 @@ WORKFLOW:
                 if criteria == "Fils du prompt sélectionné":
                     selected_item = self.prompts_tree.selection()
                     if selected_item:
-                        selected_id = self.prompts_tree.item(selected_item[0])['values'][0]
+                        selected_id = self.prompts_tree.item(selected_item[0])[
+                            "values"
+                        ][0]
                         include_prompt = parent == selected_id
                     else:
                         include_prompt = False
@@ -2938,11 +3334,13 @@ WORKFLOW:
                 status or "new",
                 model or "",
                 comment or "",
-                parent or ""
+                parent or "",
             )
 
             # Insérer avec iid pour pouvoir identifier l'élément
-            item = self.prompts_tree.insert("", "end", iid=str(prompt_id), values=display_values)
+            item = self.prompts_tree.insert(
+                "", "end", iid=str(prompt_id), values=display_values
+            )
 
             # Restaurer la sélection si c'était sélectionné avant
             if prompt_id in selected_ids:
@@ -2955,8 +3353,8 @@ WORKFLOW:
         """Réinitialiser tous les filtres"""
 
         for filter_data in self.filters_list:
-            filter_data['active_var'].set(False)
-            filter_data['value_var'].set("")
+            filter_data["active_var"].set(False)
+            filter_data["value_var"].set("")
 
         # Recharger tous les prompts (pas de filtre)
         self.load_prompts()
@@ -2968,7 +3366,7 @@ WORKFLOW:
         """Rafraîchir l'affichage des prompts en respectant les filtres actifs"""
 
         # Vérifier s'il y a des filtres actifs
-        if not hasattr(self, 'filters_list'):
+        if not hasattr(self, "filters_list"):
             # Pas de système de filtres initialisé, utiliser la méthode standard
             self.load_prompts()
             return
@@ -2976,14 +3374,14 @@ WORKFLOW:
         # Compter les filtres actifs
         active_filters_count = 0
         for filter_data in self.filters_list:
-            if filter_data['active_var'].get():
+            if filter_data["active_var"].get():
                 active_filters_count += 1
                 break  # On a trouvé au moins un filtre actif
 
         if active_filters_count == 0:
             # Aucun filtre actif, utiliser la méthode standard
             self.load_prompts()
-            if hasattr(self, 'stats_label'):
+            if hasattr(self, "stats_label"):
                 self.stats_label.config(text="Aucun filtre appliqué")
         else:
             # Des filtres sont actifs, les réappliquer
@@ -2991,11 +3389,11 @@ WORKFLOW:
 
     def has_active_filters(self):
         """Vérifier s'il y a des filtres actifs"""
-        if not hasattr(self, 'filters_list'):
+        if not hasattr(self, "filters_list"):
             return False
 
         for filter_data in self.filters_list:
-            if filter_data['active_var'].get():
+            if filter_data["active_var"].get():
                 return True
         return False
 
@@ -3012,7 +3410,7 @@ WORKFLOW:
             if not os.path.exists(path):
                 response = messagebox.askyesno(
                     "Répertoire inexistant",
-                    f"Le répertoire n'existe pas:\n{path}\n\nVoulez-vous le créer?"
+                    f"Le répertoire n'existe pas:\n{path}\n\nVoulez-vous le créer?",
                 )
                 if response:
                     os.makedirs(path, exist_ok=True)
@@ -3040,7 +3438,9 @@ WORKFLOW:
 
         # Indicateur de test en cours
         self.status_icon_label.config(text="🟡", foreground="orange")
-        self.status_text_label.config(text="Test de connexion en cours...", foreground="orange")
+        self.status_text_label.config(
+            text="Test de connexion en cours...", foreground="orange"
+        )
 
         # Forcer la mise à jour de l'interface
         self.root.update_idletasks()
@@ -3063,7 +3463,9 @@ WORKFLOW:
             if response.status_code == 200:
                 # Connexion réussie
                 self.status_icon_label.config(text="✅", foreground="green")
-                self.status_text_label.config(text="Connexion ComfyUI réussie", foreground="green")
+                self.status_text_label.config(
+                    text="Connexion ComfyUI réussie", foreground="green"
+                )
 
                 # Récupérer les détails
                 stats = response.json()
@@ -3072,8 +3474,8 @@ WORKFLOW:
                 details += f"Status: {response.status_code} OK\n"
                 details += f"Système:\n"
 
-                if 'system' in stats:
-                    for key, value in stats['system'].items():
+                if "system" in stats:
+                    for key, value in stats["system"].items():
                         details += f"  • {key}: {value}\n"
 
                 # Test WebSocket (optionnel)
@@ -3092,7 +3494,9 @@ WORKFLOW:
         except requests.exceptions.ConnectionError:
             # Serveur non accessible
             self.status_icon_label.config(text="❌", foreground="red")
-            self.status_text_label.config(text="ComfyUI non accessible", foreground="red")
+            self.status_text_label.config(
+                text="ComfyUI non accessible", foreground="red"
+            )
 
             details = f"❌ CONNEXION ÉCHOUÉE\n\n"
             details += f"Serveur: {server_info}\n"
@@ -3130,7 +3534,9 @@ WORKFLOW:
 
         finally:
             # Remettre le bouton en état normal
-            self.test_connection_btn.config(state="normal", text="🔗 Tester la connexion")
+            self.test_connection_btn.config(
+                state="normal", text="🔗 Tester la connexion"
+            )
 
             # Afficher les détails techniques
             self.details_text.config(state="normal")
@@ -3150,9 +3556,9 @@ WORKFLOW:
         # Configuration du logging pour cette fonction
         logger = logging.getLogger(__name__)
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("🚀 DÉBUT - Identification de l'environnement ComfyUI")
-        print("="*60)
+        print("=" * 60)
         logger.info("Début de l'identification de l'environnement ComfyUI")
 
         try:
@@ -3166,7 +3572,7 @@ WORKFLOW:
             logger.info("Mise à jour du statut de l'interface")
             self.config_info_label.config(
                 text="🔍 Connexion à ComfyUI et récupération des extra paths...",
-                foreground="blue"
+                foreground="blue",
             )
             self.root.update()
 
@@ -3186,7 +3592,7 @@ WORKFLOW:
                 print(f"📊 Statut du serveur: {status['status']}")
                 logger.info(f"Statut du serveur ComfyUI: {status}")
 
-                if status['status'] != 'online':
+                if status["status"] != "online":
                     error_msg = f"ComfyUI n'est pas accessible: {status.get('error', 'Serveur offline')}"
                     print(f"❌ {error_msg}")
                     logger.error(error_msg)
@@ -3200,19 +3606,20 @@ WORKFLOW:
                 logger.info("Appel du custom node ExtraPathReader avec inputs vides")
 
                 start_time = time.time()
-                result = caller.call_custom_node(
-                    node_type="ExtraPathReader",
-                    inputs={}
-                )
+                result = caller.call_custom_node(node_type="ExtraPathReader", inputs={})
                 end_time = time.time()
 
-                print(f"✅ Custom node appelé avec succès en {end_time - start_time:.2f}s")
+                print(
+                    f"✅ Custom node appelé avec succès en {end_time - start_time:.2f}s"
+                )
                 print(f"📋 Résultat: {result}")
-                logger.info(f"Custom node ExtraPathReader appelé avec succès en {end_time - start_time:.2f}s: {result}")
+                logger.info(
+                    f"Custom node ExtraPathReader appelé avec succès en {end_time - start_time:.2f}s: {result}"
+                )
 
                 # Récupérer la réponse (normalement contient un prompt_id)
-                if 'prompt_id' in result:
-                    prompt_id = result['prompt_id']
+                if "prompt_id" in result:
+                    prompt_id = result["prompt_id"]
                     print(f"🆔 Prompt ID reçu: {prompt_id}")
                     logger.info(f"Prompt ID reçu: {prompt_id}")
 
@@ -3224,7 +3631,7 @@ WORKFLOW:
                     # Mise à jour de l'interface
                     self.config_info_label.config(
                         text="⏳ Exécution du custom node en cours...",
-                        foreground="orange"
+                        foreground="orange",
                     )
                     self.root.update()
 
@@ -3235,23 +3642,34 @@ WORKFLOW:
 
                     if extra_paths_data:
                         print("✅ Extra paths récupérés avec succès")
-                        print(f"📊 Données récupérées: {list(extra_paths_data.keys()) if isinstance(extra_paths_data, dict) else type(extra_paths_data)}")
+                        print(
+                            f"📊 Données récupérées: {list(extra_paths_data.keys()) if isinstance(extra_paths_data, dict) else type(extra_paths_data)}"
+                        )
                         logger.info(f"Extra paths récupérés: {extra_paths_data}")
 
                         # Stocker les extra paths dans le gestionnaire de chemins
                         print("💾 Stockage des extra paths dans cy8_paths_manager...")
                         from cy8_paths import set_extra_paths
+
                         set_extra_paths(extra_paths_data)
                         logger.info("Extra paths stockés dans cy8_paths_manager")
 
                         # Mettre à jour les informations de l'onglet Env si il existe
-                        if hasattr(self, 'env_config_id_label') and hasattr(self, 'env_root_label'):
-                            comfyui_root = extra_paths_data.get('comfyui_root', 'Non détecté')
-                            self.env_root_label.config(text=comfyui_root, foreground="green")
+                        if hasattr(self, "env_config_id_label") and hasattr(
+                            self, "env_root_label"
+                        ):
+                            comfyui_root = extra_paths_data.get(
+                                "comfyui_root", "Non détecté"
+                            )
+                            self.env_root_label.config(
+                                text=comfyui_root, foreground="green"
+                            )
                             print(f"📍 Racine ComfyUI mise à jour: {comfyui_root}")
 
                         # Actualiser immédiatement l'affichage des extra paths
-                        print("🔄 Actualisation immédiate du tableau des extra paths...")
+                        print(
+                            "🔄 Actualisation immédiate du tableau des extra paths..."
+                        )
                         self.refresh_env_data()
                         logger.info("Tableau des extra paths actualisé après stockage")
                     else:
@@ -3263,48 +3681,66 @@ WORKFLOW:
                         print("🔍 Extraction de l'ID de configuration...")
                         logger.info("Début de l'extraction de l'ID de configuration")
 
-                        config_id = self._extract_config_id_from_extra_paths(extra_paths_data)
+                        config_id = self._extract_config_id_from_extra_paths(
+                            extra_paths_data
+                        )
 
                         if config_id:
                             print(f"🎯 ID de configuration extrait: {config_id}")
-                            logger.info(f"ID de configuration extrait avec succès: {config_id}")
+                            logger.info(
+                                f"ID de configuration extrait avec succès: {config_id}"
+                            )
 
                             # Mettre à jour l'ID de configuration
                             print("✏️ Mise à jour de l'ID de configuration...")
                             self.comfyui_config_id.set(config_id)
 
                             # Mettre à jour le champ si il existe (compatibilité ancienne interface)
-                            if self.config_id_entry and hasattr(self.config_id_entry, 'config'):
+                            if self.config_id_entry and hasattr(
+                                self.config_id_entry, "config"
+                            ):
                                 self.config_id_entry.config(state="normal")
                                 self.config_id_entry.config(state="readonly")
 
                             self.config_info_label.config(
                                 text=f"✅ Environnement identifié: {config_id}",
-                                foreground="green"
+                                foreground="green",
                             )
 
                             print("✅ Interface mise à jour avec succès")
-                            logger.info("Interface mise à jour avec l'ID de configuration")
+                            logger.info(
+                                "Interface mise à jour avec l'ID de configuration"
+                            )
 
                             # Mettre à jour l'onglet Env si il existe
-                            if hasattr(self, 'env_config_id_label'):
-                                self.env_config_id_label.config(text=config_id, foreground="green")
-                                print(f"🆔 ID de configuration mis à jour dans l'onglet Env: {config_id}")
+                            if hasattr(self, "env_config_id_label"):
+                                self.env_config_id_label.config(
+                                    text=config_id, foreground="green"
+                                )
+                                print(
+                                    f"🆔 ID de configuration mis à jour dans l'onglet Env: {config_id}"
+                                )
 
                             messagebox.showinfo(
                                 "Environnement identifié",
-                                f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI"
+                                f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI",
                             )
 
                             print("🎉 SUCCÈS - Identification terminée avec succès")
-                            logger.info("Identification de l'environnement terminée avec succès")
+                            logger.info(
+                                "Identification de l'environnement terminée avec succès"
+                            )
                         else:
-                            error_msg = "Aucun ID de configuration trouvé dans les extra paths"
+                            error_msg = (
+                                "Aucun ID de configuration trouvé dans les extra paths"
+                            )
                             print(f"❌ {error_msg}")
                             logger.error(error_msg)
                             raise Exception(error_msg)
                     else:
-                        error_msg = "Impossible de récupérer les extra paths depuis ComfyUI"
+                        error_msg = (
+                            "Impossible de récupérer les extra paths depuis ComfyUI"
+                        )
                         print(f"❌ {error_msg}")
                         logger.error(error_msg)
                         raise Exception(error_msg)
@@ -3317,17 +3753,19 @@ WORKFLOW:
         except Exception as e:
             error_msg = str(e)
             print(f"\n❌ ERREUR lors de l'identification: {error_msg}")
-            logger.error(f"Erreur lors de l'identification de l'environnement: {error_msg}")
+            logger.error(
+                f"Erreur lors de l'identification de l'environnement: {error_msg}"
+            )
 
             # Afficher les détails de l'erreur pour le debugging
             import traceback
+
             traceback_str = traceback.format_exc()
             print(f"📋 Traceback complet:\n{traceback_str}")
             logger.error(f"Traceback: {traceback_str}")
 
             self.config_info_label.config(
-                text=f"❌ Erreur: {str(e)[:50]}...",
-                foreground="red"
+                text=f"❌ Erreur: {str(e)[:50]}...", foreground="red"
             )
             messagebox.showerror(
                 "Erreur d'identification",
@@ -3335,12 +3773,12 @@ WORKFLOW:
                 "Vérifiez que:\n"
                 "• ComfyUI est démarré sur 127.0.0.1:8188\n"
                 "• Le custom node ExtraPathReader est installé\n"
-                "• Les extra paths sont configurés"
+                "• Les extra paths sont configurés",
             )
 
         finally:
             print("🏁 FIN - Identification de l'environnement ComfyUI")
-            print("="*60 + "\n")
+            print("=" * 60 + "\n")
             logger.info("Fin de l'identification de l'environnement ComfyUI")
 
     def refresh_env_data(self):
@@ -3358,19 +3796,27 @@ WORKFLOW:
 
             if not all_paths:
                 # Aucun chemin disponible
-                self.env_tree.insert("", "end", values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"))
+                self.env_tree.insert(
+                    "",
+                    "end",
+                    values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"),
+                )
                 self.env_config_id_label.config(text="Non identifié", foreground="gray")
                 self.env_root_label.config(text="Non détecté", foreground="gray")
                 return
 
             # Remplir le treeview avec les données
             for key, path_info in all_paths.items():
-                self.env_tree.insert("", "end", values=(
-                    key,
-                    path_info.get('type', 'N/A'),
-                    path_info.get('path', 'N/A'),
-                    path_info.get('section', 'N/A')
-                ))
+                self.env_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        key,
+                        path_info.get("type", "N/A"),
+                        path_info.get("path", "N/A"),
+                        path_info.get("section", "N/A"),
+                    ),
+                )
 
             # Mettre à jour les informations générales si disponibles
             # (Ces informations seraient mises à jour lors de l'identification)
@@ -3380,7 +3826,9 @@ WORKFLOW:
             # Afficher l'erreur dans le treeview
             for item in self.env_tree.get_children():
                 self.env_tree.delete(item)
-            self.env_tree.insert("", "end", values=("Erreur", "N/A", f"Erreur: {str(e)}", "N/A"))
+            self.env_tree.insert(
+                "", "end", values=("Erreur", "N/A", f"Erreur: {str(e)}", "N/A")
+            )
 
     def filter_env_paths(self, *args):
         """Filtrer les chemins affichés selon les critères de recherche"""
@@ -3398,16 +3846,24 @@ WORKFLOW:
             all_paths = get_all_extra_paths()
 
             if not all_paths:
-                self.env_tree.insert("", "end", values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"))
+                self.env_tree.insert(
+                    "",
+                    "end",
+                    values=("Aucun", "N/A", "Aucun extra path configuré", "N/A"),
+                )
                 return
 
             # Filtrer et afficher
             for key, path_info in all_paths.items():
-                path_type = path_info.get('type', '')
-                path_value = path_info.get('path', '')
+                path_type = path_info.get("type", "")
+                path_value = path_info.get("path", "")
 
                 # Appliquer le filtre de recherche
-                if search_term and search_term not in key.lower() and search_term not in path_value.lower():
+                if (
+                    search_term
+                    and search_term not in key.lower()
+                    and search_term not in path_value.lower()
+                ):
                     continue
 
                 # Appliquer le filtre de type
@@ -3415,12 +3871,16 @@ WORKFLOW:
                     continue
 
                 # Ajouter l'item filtré
-                self.env_tree.insert("", "end", values=(
-                    key,
-                    path_type,
-                    path_value,
-                    path_info.get('section', 'N/A')
-                ))
+                self.env_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        key,
+                        path_type,
+                        path_value,
+                        path_info.get("section", "N/A"),
+                    ),
+                )
 
         except Exception as e:
             print(f"Erreur lors du filtrage: {e}")
@@ -3430,18 +3890,22 @@ WORKFLOW:
         try:
             selection = self.env_tree.selection()
             if not selection:
-                messagebox.showwarning("Attention", "Veuillez sélectionner un chemin à copier.")
+                messagebox.showwarning(
+                    "Attention", "Veuillez sélectionner un chemin à copier."
+                )
                 return
 
             # Récupérer le chemin de l'item sélectionné
             item = self.env_tree.item(selection[0])
-            path = item['values'][2]  # Colonne "path"
+            path = item["values"][2]  # Colonne "path"
 
             # Copier dans le presse-papiers
             self.root.clipboard_clear()
             self.root.clipboard_append(path)
 
-            messagebox.showinfo("Copié", f"Chemin copié dans le presse-papiers:\n{path}")
+            messagebox.showinfo(
+                "Copié", f"Chemin copié dans le presse-papiers:\n{path}"
+            )
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de copier le chemin:\n{str(e)}")
@@ -3449,6 +3913,7 @@ WORKFLOW:
     def _get_extra_paths_from_comfyui(self):
         """Récupérer les extra paths depuis ComfyUI (méthode temporaire)"""
         import logging
+
         logger = logging.getLogger(__name__)
 
         try:
@@ -3457,7 +3922,9 @@ WORKFLOW:
             import yaml
 
             print("  📁 Recherche du fichier extra_model_paths.yaml...")
-            logger.info("Début de recherche du fichier de configuration extra_model_paths.yaml")
+            logger.info(
+                "Début de recherche du fichier de configuration extra_model_paths.yaml"
+            )
 
             config_path = os.path.expanduser("~/.config/ComfyUI/extra_model_paths.yaml")
             print(f"  🔍 Vérification: {config_path}")
@@ -3469,18 +3936,24 @@ WORKFLOW:
                 with open(config_path, "r", encoding="utf-8") as f:
                     config = yaml.safe_load(f)
 
-                print(f"  ✅ Configuration chargée: {len(config) if config else 0} entrées")
-                logger.info(f"Configuration chargée avec {len(config) if config else 0} entrées")
+                print(
+                    f"  ✅ Configuration chargée: {len(config) if config else 0} entrées"
+                )
+                logger.info(
+                    f"Configuration chargée avec {len(config) if config else 0} entrées"
+                )
                 return config
             else:
                 print("  ❌ Fichier non trouvé à l'emplacement standard")
-                logger.info("Fichier non trouvé à l'emplacement standard, recherche dans d'autres emplacements")
+                logger.info(
+                    "Fichier non trouvé à l'emplacement standard, recherche dans d'autres emplacements"
+                )
 
                 # Essayer d'autres emplacements possibles
                 possible_paths = [
                     os.path.expanduser("~/ComfyUI/extra_model_paths.yaml"),
                     "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
-                    "C:/ComfyUI/extra_model_paths.yaml"
+                    "C:/ComfyUI/extra_model_paths.yaml",
                 ]
 
                 for path in possible_paths:
@@ -3492,21 +3965,33 @@ WORKFLOW:
                         with open(path, "r", encoding="utf-8") as f:
                             config = yaml.safe_load(f)
 
-                        print(f"  ✅ Configuration chargée: {len(config) if config else 0} entrées")
-                        logger.info(f"Configuration chargée avec {len(config) if config else 0} entrées")
+                        print(
+                            f"  ✅ Configuration chargée: {len(config) if config else 0} entrées"
+                        )
+                        logger.info(
+                            f"Configuration chargée avec {len(config) if config else 0} entrées"
+                        )
 
                         # Retourner dans le format attendu par _extract_config_id_from_extra_paths
                         result = {
-                            'comfyui_root': os.path.dirname(path),  # Racine du ComfyUI trouvé
-                            'config_path': path,
-                            'extra_paths': config
+                            "comfyui_root": os.path.dirname(
+                                path
+                            ),  # Racine du ComfyUI trouvé
+                            "config_path": path,
+                            "extra_paths": config,
                         }
-                        print(f"  📋 Format de retour: comfyui_root={result['comfyui_root']}")
-                        logger.info(f"Données formatées avec comfyui_root: {result['comfyui_root']}")
+                        print(
+                            f"  📋 Format de retour: comfyui_root={result['comfyui_root']}"
+                        )
+                        logger.info(
+                            f"Données formatées avec comfyui_root: {result['comfyui_root']}"
+                        )
                         return result
 
                 print("  ❌ Aucun fichier de configuration trouvé")
-                logger.warning("Aucun fichier de configuration extra_model_paths.yaml trouvé")
+                logger.warning(
+                    "Aucun fichier de configuration extra_model_paths.yaml trouvé"
+                )
                 return None
 
         except Exception as e:
@@ -3522,8 +4007,8 @@ WORKFLOW:
         import re
 
         # Extraire les informations du custom node
-        comfyui_root = extra_paths_data.get('comfyui_root', '')
-        extra_paths_config = extra_paths_data.get('extra_paths', {})
+        comfyui_root = extra_paths_data.get("comfyui_root", "")
+        extra_paths_config = extra_paths_data.get("extra_paths", {})
 
         # D'abord, chercher dans les chemins custom_nodes (priorité la plus haute)
         custom_nodes_config_id = None
@@ -3535,13 +4020,19 @@ WORKFLOW:
                 for path_key, path_value in paths.items():
                     if isinstance(path_value, str):
                         # Priorité aux chemins custom_nodes
-                        if 'custom_nodes' in path_value.lower():
+                        if "custom_nodes" in path_value.lower():
                             # Pattern: H:/comfyui/G11_04/custom_nodes -> G11_04
                             pattern = r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]custom_nodes"
                             match = re.search(pattern, path_value, re.IGNORECASE)
                             if match:
                                 candidate_id = match.group(1)
-                                if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae']:
+                                if candidate_id.lower() not in [
+                                    "models",
+                                    "checkpoints",
+                                    "loras",
+                                    "embeddings",
+                                    "vae",
+                                ]:
                                     custom_nodes_config_id = candidate_id
                                     break
 
@@ -3549,7 +4040,7 @@ WORKFLOW:
                         patterns = [
                             r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]",  # H:/comfyui/ID/...
                             r".*[/\\]([^/\\]+)[/\\]ComfyUI[/\\]",  # H:/ID/ComfyUI/...
-                            r".*[/\\]comfyui[/\\]([^/\\]+)$",      # H:/comfyui/ID (fin de chemin)
+                            r".*[/\\]comfyui[/\\]([^/\\]+)$",  # H:/comfyui/ID (fin de chemin)
                         ]
 
                         for pattern in patterns:
@@ -3557,7 +4048,14 @@ WORKFLOW:
                             if match:
                                 candidate_id = match.group(1)
                                 # Exclure certains noms génériques
-                                if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae', 'custom_nodes']:
+                                if candidate_id.lower() not in [
+                                    "models",
+                                    "checkpoints",
+                                    "loras",
+                                    "embeddings",
+                                    "vae",
+                                    "custom_nodes",
+                                ]:
                                     if not other_config_id:  # Prendre le premier trouvé
                                         other_config_id = candidate_id
 
@@ -3567,12 +4065,18 @@ WORKFLOW:
 
             elif isinstance(paths, str):
                 # Traiter le cas où la valeur est directement une chaîne
-                if 'custom_nodes' in paths.lower():
+                if "custom_nodes" in paths.lower():
                     pattern = r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]custom_nodes"
                     match = re.search(pattern, paths, re.IGNORECASE)
                     if match:
                         candidate_id = match.group(1)
-                        if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae']:
+                        if candidate_id.lower() not in [
+                            "models",
+                            "checkpoints",
+                            "loras",
+                            "embeddings",
+                            "vae",
+                        ]:
                             custom_nodes_config_id = candidate_id
                             break
 
@@ -3601,8 +4105,10 @@ WORKFLOW:
                     return candidate_id
 
         # Priorité 4: ID par défaut basé sur le base_path si disponible
-        if 'comfyui' in extra_paths_config and isinstance(extra_paths_config['comfyui'], dict):
-            base_path = extra_paths_config['comfyui'].get('base_path', '')
+        if "comfyui" in extra_paths_config and isinstance(
+            extra_paths_config["comfyui"], dict
+        ):
+            base_path = extra_paths_config["comfyui"].get("base_path", "")
             if base_path:
                 pattern = r".*[/\\]([^/\\]+)[/\\]ComfyUI"
                 match = re.search(pattern, base_path, re.IGNORECASE)
@@ -3615,7 +4121,11 @@ WORKFLOW:
         """Ouvrir un dialogue pour sélectionner le fichier de log ComfyUI"""
         from tkinter import filedialog
 
-        initial_dir = os.path.dirname(self.comfyui_log_path.get()) if self.comfyui_log_path.get() else "."
+        initial_dir = (
+            os.path.dirname(self.comfyui_log_path.get())
+            if self.comfyui_log_path.get()
+            else "."
+        )
 
         filename = filedialog.askopenfilename(
             title="Sélectionner le fichier de log ComfyUI",
@@ -3623,8 +4133,8 @@ WORKFLOW:
             filetypes=[
                 ("Fichiers log", "*.log"),
                 ("Fichiers texte", "*.txt"),
-                ("Tous les fichiers", "*.*")
-            ]
+                ("Tous les fichiers", "*.*"),
+            ],
         )
 
         if filename:
@@ -3635,11 +4145,15 @@ WORKFLOW:
         log_path = self.comfyui_log_path.get().strip()
 
         if not log_path:
-            messagebox.showwarning("Attention", "Veuillez spécifier un fichier de log à analyser.")
+            messagebox.showwarning(
+                "Attention", "Veuillez spécifier un fichier de log à analyser."
+            )
             return
 
         if not os.path.exists(log_path):
-            messagebox.showerror("Erreur", f"Le fichier de log n'existe pas :\n{log_path}")
+            messagebox.showerror(
+                "Erreur", f"Le fichier de log n'existe pas :\n{log_path}"
+            )
             return
 
         # Désactiver le bouton pendant l'analyse
@@ -3659,7 +4173,9 @@ WORKFLOW:
 
             if not result["success"]:
                 messagebox.showerror("Erreur d'analyse", result["error"])
-                self.log_status_label.config(text="Erreur lors de l'analyse", foreground="red")
+                self.log_status_label.config(
+                    text="Erreur lors de l'analyse", foreground="red"
+                )
                 return
 
             # Stocker les résultats pour le filtrage
@@ -3684,13 +4200,13 @@ WORKFLOW:
                         entry["category"],
                         entry["element"],
                         entry["message"],
-                        entry["line"]
+                        entry["line"],
                     ),
-                    tags=(tag,)
+                    tags=(tag,),
                 )
 
             # Mettre à jour le compteur de résultats
-            if hasattr(self, 'log_results_count_label'):
+            if hasattr(self, "log_results_count_label"):
                 self.log_results_count_label.config(text=f"{len(entries)} résultats")
 
             # Mettre à jour l'ID de configuration s'il est trouvé dans le log
@@ -3702,19 +4218,19 @@ WORKFLOW:
                 self.comfyui_config_id.set(detected_config_id)
                 self.config_info_label.config(
                     text=f"✅ ID détecté automatiquement lors de l'analyse : {detected_config_id}",
-                    foreground="green"
+                    foreground="green",
                 )
             elif detected_config_id and current_config_id != detected_config_id:
                 # Si un ID différent est détecté
                 self.config_info_label.config(
                     text=f"ℹ️ ID détecté dans le log : {detected_config_id} (vous pouvez le remplacer)",
-                    foreground="blue"
+                    foreground="blue",
                 )
             elif not detected_config_id and not current_config_id:
                 # Aucun ID détecté ni saisi
                 self.config_info_label.config(
                     text="💡 Aucun ID détecté dans le log. Saisissez-le manuellement si nécessaire.",
-                    foreground="gray"
+                    foreground="gray",
                 )
 
             # Utiliser l'ID saisi ou détecté pour l'affichage
@@ -3727,21 +4243,34 @@ WORKFLOW:
 
             # Afficher un résumé dans une popup avec l'ID de configuration
             summary_text = self.log_analyzer.get_summary_text()
-            config_info = f"\n🆔 ID Configuration: {display_config_id}" if display_config_id else "\n🆔 ID Configuration: Non spécifié"
+            config_info = (
+                f"\n🆔 ID Configuration: {display_config_id}"
+                if display_config_id
+                else "\n🆔 ID Configuration: Non spécifié"
+            )
 
             if entries:
-                messagebox.showinfo("Analyse terminée", f"Analyse du log ComfyUI terminée avec succès !{config_info}\n\n{summary_text}")
+                messagebox.showinfo(
+                    "Analyse terminée",
+                    f"Analyse du log ComfyUI terminée avec succès !{config_info}\n\n{summary_text}",
+                )
             else:
-                messagebox.showinfo("Analyse terminée", f"Aucun élément significatif trouvé dans le log.{config_info}")
+                messagebox.showinfo(
+                    "Analyse terminée",
+                    f"Aucun élément significatif trouvé dans le log.{config_info}",
+                )
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Erreur lors de l'analyse du log :\n{str(e)}")
-            self.log_status_label.config(text="Erreur lors de l'analyse", foreground="red")
+            messagebox.showerror(
+                "Erreur", f"Erreur lors de l'analyse du log :\n{str(e)}"
+            )
+            self.log_status_label.config(
+                text="Erreur lors de l'analyse", foreground="red"
+            )
 
         finally:
             # Réactiver le bouton
             self.analyze_log_btn.config(state="normal", text="🔍 Analyser le log")
-
 
     def check_log_file_status(self):
         """Vérifier le statut du fichier log et mettre à jour l'interface"""
@@ -3751,14 +4280,20 @@ WORKFLOW:
                 # Obtenir les informations du fichier
                 stat = os.stat(log_path)
                 size_mb = stat.st_size / (1024 * 1024)
-                mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+                mtime = time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)
+                )
 
                 info_text = f"✅ Fichier trouvé ({size_mb:.1f} MB, modifié le {mtime})"
                 self.log_file_info_label.config(text=info_text, foreground="green")
             except Exception as e:
-                self.log_file_info_label.config(text=f"⚠️ Erreur lecture fichier: {e}", foreground="orange")
+                self.log_file_info_label.config(
+                    text=f"⚠️ Erreur lecture fichier: {e}", foreground="orange"
+                )
         else:
-            self.log_file_info_label.config(text="❌ Fichier log non trouvé", foreground="red")
+            self.log_file_info_label.config(
+                text="❌ Fichier log non trouvé", foreground="red"
+            )
 
     def refresh_log_analysis(self):
         """Actualiser l'analyse des logs"""
@@ -3772,34 +4307,42 @@ WORKFLOW:
     def export_log_analysis(self):
         """Exporter les résultats de l'analyse vers un fichier"""
         if len(self.log_results_tree.get_children()) == 0:
-            messagebox.showwarning("Aucun résultat", "Aucun résultat d'analyse à exporter.")
+            messagebox.showwarning(
+                "Aucun résultat", "Aucun résultat d'analyse à exporter."
+            )
             return
 
         from tkinter import filedialog
+
         filename = filedialog.asksaveasfilename(
             title="Exporter l'analyse des logs",
             defaultextension=".csv",
             filetypes=[
                 ("Fichiers CSV", "*.csv"),
                 ("Fichiers texte", "*.txt"),
-                ("Tous les fichiers", "*.*")
-            ]
+                ("Tous les fichiers", "*.*"),
+            ],
         )
 
         if filename:
             try:
                 import csv
-                with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+
+                with open(filename, "w", newline="", encoding="utf-8") as csvfile:
                     writer = csv.writer(csvfile)
                     # En-têtes
-                    writer.writerow(["État", "Catégorie", "Élément", "Message", "Ligne"])
+                    writer.writerow(
+                        ["État", "Catégorie", "Élément", "Message", "Ligne"]
+                    )
 
                     # Données
                     for item in self.log_results_tree.get_children():
-                        values = self.log_results_tree.item(item)['values']
+                        values = self.log_results_tree.item(item)["values"]
                         writer.writerow(values)
 
-                messagebox.showinfo("Export réussi", f"Analyse exportée vers:\n{filename}")
+                messagebox.showinfo(
+                    "Export réussi", f"Analyse exportée vers:\n{filename}"
+                )
             except Exception as e:
                 messagebox.showerror("Erreur d'export", f"Impossible d'exporter: {e}")
 
@@ -3813,7 +4356,7 @@ WORKFLOW:
             self.log_results_tree.delete(item)
 
         # Réinsérer les éléments filtrés
-        if hasattr(self, '_original_log_results'):
+        if hasattr(self, "_original_log_results"):
             visible_count = 0
             for entry in self._original_log_results:
                 # Filtre par type
@@ -3821,15 +4364,25 @@ WORKFLOW:
                     continue
 
                 # Filtre par recherche
-                if search_term and search_term not in entry["message"].lower() and search_term not in entry["element"].lower():
+                if (
+                    search_term
+                    and search_term not in entry["message"].lower()
+                    and search_term not in entry["element"].lower()
+                ):
                     continue
 
                 # Ajouter l'élément
                 item = self.log_results_tree.insert(
                     "",
                     "end",
-                    values=(entry["type"], entry["category"], entry["element"], entry["message"], entry["line"]),
-                    tags=(entry["type"],)
+                    values=(
+                        entry["type"],
+                        entry["category"],
+                        entry["element"],
+                        entry["message"],
+                        entry["line"],
+                    ),
+                    tags=(entry["type"],),
                 )
                 visible_count += 1
 
@@ -3847,7 +4400,7 @@ WORKFLOW:
             return
 
         item = selection[0]
-        values = self.log_results_tree.item(item)['values']
+        values = self.log_results_tree.item(item)["values"]
 
         if len(values) >= 4:
             type_val, category, element, message, line = values
@@ -3867,24 +4420,36 @@ WORKFLOW:
             info_frame = ttk.LabelFrame(main_frame, text="Informations", padding="10")
             info_frame.pack(fill="x", pady=(0, 10))
 
-            ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(row=0, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(
+                row=0, column=0, sticky="w", padx=(0, 10)
+            )
             ttk.Label(info_frame, text=type_val).grid(row=0, column=1, sticky="w")
 
-            ttk.Label(info_frame, text="Catégorie:", font=("TkDefaultFont", 9, "bold")).grid(row=1, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(
+                info_frame, text="Catégorie:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=1, column=0, sticky="w", padx=(0, 10))
             ttk.Label(info_frame, text=category).grid(row=1, column=1, sticky="w")
 
-            ttk.Label(info_frame, text="Élément:", font=("TkDefaultFont", 9, "bold")).grid(row=2, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(
+                info_frame, text="Élément:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=2, column=0, sticky="w", padx=(0, 10))
             ttk.Label(info_frame, text=element).grid(row=2, column=1, sticky="w")
 
-            ttk.Label(info_frame, text="Ligne:", font=("TkDefaultFont", 9, "bold")).grid(row=3, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(
+                info_frame, text="Ligne:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=3, column=0, sticky="w", padx=(0, 10))
             ttk.Label(info_frame, text=line).grid(row=3, column=1, sticky="w")
 
             # Message détaillé
-            message_frame = ttk.LabelFrame(main_frame, text="Message complet", padding="10")
+            message_frame = ttk.LabelFrame(
+                main_frame, text="Message complet", padding="10"
+            )
             message_frame.pack(fill="both", expand=True, pady=(0, 10))
 
             text_widget = tk.Text(message_frame, wrap="word", font=("Consolas", 9))
-            text_scrollbar = ttk.Scrollbar(message_frame, orient="vertical", command=text_widget.yview)
+            text_scrollbar = ttk.Scrollbar(
+                message_frame, orient="vertical", command=text_widget.yview
+            )
             text_widget.configure(yscrollcommand=text_scrollbar.set)
 
             text_widget.insert("1.0", message)
@@ -3894,7 +4459,9 @@ WORKFLOW:
             text_scrollbar.pack(side="right", fill="y")
 
             # Bouton fermer
-            ttk.Button(main_frame, text="Fermer", command=detail_window.destroy).pack(pady=(10, 0))
+            ttk.Button(main_frame, text="Fermer", command=detail_window.destroy).pack(
+                pady=(10, 0)
+            )
 
 
 def main():

@@ -40,7 +40,7 @@ class cy8_log_analyzer:
             return {
                 "success": False,
                 "error": f"Fichier log introuvable: {log_file_path}",
-                "entries": []
+                "entries": [],
             }
 
         try:
@@ -54,7 +54,7 @@ class cy8_log_analyzer:
             self.config_id = None
 
             # Lire le fichier de log
-            with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(log_file_path, "r", encoding="utf-8", errors="ignore") as f:
                 log_content = f.read()
 
             # Analyser le contenu
@@ -73,20 +73,20 @@ class cy8_log_analyzer:
                     "custom_nodes_failed": len(self.custom_nodes_failed),
                     "errors": len(self.errors),
                     "warnings": len(self.warnings),
-                    "info_messages": len(self.info_messages)
-                }
+                    "info_messages": len(self.info_messages),
+                },
             }
 
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Erreur lors de l'analyse du log: {str(e)}",
-                "entries": []
+                "entries": [],
             }
 
     def _parse_log_content(self, content: str):
         """Parser le contenu du log"""
-        lines = content.split('\n')
+        lines = content.split("\n")
         in_custom_nodes_section = False
 
         for line_num, line in enumerate(lines, 1):
@@ -110,46 +110,48 @@ class cy8_log_analyzer:
                 node_info = self._extract_custom_node_from_import_line(line)
                 if node_info:
                     if "(IMPORT FAILED)" in line:
-                        self.custom_nodes_failed.append({
-                            "line": line_num,
-                            "content": line,
-                            "node_name": node_info,
-                            "error": "Import failed"
-                        })
+                        self.custom_nodes_failed.append(
+                            {
+                                "line": line_num,
+                                "content": line,
+                                "node_name": node_info,
+                                "error": "Import failed",
+                            }
+                        )
                     else:
-                        self.custom_nodes_ok.append({
-                            "line": line_num,
-                            "content": line,
-                            "node_name": node_info
-                        })
+                        self.custom_nodes_ok.append(
+                            {"line": line_num, "content": line, "node_name": node_info}
+                        )
 
             # Détecter les erreurs
             elif self._is_error(line):
                 error_info = self._extract_error_info(line)
-                self.errors.append({
-                    "line": line_num,
-                    "content": line,
-                    "error_type": error_info.get("type", "Error"),
-                    "message": error_info.get("message", line)
-                })
+                self.errors.append(
+                    {
+                        "line": line_num,
+                        "content": line,
+                        "error_type": error_info.get("type", "Error"),
+                        "message": error_info.get("message", line),
+                    }
+                )
 
             # Détecter les warnings
             elif self._is_warning(line):
                 warning_info = self._extract_warning_info(line)
-                self.warnings.append({
-                    "line": line_num,
-                    "content": line,
-                    "message": warning_info.get("message", line)
-                })
+                self.warnings.append(
+                    {
+                        "line": line_num,
+                        "content": line,
+                        "message": warning_info.get("message", line),
+                    }
+                )
 
             # Détecter les messages d'information importantes
             elif self._is_important_info(line):
                 info = self._extract_info(line)
-                self.info_messages.append({
-                    "line": line_num,
-                    "content": line,
-                    "message": info
-                })
+                self.info_messages.append(
+                    {"line": line_num, "content": line, "message": info}
+                )
 
     def _extract_config_id(self, line: str) -> Optional[str]:
         """
@@ -164,7 +166,7 @@ class cy8_log_analyzer:
         if match:
             config_id = match.group(1)
             # Nettoyer l'ID (enlever les caractères parasites mais garder les caractères valides)
-            config_id = re.sub(r'[^\w\-_.]', '', config_id)
+            config_id = re.sub(r"[^\w\-_.]", "", config_id)
             return config_id if config_id else None
 
         return None
@@ -182,12 +184,10 @@ class cy8_log_analyzer:
             # Le nom du custom node est après le dernier séparateur
             node_name = match.group(1)
             # Nettoyer le nom (enlever les caractères parasites)
-            node_name = re.sub(r'[^\w\-_.]', '', node_name)
+            node_name = re.sub(r"[^\w\-_.]", "", node_name)
             return node_name if node_name else "Unknown Node"
 
         return None
-
-
 
     def _is_error(self, line: str) -> bool:
         """Détecter si une ligne contient une erreur"""
@@ -233,10 +233,7 @@ class cy8_log_analyzer:
             if len(parts) > 1:
                 message = parts[1].strip()
 
-        return {
-            "type": error_type,
-            "message": message
-        }
+        return {"type": error_type, "message": message}
 
     def _is_warning(self, line: str) -> bool:
         """Détecter si une ligne contient un warning"""
@@ -285,58 +282,68 @@ class cy8_log_analyzer:
 
         # Custom nodes OK
         for node in self.custom_nodes_ok:
-            entries.append({
-                "type": "OK",
-                "category": "Custom Node",
-                "element": node["node_name"],
-                "message": f"Custom node chargé avec succès",
-                "line": node["line"],
-                "details": node["content"]
-            })
+            entries.append(
+                {
+                    "type": "OK",
+                    "category": "Custom Node",
+                    "element": node["node_name"],
+                    "message": f"Custom node chargé avec succès",
+                    "line": node["line"],
+                    "details": node["content"],
+                }
+            )
 
         # Custom nodes Failed
         for node in self.custom_nodes_failed:
-            entries.append({
-                "type": "ERREUR",
-                "category": "Custom Node",
-                "element": node["node_name"],
-                "message": f"Échec du chargement: {node.get('error', 'Erreur inconnue')}",
-                "line": node["line"],
-                "details": node["content"]
-            })
+            entries.append(
+                {
+                    "type": "ERREUR",
+                    "category": "Custom Node",
+                    "element": node["node_name"],
+                    "message": f"Échec du chargement: {node.get('error', 'Erreur inconnue')}",
+                    "line": node["line"],
+                    "details": node["content"],
+                }
+            )
 
         # Erreurs
         for error in self.errors:
-            entries.append({
-                "type": "ERREUR",
-                "category": error["error_type"],
-                "element": "Système",
-                "message": error["message"],
-                "line": error["line"],
-                "details": error["content"]
-            })
+            entries.append(
+                {
+                    "type": "ERREUR",
+                    "category": error["error_type"],
+                    "element": "Système",
+                    "message": error["message"],
+                    "line": error["line"],
+                    "details": error["content"],
+                }
+            )
 
         # Warnings
         for warning in self.warnings:
-            entries.append({
-                "type": "ATTENTION",
-                "category": "Warning",
-                "element": "Système",
-                "message": warning["message"],
-                "line": warning["line"],
-                "details": warning["content"]
-            })
+            entries.append(
+                {
+                    "type": "ATTENTION",
+                    "category": "Warning",
+                    "element": "Système",
+                    "message": warning["message"],
+                    "line": warning["line"],
+                    "details": warning["content"],
+                }
+            )
 
         # Infos importantes
         for info in self.info_messages:
-            entries.append({
-                "type": "INFO",
-                "category": "Information",
-                "element": "Système",
-                "message": info["message"],
-                "line": info["line"],
-                "details": info["content"]
-            })
+            entries.append(
+                {
+                    "type": "INFO",
+                    "category": "Information",
+                    "element": "Système",
+                    "message": info["message"],
+                    "line": info["line"],
+                    "details": info["content"],
+                }
+            )
 
         # Trier par numéro de ligne
         entries.sort(key=lambda x: x["line"])

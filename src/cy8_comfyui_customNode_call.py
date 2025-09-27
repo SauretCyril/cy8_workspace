@@ -16,7 +16,9 @@ from urllib.parse import urljoin
 class ComfyUICustomNodeCaller:
     """Classe pour gérer les appels aux custom nodes ComfyUI"""
 
-    def __init__(self, server_url: str = "http://127.0.0.1:8188", api_key: Optional[str] = None):
+    def __init__(
+        self, server_url: str = "http://127.0.0.1:8188", api_key: Optional[str] = None
+    ):
         """
         Initialiser le gestionnaire de custom nodes ComfyUI
 
@@ -24,15 +26,17 @@ class ComfyUICustomNodeCaller:
             server_url: URL du serveur ComfyUI (défaut: http://127.0.0.1:8188)
             api_key: Clé API ComfyUI si requise
         """
-        self.server_url = server_url.rstrip('/')
+        self.server_url = server_url.rstrip("/")
         self.api_key = api_key
         self.session = requests.Session()
 
         # Headers par défaut
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'User-Agent': 'cy8_prompts_manager/1.0'
-        })
+        self.session.headers.update(
+            {
+                "Content-Type": "application/json",
+                "User-Agent": "cy8_prompts_manager/1.0",
+            }
+        )
 
     def get_custom_nodes_info(self) -> Dict[str, Any]:
         """
@@ -49,7 +53,9 @@ class ComfyUICustomNodeCaller:
             return response.json()
 
         except requests.exceptions.RequestException as e:
-            raise Exception(f"Erreur lors de la récupération des informations custom nodes: {e}")
+            raise Exception(
+                f"Erreur lors de la récupération des informations custom nodes: {e}"
+            )
 
     def get_available_custom_node_types(self) -> List[str]:
         """
@@ -70,7 +76,9 @@ class ComfyUICustomNodeCaller:
             return sorted(custom_node_types)
 
         except Exception as e:
-            raise Exception(f"Erreur lors de la récupération des types de custom nodes: {e}")
+            raise Exception(
+                f"Erreur lors de la récupération des types de custom nodes: {e}"
+            )
 
     def _is_custom_node(self, node_type: str, node_info: Dict) -> bool:
         """
@@ -86,16 +94,22 @@ class ComfyUICustomNodeCaller:
         # Critères pour identifier un custom node
         custom_indicators = [
             # Noms typiques de custom nodes
-            node_type.startswith(('ComfyUI', 'CR ', 'WAS ', 'IPAdapter', 'ControlNet')),
+            node_type.startswith(("ComfyUI", "CR ", "WAS ", "IPAdapter", "ControlNet")),
             # Contient des caractères spéciaux
-            ' ' in node_type or '-' in node_type,
+            " " in node_type or "-" in node_type,
             # Commence par une majuscule suivie de minuscules
-            node_type[0].isupper() and any(c.islower() for c in node_type[1:]) if node_type else False
+            (
+                node_type[0].isupper() and any(c.islower() for c in node_type[1:])
+                if node_type
+                else False
+            ),
         ]
 
         return any(custom_indicators)
 
-    def create_custom_node_workflow(self, node_type: str, node_inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def create_custom_node_workflow(
+        self, node_type: str, node_inputs: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Créer un workflow avec un custom node spécifique
 
@@ -111,24 +125,20 @@ class ComfyUICustomNodeCaller:
             "1": {
                 "class_type": node_type,
                 "inputs": node_inputs,
-                "_meta": {
-                    "title": f"{node_type}"
-                }
+                "_meta": {"title": f"{node_type}"},
             },
             "2": {
                 "class_type": "ShowText|pysssss",
-                "inputs": {
-                    "text": ["1", 0]  # Prendre la sortie du node 1
-                },
-                "_meta": {
-                    "title": "Show Output"
-                }
-            }
+                "inputs": {"text": ["1", 0]},  # Prendre la sortie du node 1
+                "_meta": {"title": "Show Output"},
+            },
         }
 
         return workflow
 
-    def execute_custom_node_workflow(self, workflow: Dict[str, Any], extra_data: Optional[Dict] = None) -> Dict[str, Any]:
+    def execute_custom_node_workflow(
+        self, workflow: Dict[str, Any], extra_data: Optional[Dict] = None
+    ) -> Dict[str, Any]:
         """
         Exécuter un workflow contenant des custom nodes
 
@@ -141,9 +151,7 @@ class ComfyUICustomNodeCaller:
         """
         try:
             # Préparer le payload
-            payload = {
-                "prompt": workflow
-            }
+            payload = {"prompt": workflow}
 
             # Ajouter les données supplémentaires
             if extra_data:
@@ -161,7 +169,9 @@ class ComfyUICustomNodeCaller:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Erreur lors de l'exécution du workflow: {e}")
 
-    def call_custom_node(self, node_type: str, inputs: Dict[str, Any], extra_data: Optional[Dict] = None) -> Dict[str, Any]:
+    def call_custom_node(
+        self, node_type: str, inputs: Dict[str, Any], extra_data: Optional[Dict] = None
+    ) -> Dict[str, Any]:
         """
         Appeler directement un custom node avec des inputs
 
@@ -191,9 +201,13 @@ class ComfyUICustomNodeCaller:
             return nodes_info.get(node_type)
 
         except Exception as e:
-            raise Exception(f"Erreur lors de la récupération du schéma pour {node_type}: {e}")
+            raise Exception(
+                f"Erreur lors de la récupération du schéma pour {node_type}: {e}"
+            )
 
-    def validate_custom_node_inputs(self, node_type: str, inputs: Dict[str, Any]) -> bool:
+    def validate_custom_node_inputs(
+        self, node_type: str, inputs: Dict[str, Any]
+    ) -> bool:
         """
         Valider les inputs pour un custom node
 
@@ -236,14 +250,11 @@ class ComfyUICustomNodeCaller:
             return {
                 "status": "online",
                 "response_time": response.elapsed.total_seconds(),
-                "system_stats": response.json()
+                "system_stats": response.json(),
             }
 
         except requests.exceptions.RequestException as e:
-            return {
-                "status": "offline",
-                "error": str(e)
-            }
+            return {"status": "offline", "error": str(e)}
 
     def close(self):
         """Fermer la session"""
@@ -270,7 +281,7 @@ def example_usage():
         status = caller.get_server_status()
         print(f"Statut du serveur: {status['status']}")
 
-        if status['status'] == 'online':
+        if status["status"] == "online":
             # Obtenir les custom nodes disponibles
             custom_nodes = caller.get_available_custom_node_types()
             print(f"Custom nodes disponibles: {len(custom_nodes)}")
@@ -279,8 +290,7 @@ def example_usage():
             if "ExtraPathReader" in custom_nodes:
                 try:
                     result = caller.call_custom_node(
-                        node_type="ExtraPathReader",
-                        inputs={}
+                        node_type="ExtraPathReader", inputs={}
                     )
                     print(f"Résultat: {result}")
                 except Exception as e:

@@ -5,10 +5,12 @@ Test du nouvel onglet Log pour l'analyse des logs ComfyUI
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tkinter as tk
 from tkinter import ttk
+
 
 def test_log_tab():
     """Test du nouvel onglet Log"""
@@ -28,15 +30,15 @@ def test_log_tab():
 
         # Vérifier les composants de l'onglet Log
         log_components = [
-            ('comfyui_log_path', 'Variable du chemin log'),
-            ('log_file_info_label', 'Label info fichier log'),
-            ('analyze_log_btn', 'Bouton analyser log'),
-            ('log_status_label', 'Label statut analyse'),
-            ('log_filter_var', 'Variable filtre résultats'),
-            ('log_search_var', 'Variable recherche résultats'),
-            ('log_results_count_label', 'Label compteur résultats'),
-            ('log_results_tree', 'Tableau résultats analyse'),
-            ('log_analyzer', 'Analyseur de logs')
+            ("comfyui_log_path", "Variable du chemin log"),
+            ("log_file_info_label", "Label info fichier log"),
+            ("analyze_log_btn", "Bouton analyser log"),
+            ("log_status_label", "Label statut analyse"),
+            ("log_filter_var", "Variable filtre résultats"),
+            ("log_search_var", "Variable recherche résultats"),
+            ("log_results_count_label", "Label compteur résultats"),
+            ("log_results_tree", "Tableau résultats analyse"),
+            ("log_analyzer", "Analyseur de logs"),
         ]
 
         print("\n📋 Vérification des composants de l'onglet Log:")
@@ -51,26 +53,38 @@ def test_log_tab():
 
         # Test du tableau de résultats
         print("\n📊 Test du tableau de résultats d'analyse:")
-        if hasattr(app, 'log_results_tree'):
+        if hasattr(app, "log_results_tree"):
             log_tree = app.log_results_tree
             print(f"   📋 Colonnes: {log_tree['columns']}")
             print(f"   📏 Hauteur: {log_tree['height']}")
 
             # Configuration des couleurs
             try:
-                log_tree.tag_configure('error', foreground='red')
-                log_tree.tag_configure('warning', foreground='orange')
-                log_tree.tag_configure('info', foreground='blue')
+                log_tree.tag_configure("error", foreground="red")
+                log_tree.tag_configure("warning", foreground="orange")
+                log_tree.tag_configure("info", foreground="blue")
                 print("   🎨 Tags de couleur configurés")
             except Exception as e:
                 print(f"   ❌ Erreur configuration tags: {e}")
 
             # Ajouter des données de test
             test_entries = [
-                ("OK", "Custom Node", "ExtraPathReader", "Node chargé avec succès", "42"),
-                ("ERREUR", "Model", "model.safetensors", "Erreur de chargement du modèle", "158"),
+                (
+                    "OK",
+                    "Custom Node",
+                    "ExtraPathReader",
+                    "Node chargé avec succès",
+                    "42",
+                ),
+                (
+                    "ERREUR",
+                    "Model",
+                    "model.safetensors",
+                    "Erreur de chargement du modèle",
+                    "158",
+                ),
                 ("ATTENTION", "Memory", "VRAM", "Mémoire VRAM faible", "203"),
-                ("INFO", "System", "ComfyUI", "Démarrage de ComfyUI", "1")
+                ("INFO", "System", "ComfyUI", "Démarrage de ComfyUI", "1"),
             ]
 
             for entry in test_entries:
@@ -86,14 +100,14 @@ def test_log_tab():
         # Test des méthodes de l'onglet Log
         print("\n🔧 Test des méthodes de l'onglet Log:")
         log_methods = [
-            ('check_log_file_status', 'Vérification statut fichier'),
-            ('refresh_log_analysis', 'Actualisation analyse'),
-            ('export_log_analysis', 'Export analyse'),
-            ('filter_log_results', 'Filtrage résultats'),
-            ('search_log_results', 'Recherche résultats'),
-            ('show_log_detail', 'Affichage détails'),
-            ('analyze_comfyui_log', 'Analyse log ComfyUI'),
-            ('browse_log_file', 'Parcourir fichier log')
+            ("check_log_file_status", "Vérification statut fichier"),
+            ("refresh_log_analysis", "Actualisation analyse"),
+            ("export_log_analysis", "Export analyse"),
+            ("filter_log_results", "Filtrage résultats"),
+            ("search_log_results", "Recherche résultats"),
+            ("show_log_detail", "Affichage détails"),
+            ("analyze_comfyui_log", "Analyse log ComfyUI"),
+            ("browse_log_file", "Parcourir fichier log"),
         ]
 
         for method_name, description in log_methods:
@@ -104,10 +118,10 @@ def test_log_tab():
 
         # Test de la vérification du fichier log
         print("\n📁 Test de vérification du fichier log:")
-        if hasattr(app, 'check_log_file_status'):
+        if hasattr(app, "check_log_file_status"):
             try:
                 app.check_log_file_status()
-                status_text = app.log_file_info_label.cget('text')
+                status_text = app.log_file_info_label.cget("text")
                 print(f"   📋 Statut fichier: {status_text}")
                 print("   ✅ Vérification du fichier log fonctionnelle")
             except Exception as e:
@@ -115,7 +129,7 @@ def test_log_tab():
 
         # Test du filtrage
         print("\n🔍 Test du système de filtrage:")
-        if hasattr(app, 'log_filter_var') and hasattr(app, 'filter_log_results'):
+        if hasattr(app, "log_filter_var") and hasattr(app, "filter_log_results"):
             try:
                 app.log_filter_var.set("ERREUR")
                 app.filter_log_results()
@@ -129,7 +143,7 @@ def test_log_tab():
 
         # Test de la recherche
         print("\n🔎 Test du système de recherche:")
-        if hasattr(app, 'log_search_var') and hasattr(app, 'search_log_results'):
+        if hasattr(app, "log_search_var") and hasattr(app, "search_log_results"):
             try:
                 app.log_search_var.set("model")
                 app.search_log_results()
@@ -150,8 +164,10 @@ def test_log_tab():
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False, []
+
 
 if __name__ == "__main__":
     success, missing = test_log_tab()

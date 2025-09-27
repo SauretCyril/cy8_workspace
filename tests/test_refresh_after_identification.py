@@ -5,12 +5,14 @@ Test pour vérifier que le tableau se remplit après identification
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tkinter as tk
 from tkinter import ttk
 import threading
 import time
+
 
 def test_identification_and_refresh():
     """Test complet d'identification et rafraîchissement du tableau"""
@@ -33,7 +35,7 @@ def test_identification_and_refresh():
 
         if initial_items:
             for item in initial_items:
-                values = app.env_tree.item(item)['values']
+                values = app.env_tree.item(item)["values"]
                 print(f"   Initial: {values}")
 
         # Simuler le stockage de données comme le ferait identify_comfyui_environment
@@ -43,18 +45,18 @@ def test_identification_and_refresh():
 
         # Données de test (similaires à celles récupérées depuis ComfyUI)
         test_data = {
-            'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-            'config_path': 'E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml',
-            'extra_paths': {
-                'comfyui': {
-                    'base_path': 'G:/ComfyUI_G11/ComfyUI',
-                    'checkpoints': 'H:/comfyui/models/checkpoints',
-                    'embeddings': 'H:/comfyui/models/embeddings',
-                    'loras': 'H:/comfyui/models/loras',
-                    'custom_nodes': 'H:/comfyui/G11_04/custom_nodes',
-                    'vae': 'H:/comfyui/models/vae'
+            "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+            "config_path": "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
+            "extra_paths": {
+                "comfyui": {
+                    "base_path": "G:/ComfyUI_G11/ComfyUI",
+                    "checkpoints": "H:/comfyui/models/checkpoints",
+                    "embeddings": "H:/comfyui/models/embeddings",
+                    "loras": "H:/comfyui/models/loras",
+                    "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
+                    "vae": "H:/comfyui/models/vae",
                 }
-            }
+            },
         }
 
         # Stocker les données
@@ -72,18 +74,18 @@ def test_identification_and_refresh():
         if final_items:
             print("✅ Contenu du tableau après refresh:")
             for item in final_items:
-                values = app.env_tree.item(item)['values']
+                values = app.env_tree.item(item)["values"]
                 print(f"   {values[0]} | {values[1]} | {values[2]} | {values[3]}")
         else:
             print("❌ Tableau encore vide après refresh")
 
         # Vérifier les labels d'information
-        if hasattr(app, 'env_config_id_label'):
-            config_text = app.env_config_id_label.cget('text')
+        if hasattr(app, "env_config_id_label"):
+            config_text = app.env_config_id_label.cget("text")
             print(f"🆔 Label ID Configuration: '{config_text}'")
 
-        if hasattr(app, 'env_root_label'):
-            root_text = app.env_root_label.cget('text')
+        if hasattr(app, "env_root_label"):
+            root_text = app.env_root_label.cget("text")
             print(f"📁 Label Racine ComfyUI: '{root_text}'")
 
         root.destroy()
@@ -95,8 +97,10 @@ def test_identification_and_refresh():
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_identification_and_refresh()

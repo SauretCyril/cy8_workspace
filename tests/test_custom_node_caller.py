@@ -5,7 +5,8 @@ Test de la classe ComfyUICustomNodeCaller
 
 import sys
 import os
-sys.path.append('../src')
+
+sys.path.append("../src")
 
 from cy8_comfyui_customNode_call import ComfyUICustomNodeCaller
 
@@ -27,7 +28,7 @@ def test_comfyui_custom_node_caller():
     status = caller.get_server_status()
     print(f"   📡 Statut: {status['status']}")
 
-    if status['status'] == 'online':
+    if status["status"] == "online":
         print(f"   ⏱️ Temps de réponse: {status['response_time']:.3f}s")
         print("   ✅ Serveur ComfyUI accessible")
 
@@ -50,10 +51,10 @@ def test_comfyui_custom_node_caller():
                 schema = caller.get_custom_node_schema(custom_nodes[0])
                 if schema:
                     print("   ✅ Schéma récupéré avec succès")
-                    if 'input' in schema:
-                        inputs = schema.get('input', {})
-                        required = inputs.get('required', {})
-                        optional = inputs.get('optional', {})
+                    if "input" in schema:
+                        inputs = schema.get("input", {})
+                        required = inputs.get("required", {})
+                        optional = inputs.get("optional", {})
                         print(f"   📋 Inputs requis: {len(required)}")
                         print(f"   📋 Inputs optionnels: {len(optional)}")
                 else:
@@ -69,8 +70,7 @@ def test_comfyui_custom_node_caller():
     # Test de création de workflow
     print("\n5. Test de création de workflow...")
     workflow = caller.create_custom_node_workflow(
-        node_type="ExtraPathReader",
-        node_inputs={}
+        node_type="ExtraPathReader", node_inputs={}
     )
     print("   ✅ Workflow créé:")
     print(f"   📄 Structure: {workflow}")
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     test_comfyui_custom_node_caller()
     test_context_manager()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("💡 Pour utiliser cette classe dans votre code:")
     print()
     print("from cy8_comfyui_customNode_call import ComfyUICustomNodeCaller")
@@ -109,4 +109,4 @@ if __name__ == "__main__":
     print("# Utilisation avec context manager (recommandé)")
     print("with ComfyUICustomNodeCaller() as caller:")
     print("    result = caller.call_custom_node('NodeType', {'input': 'value'})")
-    print("="*60)
+    print("=" * 60)

@@ -5,7 +5,9 @@ Script de test pour l'analyseur de logs ComfyUI
 
 import os
 import sys
-sys.path.insert(0, '../src')
+
+sys.path.insert(0, "../src")
+
 
 def create_test_log():
     """Créer un fichier de log de test avec différents types d'entrées"""
@@ -32,10 +34,11 @@ def create_test_log():
 2025-09-26 10:00:20,890 - WARNING - Some dependencies are outdated
 """
 
-    with open('test_comfyui.log', 'w', encoding='utf-8') as f:
+    with open("test_comfyui.log", "w", encoding="utf-8") as f:
         f.write(test_log_content.strip())
 
     print("✅ Fichier de test créé: test_comfyui.log")
+
 
 def test_log_analyzer():
     """Tester l'analyseur de logs"""
@@ -52,7 +55,7 @@ def test_log_analyzer():
         analyzer = cy8_log_analyzer()
 
         # Analyser le fichier de test
-        result = analyzer.analyze_log_file('test_comfyui.log')
+        result = analyzer.analyze_log_file("test_comfyui.log")
 
         if result["success"]:
             print("✅ Analyse réussie !")
@@ -65,12 +68,23 @@ def test_log_analyzer():
             print(f"  • Informations: {summary['info_messages']}")
 
             print(f"\n📋 Détails des entrées ({len(result['entries'])} éléments):")
-            for i, entry in enumerate(result['entries'][:10]):  # Afficher les 10 premiers
-                status_icon = {"OK": "✅", "ERREUR": "❌", "ATTENTION": "⚠️", "INFO": "ℹ️"}.get(entry["type"], "🔸")
-                print(f"  {i+1:2d}. {status_icon} {entry['category']:15} | {entry['element']:20} | Ligne {entry['line']:3d}")
-                print(f"      {entry['message'][:80]}{'...' if len(entry['message']) > 80 else ''}")
+            for i, entry in enumerate(
+                result["entries"][:10]
+            ):  # Afficher les 10 premiers
+                status_icon = {
+                    "OK": "✅",
+                    "ERREUR": "❌",
+                    "ATTENTION": "⚠️",
+                    "INFO": "ℹ️",
+                }.get(entry["type"], "🔸")
+                print(
+                    f"  {i+1:2d}. {status_icon} {entry['category']:15} | {entry['element']:20} | Ligne {entry['line']:3d}"
+                )
+                print(
+                    f"      {entry['message'][:80]}{'...' if len(entry['message']) > 80 else ''}"
+                )
 
-            if len(result['entries']) > 10:
+            if len(result["entries"]) > 10:
                 print(f"      ... et {len(result['entries']) - 10} autres éléments")
 
             # Afficher le résumé textuel
@@ -80,8 +94,8 @@ def test_log_analyzer():
             print(f"❌ Erreur lors de l'analyse: {result['error']}")
 
         # Nettoyer
-        if os.path.exists('test_comfyui.log'):
-            os.remove('test_comfyui.log')
+        if os.path.exists("test_comfyui.log"):
+            os.remove("test_comfyui.log")
             print("\n🧹 Fichier de test supprimé")
 
         return result["success"]
@@ -93,6 +107,7 @@ def test_log_analyzer():
         print(f"❌ Erreur: {e}")
         return False
 
+
 def test_interface_integration():
     """Tester l'intégration dans l'interface"""
     print("\n🎨 Test de l'intégration dans l'interface")
@@ -102,10 +117,7 @@ def test_interface_integration():
         from cy8_prompts_manager_main import cy8_prompts_manager
 
         # Vérifier que les nouvelles méthodes existent
-        methods_to_check = [
-            'browse_log_file',
-            'analyze_comfyui_log'
-        ]
+        methods_to_check = ["browse_log_file", "analyze_comfyui_log"]
 
         for method in methods_to_check:
             if hasattr(cy8_prompts_manager, method):
@@ -123,6 +135,7 @@ def test_interface_integration():
     except Exception as e:
         print(f"❌ Erreur: {e}")
         return False
+
 
 def main():
     """Test principal"""
@@ -152,6 +165,7 @@ def main():
         print("\n❌ Certains tests ont échoué")
 
     return test1_ok and test2_ok
+
 
 if __name__ == "__main__":
     main()

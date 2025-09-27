@@ -5,7 +5,8 @@ Test de l'analyseur de logs avec un exemple réaliste de log ComfyUI
 
 import os
 import sys
-sys.path.append('../src')
+
+sys.path.append("../src")
 
 from cy8_log_analyzer import cy8_log_analyzer
 
@@ -32,10 +33,10 @@ Import times for custom nodes:
 2025-09-26 10:00:19,345 - INFO - Workflow execution completed
 """
 
-    with open('test_realistic_comfyui.log', 'w', encoding='utf-8') as f:
+    with open("test_realistic_comfyui.log", "w", encoding="utf-8") as f:
         f.write(test_content)
 
-    return 'test_realistic_comfyui.log'
+    return "test_realistic_comfyui.log"
 
 
 def test_realistic_log_analysis():
@@ -69,8 +70,14 @@ def test_realistic_log_analysis():
         entries = result["entries"]
         print(f"📋 Détails des entrées ({len(entries)} éléments):")
 
-        custom_nodes_ok = [e for e in entries if e["type"] == "OK" and e["category"] == "Custom Node"]
-        custom_nodes_failed = [e for e in entries if e["type"] == "ERREUR" and e["category"] == "Custom Node"]
+        custom_nodes_ok = [
+            e for e in entries if e["type"] == "OK" and e["category"] == "Custom Node"
+        ]
+        custom_nodes_failed = [
+            e
+            for e in entries
+            if e["type"] == "ERREUR" and e["category"] == "Custom Node"
+        ]
 
         print("\n🟢 Custom Nodes chargés avec succès:")
         for i, entry in enumerate(custom_nodes_ok, 1):
@@ -78,16 +85,31 @@ def test_realistic_log_analysis():
 
         print("\n🔴 Custom Nodes en échec:")
         for i, entry in enumerate(custom_nodes_failed, 1):
-            print(f"   {i}. ❌ {entry['element']} (ligne {entry['line']}) - {entry['message']}")
+            print(
+                f"   {i}. ❌ {entry['element']} (ligne {entry['line']}) - {entry['message']}"
+            )
 
         # Autres entrées
-        other_entries = [e for e in entries if not (e["type"] == "OK" or e["type"] == "ERREUR") or e["category"] != "Custom Node"]
+        other_entries = [
+            e
+            for e in entries
+            if not (e["type"] == "OK" or e["type"] == "ERREUR")
+            or e["category"] != "Custom Node"
+        ]
         if other_entries:
             print(f"\n📝 Autres entrées ({len(other_entries)}):")
             for i, entry in enumerate(other_entries[:5], 1):  # Limiter l'affichage
-                icon = "🔴" if entry["type"] == "ERREUR" else "⚠️" if entry["type"] == "ATTENTION" else "ℹ️"
-                print(f"   {i}. {icon} {entry['type']} | {entry['element']} | Ligne {entry['line']}")
-                print(f"      {entry['message'][:80]}{'...' if len(entry['message']) > 80 else ''}")
+                icon = (
+                    "🔴"
+                    if entry["type"] == "ERREUR"
+                    else "⚠️" if entry["type"] == "ATTENTION" else "ℹ️"
+                )
+                print(
+                    f"   {i}. {icon} {entry['type']} | {entry['element']} | Ligne {entry['line']}"
+                )
+                print(
+                    f"      {entry['message'][:80]}{'...' if len(entry['message']) > 80 else ''}"
+                )
 
             if len(other_entries) > 5:
                 print(f"      ... et {len(other_entries) - 5} autres éléments")

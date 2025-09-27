@@ -50,7 +50,9 @@ class TestCy8DatabaseManager(unittest.TestCase):
         # Vérifier que la table existe
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+        )
         result = cursor.fetchone()
         conn.close()
 
@@ -61,7 +63,9 @@ class TestCy8DatabaseManager(unittest.TestCase):
         self.db_manager.init_database()
 
         # Test données
-        test_prompt_values = {"1": {"id": "1", "type": "prompt", "value": "test prompt"}}
+        test_prompt_values = {
+            "1": {"id": "1", "type": "prompt", "value": "test prompt"}
+        }
         test_workflow = {"1": {"inputs": {"text": "test"}, "class_type": "TestNode"}}
 
         # CREATE
@@ -178,11 +182,15 @@ class TestCy8DatabaseManager(unittest.TestCase):
                 # Vérifier que la table existe maintenant
                 conn = sqlite3.connect(empty_db_path)
                 cursor = conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+                )
                 result = cursor.fetchone()
                 conn.close()
 
-                self.assertIsNotNone(result, "La table prompts doit exister après initialisation")
+                self.assertIsNotNone(
+                    result, "La table prompts doit exister après initialisation"
+                )
 
             finally:
                 sys.stdout = old_stdout
@@ -211,7 +219,9 @@ class TestCy8DatabaseManager(unittest.TestCase):
             # La validation doit détecter la table manquante
             is_valid, message = db_manager.validate_database_structure()
 
-            self.assertFalse(is_valid, "La validation doit échouer si la table n'existe pas")
+            self.assertFalse(
+                is_valid, "La validation doit échouer si la table n'existe pas"
+            )
             self.assertIn(
                 "Table 'prompts' manquante",
                 message,
@@ -255,7 +265,9 @@ class TestCy8Integration(unittest.TestCase):
 
             # Vérifier que la base est correctement initialisée
             prompts = db_manager.get_all_prompts()
-            self.assertIsInstance(prompts, list, "La liste des prompts doit être retournée")
+            self.assertIsInstance(
+                prompts, list, "La liste des prompts doit être retournée"
+            )
 
             print("[OK] Initialisation complète du système réussie")
 
@@ -278,7 +290,9 @@ class TestCy8DataStructures(unittest.TestCase):
         json_str = json.dumps(valid_prompt_values)
         parsed = json.loads(json_str)
 
-        self.assertEqual(parsed, valid_prompt_values, "La structure doit être préservée")
+        self.assertEqual(
+            parsed, valid_prompt_values, "La structure doit être préservée"
+        )
 
         # Test des clés requises
         for key, value in parsed.items():
@@ -303,11 +317,15 @@ class TestCy8DataStructures(unittest.TestCase):
         json_str = json.dumps(valid_workflow)
         parsed = json.loads(json_str)
 
-        self.assertEqual(parsed, valid_workflow, "La structure workflow doit être préservée")
+        self.assertEqual(
+            parsed, valid_workflow, "La structure workflow doit être préservée"
+        )
 
         # Test des clés requises
         for node_id, node_data in parsed.items():
-            self.assertIn("class_type", node_data, f"Le nœud {node_id} doit avoir class_type")
+            self.assertIn(
+                "class_type", node_data, f"Le nœud {node_id} doit avoir class_type"
+            )
             self.assertIn("inputs", node_data, f"Le nœud {node_id} doit avoir inputs")
 
 
@@ -385,4 +403,6 @@ if __name__ == "__main__":
         else:
             print("\n[!] Certains tests ont échoué, vérifiez les détails ci-dessus")
     else:
-        print("\n[X] Problèmes d'imports détectés, impossible d'exécuter les tests complets")
+        print(
+            "\n[X] Problèmes d'imports détectés, impossible d'exécuter les tests complets"
+        )

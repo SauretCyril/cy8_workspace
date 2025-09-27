@@ -106,10 +106,18 @@ def set_default_db(prefs, db_path):
 def main():
     parser = argparse.ArgumentParser(description="Gestionnaire des préférences cy8")
     parser.add_argument("--info", action="store_true", help="Afficher les informations")
-    parser.add_argument("--clean", action="store_true", help="Nettoyer les bases inexistantes")
-    parser.add_argument("--clear-all", action="store_true", help="Effacer toutes les données")
-    parser.add_argument("--clear-recent", action="store_true", help="Effacer les bases récentes")
-    parser.add_argument("--set-default", metavar="PATH", help="Définir une base par défaut")
+    parser.add_argument(
+        "--clean", action="store_true", help="Nettoyer les bases inexistantes"
+    )
+    parser.add_argument(
+        "--clear-all", action="store_true", help="Effacer toutes les données"
+    )
+    parser.add_argument(
+        "--clear-recent", action="store_true", help="Effacer les bases récentes"
+    )
+    parser.add_argument(
+        "--set-default", metavar="PATH", help="Définir une base par défaut"
+    )
 
     args = parser.parse_args()
 

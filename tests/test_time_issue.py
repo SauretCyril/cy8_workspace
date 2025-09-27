@@ -8,9 +8,10 @@ import os
 import time
 
 # Ajouter le répertoire parent au chemin Python
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from cy8_database_manager import cy8_database_manager
+
 
 def test_basic_database_operations():
     """Test de base pour les opérations de base de données"""
@@ -34,7 +35,7 @@ def test_basic_database_operations():
             url="",
             model="test.ckpt",
             status="test",
-            comment="Test prompt"
+            comment="Test prompt",
         )
 
         print(f"✓ Prompt créé avec ID: {prompt_id}")
@@ -65,12 +66,14 @@ def test_basic_database_operations():
     except Exception as e:
         print(f"✗ Erreur: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
     finally:
         if os.path.exists(db_path):
             os.unlink(db_path)
+
 
 if __name__ == "__main__":
     success = test_basic_database_operations()

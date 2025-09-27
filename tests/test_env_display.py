@@ -5,12 +5,14 @@ Test pour vérifier l'affichage du tableau des extra paths dans l'onglet ComfyUI
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import tkinter as tk
 from tkinter import ttk
 import threading
 import time
+
 
 def test_env_display():
     """Test pour vérifier que le tableau des extra paths s'affiche correctement"""
@@ -31,14 +33,14 @@ def test_env_display():
         print("✅ Application créée avec succès")
 
         # Vérifier que l'onglet ComfyUI existe et a les composants nécessaires
-        if hasattr(app, 'env_tree'):
+        if hasattr(app, "env_tree"):
             print("✅ Composant env_tree trouvé")
 
             # Vérifier les colonnes du TreeView
-            columns = app.env_tree['columns']
+            columns = app.env_tree["columns"]
             print(f"📋 Colonnes du TreeView: {columns}")
 
-            if columns == ('key', 'type', 'path', 'section'):
+            if columns == ("key", "type", "path", "section"):
                 print("✅ Colonnes correctement configurées")
             else:
                 print(f"❌ Colonnes incorrectes: {columns}")
@@ -49,18 +51,20 @@ def test_env_display():
 
             if items:
                 for item in items:
-                    values = app.env_tree.item(item)['values']
+                    values = app.env_tree.item(item)["values"]
                     print(f"📋 Élément: {values}")
                 print("✅ TreeView contient des données")
             else:
-                print("⚠️ TreeView vide - Normal si aucun environnement n'a été identifié")
+                print(
+                    "⚠️ TreeView vide - Normal si aucun environnement n'a été identifié"
+                )
 
             # Vérifier les boutons et composants de recherche
             components_to_check = [
-                ('env_search_var', 'Variable de recherche'),
-                ('env_type_filter', 'Filtre de type'),
-                ('env_config_id_label', 'Label ID configuration'),
-                ('env_root_label', 'Label racine ComfyUI')
+                ("env_search_var", "Variable de recherche"),
+                ("env_type_filter", "Filtre de type"),
+                ("env_config_id_label", "Label ID configuration"),
+                ("env_root_label", "Label racine ComfyUI"),
             ]
 
             for attr_name, description in components_to_check:
@@ -75,8 +79,12 @@ def test_env_display():
 
         print("\n=== Résumé du test ===")
         print("✅ Le tableau des extra paths est correctement configuré")
-        print("💡 Pour voir les données, cliquez sur 'Identifier l'environnement' dans l'application")
-        print("💡 Les données apparaîtront après identification réussie de l'environnement ComfyUI")
+        print(
+            "💡 Pour voir les données, cliquez sur 'Identifier l'environnement' dans l'application"
+        )
+        print(
+            "💡 Les données apparaîtront après identification réussie de l'environnement ComfyUI"
+        )
 
         root.destroy()
         return True
@@ -84,8 +92,10 @@ def test_env_display():
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_env_display()

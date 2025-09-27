@@ -5,7 +5,9 @@ Test de diagnostic pour comprendre pourquoi le tableau des extra paths ne se rem
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def test_extra_paths_workflow():
     """Test complet du workflow de récupération des extra paths"""
@@ -17,6 +19,7 @@ def test_extra_paths_workflow():
         print("\n1. Test de récupération des données depuis YAML...")
 
         import yaml
+
         config_path = "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml"
 
         if os.path.exists(config_path):
@@ -27,11 +30,15 @@ def test_extra_paths_workflow():
 
             print(f"📊 Contenu du fichier YAML:")
             print(f"   Type: {type(config)}")
-            print(f"   Clés principales: {list(config.keys()) if isinstance(config, dict) else 'Non-dict'}")
+            print(
+                f"   Clés principales: {list(config.keys()) if isinstance(config, dict) else 'Non-dict'}"
+            )
 
             if isinstance(config, dict):
                 for key, value in config.items():
-                    print(f"   {key}: {type(value)} - {len(value) if isinstance(value, dict) else 'N/A'} entrées")
+                    print(
+                        f"   {key}: {type(value)} - {len(value) if isinstance(value, dict) else 'N/A'} entrées"
+                    )
                     if isinstance(value, dict):
                         for subkey, subvalue in value.items():
                             print(f"     {subkey}: {subvalue}")
@@ -43,9 +50,9 @@ def test_extra_paths_workflow():
         print("\n2. Test du format de données pour set_extra_paths...")
 
         extra_paths_data = {
-            'comfyui_root': 'E:/Comfyui_G11/ComfyUI',
-            'config_path': config_path,
-            'extra_paths': config
+            "comfyui_root": "E:/Comfyui_G11/ComfyUI",
+            "config_path": config_path,
+            "extra_paths": config,
         }
 
         print(f"📋 Format des données préparées:")
@@ -60,6 +67,7 @@ def test_extra_paths_workflow():
 
         # Vider d'abord
         from cy8_paths import cy8_paths_manager
+
         cy8_paths_manager._extra_paths.clear()
 
         print("📤 Stockage des données...")
@@ -85,7 +93,9 @@ def test_extra_paths_workflow():
         if stored_paths:
             print("✅ Données disponibles pour l'affichage")
             for key, path_info in stored_paths.items():
-                print(f"   Ligne tableau: {key} | {path_info.get('type', 'N/A')} | {path_info.get('path', 'N/A')} | {path_info.get('section', 'N/A')}")
+                print(
+                    f"   Ligne tableau: {key} | {path_info.get('type', 'N/A')} | {path_info.get('path', 'N/A')} | {path_info.get('section', 'N/A')}"
+                )
             return True
         else:
             print("❌ Aucune donnée pour l'affichage")
@@ -94,8 +104,10 @@ def test_extra_paths_workflow():
     except Exception as e:
         print(f"❌ Erreur pendant le diagnostic: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_extra_paths_workflow()

@@ -1,12 +1,12 @@
-#This is an example that uses the websockets api to know when a prompt execution is done
-#Once the prompt execution is done it downloads the images using the /history endpoint
+# This is an example that uses the websockets api to know when a prompt execution is done
+# Once the prompt execution is done it downloads the images using the /history endpoint
 
-import websocket #NOTE: websocket-client (https://github.com/websocket-client/websocket-client)
+import websocket  # NOTE: websocket-client (https://github.com/websocket-client/websocket-client)
 import uuid
 import json
 import urllib.request
 import urllib.parse
-from cy6_file import load_json,log_json
+from cy6_file import load_json, log_json
 import os
 from urllib import request
 import random
@@ -14,11 +14,12 @@ import random
 server_address = "127.0.0.1:8188"
 client_id = str(uuid.uuid4())
 
+
 def socket_queue_prompt(prompt):
     p = {"prompt": prompt, "client_id": client_id}
-    data = json.dumps(p).encode('utf-8')
-    req =  urllib.request.Request("http://{}/prompt".format(server_address), data=data)
-    req.add_header('Content-Type', 'application/json')
+    data = json.dumps(p).encode("utf-8")
+    req = urllib.request.Request("http://{}/prompt".format(server_address), data=data)
+    req.add_header("Content-Type", "application/json")
 
     try:
         print(f"DEBUG: Envoi de la requête à ComfyUI ({len(data)} bytes)")
@@ -28,30 +29,40 @@ def socket_queue_prompt(prompt):
         print(f"DEBUG: Erreur HTTP {e.code}: {e.reason}")
         if e.code == 400:
             try:
-                error_response = e.read().decode('utf-8')
+                error_response = e.read().decode("utf-8")
                 print(f"DEBUG: Réponse d'erreur ComfyUI: {error_response}")
             except:
                 pass
         raise e
 
+
 def get_image(filename, subfolder, folder_type):
     data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
     url_values = urllib.parse.urlencode(data)
-    with urllib.request.urlopen("http://{}/view?{}".format(server_address, url_values)) as response:
+    with urllib.request.urlopen(
+        "http://{}/view?{}".format(server_address, url_values)
+    ) as response:
         return response.read()
 
+
 def get_history(prompt_id):
-    with urllib.request.urlopen("http://{}/history/{}".format(server_address, prompt_id)) as response:
+    with urllib.request.urlopen(
+        "http://{}/history/{}".format(server_address, prompt_id)
+    ) as response:
         return json.loads(response.read())
+
 
 def get_queue_status():
     """Récupérer le statut de la queue ComfyUI"""
     try:
-        with urllib.request.urlopen("http://{}/queue".format(server_address)) as response:
+        with urllib.request.urlopen(
+            "http://{}/queue".format(server_address)
+        ) as response:
             return json.loads(response.read())
     except Exception as e:
         print(f"DEBUG: Erreur lors de la récupération du statut de la queue: {e}")
         return None
+
 
 def is_prompt_in_queue(prompt_id):
     """Vérifier si un prompt est toujours dans la queue"""
@@ -61,13 +72,13 @@ def is_prompt_in_queue(prompt_id):
             return False
 
         # Vérifier dans la queue en attente
-        for item in queue_status.get('queue_pending', []):
+        for item in queue_status.get("queue_pending", []):
             if item[1] == prompt_id:  # [0] = numero, [1] = prompt_id, [2] = prompt_data
                 print(f"DEBUG: Prompt {prompt_id} trouvé dans queue_pending")
                 return True
 
         # Vérifier dans la queue en cours d'exécution
-        for item in queue_status.get('queue_running', []):
+        for item in queue_status.get("queue_running", []):
             if item[1] == prompt_id:
                 print(f"DEBUG: Prompt {prompt_id} trouvé dans queue_running")
                 return True
@@ -80,7 +91,7 @@ def is_prompt_in_queue(prompt_id):
         return False
 
 
-def socket_get_images(ws,prompt_id):
+def socket_get_images(ws, prompt_id):
     try:
         output_paths = []
         base_dir_map = {
@@ -92,17 +103,17 @@ def socket_get_images(ws,prompt_id):
         default_base = os.getenv("IMAGES_COLLECTE")
 
         def resolve_path(image_info):
-            filename = image_info.get('filename')
+            filename = image_info.get("filename")
             if not filename:
                 return None
-            folder_type = image_info.get('type')
+            folder_type = image_info.get("type")
             base_dir = base_dir_map.get(folder_type) or default_base
-            subfolder = image_info.get('subfolder') or ''
+            subfolder = image_info.get("subfolder") or ""
             parts = []
             if base_dir:
                 parts.append(base_dir)
             if subfolder:
-                normalized_subfolder = subfolder.replace('/', os.sep).strip()
+                normalized_subfolder = subfolder.replace("/", os.sep).strip()
                 if normalized_subfolder:
                     parts.append(normalized_subfolder)
             parts.append(filename)
@@ -115,20 +126,20 @@ def socket_get_images(ws,prompt_id):
             out = ws.recv()
             if isinstance(out, str):
                 message = json.loads(out)
-                if message['type'] == 'executing':
-                    data = message['data']
-                    if data['node'] is None and data['prompt_id'] == prompt_id:
-                        break #Execution is done
+                if message["type"] == "executing":
+                    data = message["data"]
+                    if data["node"] is None and data["prompt_id"] == prompt_id:
+                        break  # Execution is done
             else:
-                continue #previews are binary data
+                continue  # previews are binary data
 
         history = get_history(prompt_id)[prompt_id]
 
-        for node_id in history['outputs']:
-            node_output = history['outputs'][node_id]
+        for node_id in history["outputs"]:
+            node_output = history["outputs"][node_id]
 
-            if 'images' in node_output:
-                for image in node_output['images']:
+            if "images" in node_output:
+                for image in node_output["images"]:
                     resolved_path = resolve_path(image)
                     if resolved_path:
                         output_paths.append(resolved_path)
@@ -139,22 +150,22 @@ def socket_get_images(ws,prompt_id):
         return []
 
 
-def update_workflow(filevalues,fileworkflow):
+def update_workflow(filevalues, fileworkflow):
     print(f"dbg-4514 => open file workflow -- {fileworkflow }")
-    #il faut ouvrir filevalues
-    if  not os.path.exists(filevalues):
+    # il faut ouvrir filevalues
+    if not os.path.exists(filevalues):
         raise ValueError(f"Invalid values file : {filevalues}")
-    if  not os.path.exists(fileworkflow):
+    if not os.path.exists(fileworkflow):
         raise ValueError(f"Invalid workflow file : {fileworkflow}")
 
-    with open(filevalues, "r",encoding="utf-8") as f:
-        values_json_data=f.read()
+    with open(filevalues, "r", encoding="utf-8") as f:
+        values_json_data = f.read()
 
     print(f"dbg-4514 =>values ={values_json_data}")
 
-    values=json.loads( values_json_data)
+    values = json.loads(values_json_data)
 
-    data_updated={}
+    data_updated = {}
 
     try:
         # with open(file, "r",encoding="utf-8") as f:
@@ -163,56 +174,58 @@ def update_workflow(filevalues,fileworkflow):
 
         for val in values:
 
-            typ = values[val]['type']
-            node =values[val]['id']
+            typ = values[val]["type"]
+            node = values[val]["id"]
 
-            print (f"dbg-4514 = node {node} : type {typ}:")
-            #print(f"............set value to node={node} - typ={typ}")
-            #print(f"................value ={values[val]}")
+            print(f"dbg-4514 = node {node} : type {typ}:")
+            # print(f"............set value to node={node} - typ={typ}")
+            # print(f"................value ={values[val]}")
 
-            #data_updated.update(f"{#node}:{'type':{typ}}") # type: ignore
-            #data_updated.update(f"{node}:{'value':{values[val]}}")
+            # data_updated.update(f"{#node}:{'type':{typ}}") # type: ignore
+            # data_updated.update(f"{node}:{'value':{values[val]}}")
 
             match typ:
 
                 case "image":
-                    jsonf[node]['inputs']['image'] =  values[val]['value']
+                    jsonf[node]["inputs"]["image"] = values[val]["value"]
                 case "CLIPTextEncode":
                     # Nettoyer le prompt des sauts de ligne et espaces multiples
-                    prompt_text = values[val]['value']
+                    prompt_text = values[val]["value"]
                     if isinstance(prompt_text, str):
                         # Remplacer les sauts de ligne par des espaces et nettoyer
-                        prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
+                        prompt_text = prompt_text.replace("\n", " ").replace("\r", " ")
                         # Réduire les espaces multiples à un seul
-                        prompt_text = ' '.join(prompt_text.split())
+                        prompt_text = " ".join(prompt_text.split())
 
-                    jsonf[node]['inputs']['text'] = prompt_text
-                    print (f"dbg-4515-1 = ok (cleaned CLIP text: {len(prompt_text)} chars)")
+                    jsonf[node]["inputs"]["text"] = prompt_text
+                    print(
+                        f"dbg-4515-1 = ok (cleaned CLIP text: {len(prompt_text)} chars)"
+                    )
 
                 case "prompt" | "prompt_positive" | "prompt_negative":
                     # Nettoyer le prompt des sauts de ligne et espaces multiples
-                    prompt_text = values[val]['value']
+                    prompt_text = values[val]["value"]
                     if isinstance(prompt_text, str):
                         # Remplacer les sauts de ligne par des espaces et nettoyer
-                        prompt_text = prompt_text.replace('\n', ' ').replace('\r', ' ')
+                        prompt_text = prompt_text.replace("\n", " ").replace("\r", " ")
                         # Réduire les espaces multiples à un seul
-                        prompt_text = ' '.join(prompt_text.split())
+                        prompt_text = " ".join(prompt_text.split())
 
-                    jsonf[node]['inputs']['text'] = prompt_text
-                    print (f"dbg-4515-2 = ok (cleaned prompt: {len(prompt_text)} chars)")
-                case "seed" :
-                    #seednum=124578
+                    jsonf[node]["inputs"]["text"] = prompt_text
+                    print(f"dbg-4515-2 = ok (cleaned prompt: {len(prompt_text)} chars)")
+                case "seed":
+                    # seednum=124578
                     seednum = random.randint(0, 9999999)
-                    jsonf[node]['inputs']['seed'] = seednum
-                    values[val]['value'] = seednum
-                    print (f"dbg-4515-3 = {str(seednum)} ")
+                    jsonf[node]["inputs"]["seed"] = seednum
+                    values[val]["value"] = seednum
+                    print(f"dbg-4515-3 = {str(seednum)} ")
 
-                case "PortraitMasterStylePose.pose" :
-                    jsonf[node]['inputs']['model_pose'] = values[val]['model_pose']
-                case "BilboXPhotoPrompt.style" :
+                case "PortraitMasterStylePose.pose":
+                    jsonf[node]["inputs"]["model_pose"] = values[val]["model_pose"]
+                case "BilboXPhotoPrompt.style":
 
-                    #print(f"{jsonf[node]}")
-                    '''
+                    # print(f"{jsonf[node]}")
+                    """
                     jsonf[node]['inputs']['style'] = values[val]['style']
                     jsonf[node]['inputs']['framing'] = values[val]['framing']
                     jsonf[node]['inputs']['lighting'] = values[val]['lighting']
@@ -220,87 +233,82 @@ def update_workflow(filevalues,fileworkflow):
                     jsonf[node]['inputs']['lenses'] = values[val]['lenses']
                     jsonf[node]['inputs']['filters_effects'] = values[val]['overexposed']
                     jsonf[node]['inputs']['photographers'] = values[val]['photographers']
-                    '''
-                case "SDXLPromptStylerbyMood" :
-                    jsonf[node]['inputs']['style'] = values[val]['style']
+                    """
+                case "SDXLPromptStylerbyMood":
+                    jsonf[node]["inputs"]["style"] = values[val]["style"]
                 case "GoogleTranslateTextNode":
-                    jsonf[node]['inputs']['text'] =  values[val]['text']
+                    jsonf[node]["inputs"]["text"] = values[val]["text"]
                 case "LoraLoaderTagsQuery":
-                    jsonf[node]['inputs']['lora_name'] =  values[val]['lora_name']
+                    jsonf[node]["inputs"]["lora_name"] = values[val]["lora_name"]
                 case "SaveImage":
-                    jsonf[node]['inputs']['filename_prefix'] =  values[val]['value']
-                    print (f"dbg-4515-4 = {values[val]['value']} ")
+                    jsonf[node]["inputs"]["filename_prefix"] = values[val]["value"]
+                    print(f"dbg-4515-4 = {values[val]['value']} ")
 
                 case "LoraInfo":
-                     jsonf[node]['inputs']['lora_name'] =  values[val]['lora_name']
+                    jsonf[node]["inputs"]["lora_name"] = values[val]["lora_name"]
                 case _:
                     print(f"Invalid type {typ}")
                     return
     except Exception as e:
         print("---Error---------------------------------------")
         print(f"update worflow Error: {e}")
-        #log_json('current_workflow_data_updated',data_updated)
+        # log_json('current_workflow_data_updated',data_updated)
         # print ("\n")
         # print (file)
         # exit(None)
 
-    #print (f"........END update node ----------------")
-    #log_json('current_workflow_data_updated',data_updated)
+    # print (f"........END update node ----------------")
+    # log_json('current_workflow_data_updated',data_updated)
     return jsonf, values
 
-    #set the text prompt for our positive CLIPTextEncode
+    # set the text prompt for our positive CLIPTextEncode
 
-#Run workflow and get images
+
+# Run workflow and get images
 def server_run_now(jsonf):
     try:
-         ws = websocket.WebSocket()
-         ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
+        ws = websocket.WebSocket()
+        ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
     except Exception:
-         print(f"Error: {Exception}")
-         exit(None)
+        print(f"Error: {Exception}")
+        exit(None)
 
     result = get_images(ws, jsonf)
     return result
 
 
-
-def server_get_prompt(ws,prompt,isList,node_id):
+def server_get_prompt(ws, prompt, isList, node_id):
     print("sv:msg01")
     # ws = websocket.WebSocket()
     # ws.connect("ws://{}/ws?clientId={}".format(server_address, client_id))
     print(f"sv:msg02={prompt}")
-    prompt_id = socket_queue_prompt(prompt)['prompt_id']
+    prompt_id = socket_queue_prompt(prompt)["prompt_id"]
     print(f"sv:msg03")
     output_text = {}
     while True:
         out = ws.recv()
         if isinstance(out, str):
             message = json.loads(out)
-            if message['type'] == 'executing':
-                data = message['data']
-                if data['node'] is None and data['prompt_id'] == prompt_id:
-                    break #Execution is done
+            if message["type"] == "executing":
+                data = message["data"]
+                if data["node"] is None and data["prompt_id"] == prompt_id:
+                    break  # Execution is done
         else:
-            continue #previews are binary data
+            continue  # previews are binary data
 
     history = get_history(prompt_id)[prompt_id]
-    if (isList):
-        output=history['outputs'][node_id]['text']
+    if isList:
+        output = history["outputs"][node_id]["text"]
     else:
-        output=history['outputs'][node_id]['text'][0]
+        output = history["outputs"][node_id]["text"][0]
 
-    #output1=history['outputs'][node_id]
+    # output1=history['outputs'][node_id]
     # print(f"Output---------------------")
     # print(f"{output1}")
     # print(f"Output---------------------")
-    result={'0':{'prompt_id':prompt_id},
-        '1':{'output':output}}
+    result = {"0": {"prompt_id": prompt_id}, "1": {"output": output}}
     return result
-    #return
-
-
-
-
+    # return
 
 
 def socket_queue_add(jsonf):
@@ -308,9 +316,10 @@ def socket_queue_add(jsonf):
     # data = json.dumps(p).encode('utf-8')
     # req =  request.Request("http://127.0.0.1:8188/prompt", data=data)
     # request.urlopen(req)
-    prompt_id = socket_queue_prompt(jsonf)['prompt_id']
+    prompt_id = socket_queue_prompt(jsonf)["prompt_id"]
 
     return prompt_id
+
 
 def server_connect():
     ws = websocket.WebSocket()
@@ -334,27 +343,29 @@ def workflow_is_running(ws, prompt_id):
             message = json.loads(out)
             print(f"DEBUG: Message reçu: {message}")
 
-            if message['type'] == 'executing':
-                data = message['data']
+            if message["type"] == "executing":
+                data = message["data"]
                 # Si node est None et prompt_id correspond, l'exécution est terminée
-                if data['node'] is None and data['prompt_id'] == prompt_id:
+                if data["node"] is None and data["prompt_id"] == prompt_id:
                     print(f"DEBUG: Workflow {prompt_id} terminé (node=None)")
                     ret = False  # Terminé
-                elif data['prompt_id'] == prompt_id and data['node'] is not None:
+                elif data["prompt_id"] == prompt_id and data["node"] is not None:
                     print(f"DEBUG: Workflow {prompt_id} en cours (node={data['node']})")
-                    ret = True   # En cours
-            elif message['type'] == 'progress':
+                    ret = True  # En cours
+            elif message["type"] == "progress":
                 # Gestion des messages de progrès
-                data = message['data']
-                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
-                    progress = data.get('value', 0)
-                    max_progress = data.get('max', 100)
-                    percent = int((progress / max_progress) * 100) if max_progress > 0 else 0
+                data = message["data"]
+                if "prompt_id" in data and data["prompt_id"] == prompt_id:
+                    progress = data.get("value", 0)
+                    max_progress = data.get("max", 100)
+                    percent = (
+                        int((progress / max_progress) * 100) if max_progress > 0 else 0
+                    )
                     print(f"DEBUG: Workflow {prompt_id} progrès: {percent}%")
                     ret = True  # Toujours en cours
-            elif message['type'] == 'execution_error':
-                data = message['data']
-                if 'prompt_id' in data and data['prompt_id'] == prompt_id:
+            elif message["type"] == "execution_error":
+                data = message["data"]
+                if "prompt_id" in data and data["prompt_id"] == prompt_id:
                     print(f"DEBUG: Workflow {prompt_id} en erreur")
                     ret = False  # Terminé avec erreur
 
@@ -362,46 +373,49 @@ def workflow_is_running(ws, prompt_id):
         return ret
 
     except websocket.WebSocketTimeoutException:
-        print(f"DEBUG: Timeout WebSocket pour {prompt_id} - peut-être toujours en cours")
+        print(
+            f"DEBUG: Timeout WebSocket pour {prompt_id} - peut-être toujours en cours"
+        )
         return True  # En cas de timeout, on assume que c'est toujours en cours
     except Exception as e:
         print(f"DEBUG: Erreur dans workflow_is_running: {e}")
         return True  # En cas d'erreur, on assume que c'est toujours en cours (sauf si on a une info contraire)
 
 
-
 def get_history_images(prompt_id):
     output_images = {}
     history = get_history(prompt_id)[prompt_id]
-    for o in history['outputs']:
-        for node_id in history['outputs']:
-            node_output = history['outputs'][node_id]
-            if 'images' in node_output:
+    for o in history["outputs"]:
+        for node_id in history["outputs"]:
+            node_output = history["outputs"][node_id]
+            if "images" in node_output:
                 images_output = []
-                for image in node_output['images']:
-                    image_data = get_image(image['filename'], image['subfolder'], image['type'])
+                for image in node_output["images"]:
+                    image_data = get_image(
+                        image["filename"], image["subfolder"], image["type"]
+                    )
                     images_output.append(image_data)
                 output_images[node_id] = images_output
 
     return output_images
 
 
-def server_get_infLora(ws,prompt):
+def server_get_infLora(ws, prompt):
     print("sv:msg01")
 
-    #print(f"sv:msg02={prompt}")
-    prompt_id = socket_queue_prompt(prompt)['prompt_id']
-    #print(f"sv:msg03")
+    # print(f"sv:msg02={prompt}")
+    prompt_id = socket_queue_prompt(prompt)["prompt_id"]
+    # print(f"sv:msg03")
     output_text = {}
     while True:
         out = ws.recv()
         if isinstance(out, str):
             message = json.loads(out)
-            if message['type'] == 'executing':
-                data = message['data']
-                if data['node'] is None and data['prompt_id'] == prompt_id:
-                    break #Execution is done
+            if message["type"] == "executing":
+                data = message["data"]
+                if data["node"] is None and data["prompt_id"] == prompt_id:
+                    break  # Execution is done
         else:
-            continue #previews are binary data
+            continue  # previews are binary data
 
-    return  get_history(prompt_id)[prompt_id]['outputs']
+    return get_history(prompt_id)[prompt_id]["outputs"]

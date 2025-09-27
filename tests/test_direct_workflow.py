@@ -4,9 +4,11 @@ Test direct du workflow ComfyUI pour diagnostiquer l'erreur 400
 """
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cy6_wkf001_Basic import comfyui_basic_task
+
 
 def test_direct_workflow():
     """Test direct d'exécution de workflow"""
@@ -45,7 +47,9 @@ def test_direct_workflow():
     except Exception as e:
         print(f"❌ Erreur: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_direct_workflow()

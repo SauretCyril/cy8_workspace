@@ -11,6 +11,7 @@ custom_node_path = r"E:\Comfyui_G11\ComfyUI\custom_nodes"
 if custom_node_path not in sys.path:
     sys.path.insert(0, custom_node_path)
 
+
 def test_extra_path_reader():
     """Tester le custom node ExtraPathReader"""
     print("🧪 Test du custom node ExtraPathReader")
@@ -18,7 +19,12 @@ def test_extra_path_reader():
 
     try:
         # Importer le custom node
-        from extra_path_reader import ExtraPathReader, NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
+        from extra_path_reader import (
+            ExtraPathReader,
+            NODE_CLASS_MAPPINGS,
+            NODE_DISPLAY_NAME_MAPPINGS,
+        )
+
         print("✅ Import réussi")
 
         # Vérifier les mappings
@@ -45,12 +51,16 @@ def test_extra_path_reader():
             result = reader.read_paths()
             print(f"✅ Résultat obtenu (type: {type(result)})")
             if isinstance(result, tuple) and len(result) > 0:
-                print(f"📄 Contenu (premiers 200 caractères): {str(result[0])[:200]}...")
+                print(
+                    f"📄 Contenu (premiers 200 caractères): {str(result[0])[:200]}..."
+                )
             else:
                 print(f"📄 Résultat complet: {result}")
         except Exception as e:
             print(f"⚠️ Erreur lors de l'exécution: {e}")
-            print("💡 Cela peut être normal si le fichier extra_model_paths.yaml n'existe pas")
+            print(
+                "💡 Cela peut être normal si le fichier extra_model_paths.yaml n'existe pas"
+            )
 
         print("\n✅ Test du custom node terminé avec succès !")
 
@@ -73,9 +83,12 @@ def test_yaml_config():
         print("✅ Fichier trouvé")
         try:
             import yaml
+
             with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
-            print(f"📋 Configuration chargée: {len(config) if isinstance(config, dict) else 'N/A'} entrées")
+            print(
+                f"📋 Configuration chargée: {len(config) if isinstance(config, dict) else 'N/A'} entrées"
+            )
         except Exception as e:
             print(f"⚠️ Erreur lors de la lecture: {e}")
     else:
@@ -87,9 +100,11 @@ if __name__ == "__main__":
     test_extra_path_reader()
     test_yaml_config()
 
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("💡 Pour utiliser ce custom node dans ComfyUI:")
     print("1. Redémarrez ComfyUI")
-    print("2. Le node 'Extra Path Reader' devrait apparaître dans la catégorie 'Utility'")
+    print(
+        "2. Le node 'Extra Path Reader' devrait apparaître dans la catégorie 'Utility'"
+    )
     print("3. Il retourne le contenu du fichier extra_model_paths.yaml en JSON")
-    print("="*50)
+    print("=" * 50)

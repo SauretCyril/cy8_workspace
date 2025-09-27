@@ -9,7 +9,7 @@ import json
 import urllib.request
 
 # Ajouter le répertoire src au path Python
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cy6_wkf001_Basic import comfyui_basic_task
 from cy6_websocket_api_client import server_address
@@ -48,6 +48,7 @@ def test_comfyui_connection():
 # Le test d'exécution de workflow a été retiré conformément aux nouvelles spécifications.
 # Les tests d'exécution doivent maintenant être effectués uniquement via l'onglet "ComfyUI"
 # dans l'interface utilisateur avec le bouton "Tester connexion".
+
 
 def test_workflow_execution_removed():
     """

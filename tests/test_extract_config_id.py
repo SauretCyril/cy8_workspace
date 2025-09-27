@@ -5,6 +5,7 @@ Test de la fonction d'extraction d'ID depuis les extra paths
 
 import json
 
+
 def test_extract_config_id():
     """Tester l'extraction d'ID de configuration depuis les données de test"""
     print("🧪 Test d'extraction d'ID de configuration")
@@ -23,7 +24,7 @@ def test_extract_config_id():
             "style_models": "H:/comfyui/models/style_models",
             "controlnet": "H:/comfyui/models/controlnet",
             "upscale_models": "H:/comfyui/models/upscale_models",
-            "custom_nodes": "H:/comfyui/G11_04/custom_nodes"
+            "custom_nodes": "H:/comfyui/G11_04/custom_nodes",
         }
     }
 
@@ -50,37 +51,37 @@ def test_extract_config_id():
             "data": {
                 "comfyui": {
                     "custom_nodes": "H:/comfyui/Production/custom_nodes",
-                    "checkpoints": "H:/comfyui/models/checkpoints"
+                    "checkpoints": "H:/comfyui/models/checkpoints",
                 }
             },
-            "expected": "Production"
+            "expected": "Production",
         },
         {
             "name": "Variation 2 - base_path avec ComfyUI",
             "data": {
                 "comfyui": {
                     "base_path": "D:/AI/TestEnv/ComfyUI",
-                    "checkpoints": "D:/AI/models/checkpoints"
+                    "checkpoints": "D:/AI/models/checkpoints",
                 }
             },
-            "expected": "TestEnv"
+            "expected": "TestEnv",
         },
         {
             "name": "Variation 3 - chemins avec sous-dossiers",
             "data": {
                 "models": {
                     "checkpoints": "C:/ComfyUI/MySetup/ComfyUI/models/checkpoints",
-                    "loras": "C:/ComfyUI/MySetup/models/loras"
+                    "loras": "C:/ComfyUI/MySetup/models/loras",
                 }
             },
-            "expected": "MySetup"
-        }
+            "expected": "MySetup",
+        },
     ]
 
     for variation in variations:
         print(f"\n  {variation['name']}:")
-        extracted = extract_config_id_from_extra_paths(variation['data'])
-        expected = variation['expected']
+        extracted = extract_config_id_from_extra_paths(variation["data"])
+        expected = variation["expected"]
         status = "✅" if extracted == expected else "❌"
         print(f"    {status} Extrait: '{extracted}', Attendu: '{expected}'")
 
@@ -103,20 +104,29 @@ def extract_config_id_from_extra_paths(extra_paths_config):
             for path_key, path_value in paths.items():
                 if isinstance(path_value, str):
                     # Chercher spécifiquement les chemins custom_nodes en priorité
-                    if "custom_nodes" in path_key.lower() or "custom_nodes" in path_value:
+                    if (
+                        "custom_nodes" in path_key.lower()
+                        or "custom_nodes" in path_value
+                    ):
                         # Pattern spécifique pour custom_nodes: H:/comfyui/ID/custom_nodes
                         pattern = r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]custom_nodes"
                         match = re.search(pattern, path_value, re.IGNORECASE)
                         if match:
                             candidate_id = match.group(1)
-                            if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae']:
+                            if candidate_id.lower() not in [
+                                "models",
+                                "checkpoints",
+                                "loras",
+                                "embeddings",
+                                "vae",
+                            ]:
                                 custom_nodes_candidates.append(candidate_id)
 
                     # Autres patterns pour chemins généraux
                     patterns = [
                         r".*[/\\]comfyui[/\\]([^/\\]+)[/\\]",  # H:/comfyui/ID/...
                         r".*[/\\]([^/\\]+)[/\\]ComfyUI[/\\]",  # H:/ID/ComfyUI/...
-                        r".*[/\\]comfyui[/\\]([^/\\]+)$",      # H:/comfyui/ID (fin de chemin)
+                        r".*[/\\]comfyui[/\\]([^/\\]+)$",  # H:/comfyui/ID (fin de chemin)
                     ]
 
                     for pattern in patterns:
@@ -124,7 +134,14 @@ def extract_config_id_from_extra_paths(extra_paths_config):
                         if match:
                             candidate_id = match.group(1)
                             # Exclure certains noms génériques
-                            if candidate_id.lower() not in ['models', 'checkpoints', 'loras', 'embeddings', 'vae', 'custom_nodes']:
+                            if candidate_id.lower() not in [
+                                "models",
+                                "checkpoints",
+                                "loras",
+                                "embeddings",
+                                "vae",
+                                "custom_nodes",
+                            ]:
                                 other_candidates.append(candidate_id)
 
         elif isinstance(paths, str):
@@ -145,15 +162,21 @@ def extract_config_id_from_extra_paths(extra_paths_config):
         # Filtrer les doublons et les noms génériques
         filtered_candidates = []
         for candidate in other_candidates:
-            if candidate not in filtered_candidates and candidate.lower() not in ['program files', 'program files (x86)', 'users']:
+            if candidate not in filtered_candidates and candidate.lower() not in [
+                "program files",
+                "program files (x86)",
+                "users",
+            ]:
                 filtered_candidates.append(candidate)
 
         if filtered_candidates:
             return filtered_candidates[0]
 
     # Si aucun ID spécifique n'est trouvé, retourner un ID par défaut basé sur le base_path si disponible
-    if 'comfyui' in extra_paths_config and isinstance(extra_paths_config['comfyui'], dict):
-        base_path = extra_paths_config['comfyui'].get('base_path', '')
+    if "comfyui" in extra_paths_config and isinstance(
+        extra_paths_config["comfyui"], dict
+    ):
+        base_path = extra_paths_config["comfyui"].get("base_path", "")
         if base_path:
             pattern = r".*[/\\]([^/\\]+)[/\\]ComfyUI"
             match = re.search(pattern, base_path, re.IGNORECASE)
@@ -166,8 +189,8 @@ def extract_config_id_from_extra_paths(extra_paths_config):
 if __name__ == "__main__":
     test_extract_config_id()
 
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("💡 Cette fonction d'extraction est maintenant intégrée")
     print("   dans l'application principale pour identifier")
     print("   automatiquement l'environnement ComfyUI.")
-    print("="*50)
+    print("=" * 50)
