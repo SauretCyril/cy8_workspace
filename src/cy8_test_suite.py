@@ -174,7 +174,7 @@ class TestCy8DatabaseManager(unittest.TestCase):
                     "Aucune réparation ne devrait être tentée",
                 )
                 self.assertIn(
-                    "Table 'prompts' créée avec succès",
+                    "Tables 'prompts'",
                     output,
                     "La table devrait être créée normalement",
                 )

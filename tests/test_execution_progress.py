@@ -38,16 +38,16 @@ def test_execution_progress():
     # Créer une instance mock
     app = MockApp()
 
-    # Simuler des données de prompt
-    mock_prompt_data = (
-        "Test Workflow",  # name
-        '{"1": {"value": "test prompt"}}',  # prompt_values_json
-        '{"1": {"class_type": "CLIPTextEncode"}}',  # workflow_json
-        "http://localhost:8188",  # url
-        "test_model",  # model
-        "Test comment",  # comment
-        "pending",  # status
-    )
+    # Simuler des données de prompt (pour référence future)
+    # mock_prompt_data = (
+    #     "Test Workflow",  # name
+    #     '{"1": {"value": "test prompt"}}',  # prompt_values_json
+    #     '{"1": {"class_type": "CLIPTextEncode"}}',  # workflow_json
+    #     "http://localhost:8188",  # url
+    #     "test_model",  # model
+    #     "Test comment",  # comment
+    #     "pending",  # status
+    # )
 
     # Test avec différents scénarios
     scenarios = [
