@@ -54,6 +54,7 @@ class cy8_database_manager:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     prompt_id INTEGER NOT NULL,
                     image_path TEXT NOT NULL,
+                    environment_id TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
                 )
@@ -207,7 +208,7 @@ class cy8_database_manager:
                 except sqlite3.OperationalError:
                     pass
 
-            # S'assurer que la table prompt_image existe
+            # S'assurer que la table prompt_image existe avec environment_id
             self.cursor.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_image'"
             )
@@ -218,6 +219,7 @@ class cy8_database_manager:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         prompt_id INTEGER NOT NULL,
                         image_path TEXT NOT NULL,
+                        environment_id TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
                     )
@@ -225,6 +227,17 @@ class cy8_database_manager:
                 )
                 self.conn.commit()
                 print("Table 'prompt_image' créée avec succès")
+            else:
+                # Vérifier si la colonne environment_id existe et l'ajouter si nécessaire
+                self.cursor.execute("PRAGMA table_info(prompt_image)")
+                image_columns = [row[1] for row in self.cursor.fetchall()]
+
+                if "environment_id" not in image_columns:
+                    self.cursor.execute(
+                        "ALTER TABLE prompt_image ADD COLUMN environment_id TEXT"
+                    )
+                    self.conn.commit()
+                    print("Colonne 'environment_id' ajoutée à la table 'prompt_image'")
 
         except sqlite3.OperationalError as e:
             print(f"Erreur lors de l'ajout des colonnes : {e}")
@@ -633,12 +646,12 @@ class cy8_database_manager:
         except Exception as e:
             return False, f"Erreur lors de la correction: {e}"
 
-    def add_prompt_image(self, prompt_id, image_path):
-        """Ajouter une image à un prompt"""
+    def add_prompt_image(self, prompt_id, image_path, environment_id=None):
+        """Ajouter une image à un prompt avec l'ID d'environnement"""
         try:
             self.cursor.execute(
-                "INSERT INTO prompt_image (prompt_id, image_path) VALUES (?, ?)",
-                (prompt_id, image_path),
+                "INSERT INTO prompt_image (prompt_id, image_path, environment_id) VALUES (?, ?, ?)",
+                (prompt_id, image_path, environment_id),
             )
             self.conn.commit()
             return True
@@ -651,7 +664,7 @@ class cy8_database_manager:
         try:
             self.cursor.execute(
                 """
-                SELECT id, image_path, created_at
+                SELECT id, image_path, environment_id, created_at
                 FROM prompt_image
                 WHERE prompt_id = ?
                 ORDER BY created_at DESC
@@ -661,6 +674,24 @@ class cy8_database_manager:
             return self.cursor.fetchall()
         except sqlite3.Error as e:
             print(f"Erreur lors de la récupération des images : {e}")
+            return []
+
+    def get_images_by_environment(self, environment_id):
+        """Récupérer toutes les images d'un environnement spécifique"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT pi.id, pi.prompt_id, pi.image_path, pi.created_at, p.name as prompt_name
+                FROM prompt_image pi
+                JOIN prompts p ON pi.prompt_id = p.id
+                WHERE pi.environment_id = ?
+                ORDER BY pi.created_at DESC
+                """,
+                (environment_id,),
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des images par environnement : {e}")
             return []
 
     def delete_prompt_image(self, image_id):

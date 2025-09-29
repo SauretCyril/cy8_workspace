@@ -16,7 +16,6 @@ from cy6_wkf001_Basic import comfyui_basic_task
 from cy8_log_analyzer import cy8_log_analyzer
 from cy8_mistral import analyze_comfyui_error, save_error_solution, load_error_solution
 
-
 class cy8_prompts_manager:
     """Gestionnaire principal des prompts - Version cy8 refactorisée"""
 
@@ -1888,6 +1887,30 @@ class cy8_prompts_manager:
             messagebox.showwarning("Attention", "Sélectionnez un prompt à exécuter.")
             return
 
+        # Vérifier qu'un environnement ComfyUI est identifié
+        current_env_id = self.comfyui_config_id.get().strip()
+        if not current_env_id:
+            error_msg = (
+                "❌ ERREUR - Environnement ComfyUI non identifié !\n\n"
+                "Vous devez d'abord identifier l'environnement ComfyUI avant d'exécuter un workflow.\n\n"
+                "📋 Actions requises :\n"
+                "1. Aller dans l'onglet 'ComfyUI'\n"
+                "2. Cliquer sur '🔍 Identifier l'environnement'\n"
+                "3. Vérifier que l'ID de configuration est affiché\n"
+                "4. Revenir dans cet onglet pour exécuter le workflow\n\n"
+                "⚠️ Cette vérification garantit la traçabilité des images générées."
+            )
+
+            messagebox.showerror("Environnement non identifié", error_msg)
+
+            # Mettre à jour le statut
+            self.update_status("❌ Échec - Environnement non identifié")
+            return
+
+        # L'environnement est identifié, stocker l'ID pour l'utiliser lors de la sauvegarde des images
+        self.current_execution_environment_id = current_env_id
+        print(f"🌍 Exécution du workflow dans l'environnement : {current_env_id}")
+
         # Simulation d'exécution (à adapter selon l'implémentation originale)
         try:
             # Récupérer les données
@@ -2146,6 +2169,12 @@ class cy8_prompts_manager:
                 0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok")
             )
             print(f"Erreur dans _execute_workflow_task: {e}")
+
+        finally:
+            # Nettoyer l'ID d'environnement d'exécution
+            if hasattr(self, 'current_execution_environment_id'):
+                delattr(self, 'current_execution_environment_id')
+                print("🧹 Environment ID d'exécution nettoyé")
 
     def update_prompt_status_after_execution(self, prompt_id, status):
         """Mettre à jour le statut du prompt après exécution"""
@@ -2424,11 +2453,21 @@ WORKFLOW:
         # Récupérer les images de la base de données
         images = self.db_manager.get_prompt_images(prompt_id)
 
-        for image_id, image_path, created_at in images:
+        for image_data in images:
+            # Adapter selon le nouveau format avec environment_id
+            if len(image_data) >= 4:
+                image_id, image_path, environment_id, created_at = image_data
+            else:
+                # Compatibilité avec l'ancien format
+                image_id, image_path, created_at = image_data[:3]
+                environment_id = "N/A"
+
             if os.path.exists(image_path):
                 filename = os.path.basename(image_path)
+                # Afficher l'environnement s'il existe
+                env_display = environment_id[:12] + "..." if environment_id and len(environment_id) > 15 else (environment_id or "N/A")
                 self.images_tree.insert(
-                    "", "end", values=(filename, image_path, created_at)
+                    "", "end", values=(filename, image_path, env_display, created_at)
                 )
 
     def on_image_select(self, event):
@@ -2494,8 +2533,11 @@ WORKFLOW:
 
         if filenames:
             success_count = 0
+            # Récupérer l'environment_id actuel (peut être null pour les ajouts manuels)
+            environment_id = self.comfyui_config_id.get().strip() if hasattr(self, 'comfyui_config_id') else None
+
             for filename in filenames:
-                if self.db_manager.add_prompt_image(prompt_id, filename):
+                if self.db_manager.add_prompt_image(prompt_id, filename, environment_id):
                     success_count += 1
 
             messagebox.showinfo(
@@ -2653,11 +2695,19 @@ WORKFLOW:
             )
 
     def add_output_images_to_database(self, prompt_id, output_images):
-        """Ajouter automatiquement les images de sortie à la base de données"""
+        """Ajouter automatiquement les images de sortie à la base de données avec environment_id"""
         if not output_images:
             return 0
 
         images_added = 0
+
+        # Récupérer l'ID de l'environnement d'exécution
+        environment_id = getattr(self, 'current_execution_environment_id', None)
+        if not environment_id:
+            # Essayer de récupérer depuis l'interface
+            environment_id = self.comfyui_config_id.get().strip() if hasattr(self, 'comfyui_config_id') else None
+
+        print(f"🔗 Ajout d'images avec environment_id: {environment_id}")
 
         try:
             for image_info in output_images:
@@ -2678,10 +2728,10 @@ WORKFLOW:
 
                 # Vérifier que le fichier existe
                 if image_path and os.path.exists(image_path):
-                    # Ajouter à la base de données
-                    if self.db_manager.add_prompt_image(prompt_id, image_path):
+                    # Ajouter à la base de données avec l'environment_id
+                    if self.db_manager.add_prompt_image(prompt_id, image_path, environment_id):
                         images_added += 1
-                        print(f"DEBUG: Image ajoutée à la BDD: {image_path}")
+                        print(f"DEBUG: Image ajoutée à la BDD avec env {environment_id}: {image_path}")
                     else:
                         print(f"DEBUG: Échec ajout image en BDD: {image_path}")
                 else:
@@ -3601,6 +3651,23 @@ WORKFLOW:
             # Afficher le frame des détails s'il n'est pas déjà visible
             if not self.details_frame.winfo_viewable():
                 self.details_frame.pack(fill="both", expand=True, pady=(20, 0))
+
+
+
+    def get_model_metadata(model_path: str) -> dict:
+        """
+        Lit les métadonnées d'un fichier .safetensors et les retourne sous forme de dictionnaire.
+        """
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Fichier introuvable : {model_path}")
+
+        try:
+            with safe_open(model_path, framework="pt") as f:
+                metadata = f.metadata()
+            return metadata
+        except Exception as e:
+            raise RuntimeError(f"Erreur lors de la lecture du modèle : {str(e)}")
+
 
     def identify_comfyui_environment(self):
         """Identifier l'environnement ComfyUI en récupérant les extra paths via le custom node"""

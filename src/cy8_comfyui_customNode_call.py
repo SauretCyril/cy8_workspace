@@ -11,6 +11,7 @@ import requests
 import time
 from typing import Dict, List, Optional, Any
 from urllib.parse import urljoin
+from safetensors.torch import safe_open
 
 
 class ComfyUICustomNodeCaller:
