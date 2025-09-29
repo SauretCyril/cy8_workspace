@@ -5,6 +5,7 @@ import time
 import os
 import json
 import subprocess
+from datetime import datetime
 from PIL import Image, ImageTk
 from cy8_database_manager import cy8_database_manager
 from cy8_popup_manager import cy8_popup_manager
@@ -13,6 +14,7 @@ from cy8_user_preferences import cy8_user_preferences
 from cy8_paths import normalize_path, ensure_dir, get_default_db_path, cy8_paths_manager
 from cy6_wkf001_Basic import comfyui_basic_task
 from cy8_log_analyzer import cy8_log_analyzer
+from cy8_mistral import analyze_comfyui_error, save_error_solution, load_error_solution
 
 
 class cy8_prompts_manager:
@@ -953,6 +955,47 @@ class cy8_prompts_manager:
         )
         self.log_file_info_label.pack(anchor="w")
 
+        # === SECTION 1.5: CONFIGURATION DES SOLUTIONS D'ERREURS ===
+        solutions_config_frame = ttk.LabelFrame(
+            log_frame, text="🤖 Configuration des solutions IA", padding="10"
+        )
+        solutions_config_frame.pack(fill="x", pady=(0, 15))
+
+        # Ligne de configuration du répertoire
+        solutions_dir_frame = ttk.Frame(solutions_config_frame)
+        solutions_dir_frame.pack(fill="x", pady=(0, 5))
+
+        ttk.Label(
+            solutions_dir_frame, text="Répertoire des solutions:", width=20
+        ).pack(side="left")
+
+        # Variable pour le répertoire des solutions
+        self.error_solutions_dir = tk.StringVar()
+        self.error_solutions_dir.set(self.user_prefs.get_error_solutions_directory())
+
+        solutions_dir_entry = ttk.Entry(
+            solutions_dir_frame, textvariable=self.error_solutions_dir, width=50
+        )
+        solutions_dir_entry.pack(side="left", padx=(10, 5), fill="x", expand=True)
+
+        ttk.Button(
+            solutions_dir_frame,
+            text="📁 Parcourir",
+            command=self.browse_solutions_directory,
+            width=12,
+        ).pack(side="right")
+
+        # Info sur les solutions
+        solutions_info_frame = ttk.Frame(solutions_config_frame)
+        solutions_info_frame.pack(fill="x")
+
+        ttk.Label(
+            solutions_info_frame,
+            text="💡 Double-cliquez sur une erreur pour obtenir une solution IA. Les solutions sont sauvegardées.",
+            font=("TkDefaultFont", 8),
+            foreground="gray",
+        ).pack(anchor="w")
+
         # === SECTION 2: ACTIONS D'ANALYSE ===
         actions_frame = ttk.LabelFrame(
             log_frame, text="🔍 Actions d'analyse", padding="10"
@@ -972,6 +1015,15 @@ class cy8_prompts_manager:
             width=20,
         )
         self.analyze_log_btn.pack(side="left", padx=(0, 15))
+
+        # Bouton analyse IA du log complet
+        self.ai_analyze_btn = ttk.Button(
+            buttons_frame,
+            text="🤖 Analyse IA complète",
+            command=self.analyze_complete_log_global,
+            width=20,
+        )
+        self.ai_analyze_btn.pack(side="left", padx=(0, 15))
 
         # Bouton actualiser
         refresh_log_btn = ttk.Button(
@@ -1067,12 +1119,13 @@ class cy8_prompts_manager:
         main_content_frame.pack(side="top", fill="both", expand=True)
 
         # Créer le Treeview pour afficher les résultats
-        columns = ("type", "category", "element", "message", "line")
+        columns = ("timestamp", "type", "category", "element", "message", "line")
         self.log_results_tree = ttk.Treeview(
             main_content_frame, columns=columns, show="headings", height=15
         )
 
         # Configuration des colonnes
+        self.log_results_tree.heading("timestamp", text="Timestamp")
         self.log_results_tree.heading("type", text="État")
         self.log_results_tree.heading("category", text="Catégorie")
         self.log_results_tree.heading("element", text="Élément")
@@ -1080,10 +1133,11 @@ class cy8_prompts_manager:
         self.log_results_tree.heading("line", text="Ligne")
 
         # Largeurs optimisées
+        self.log_results_tree.column("timestamp", width=160, minwidth=140)
         self.log_results_tree.column("type", width=90, minwidth=70)
         self.log_results_tree.column("category", width=130, minwidth=100)
         self.log_results_tree.column("element", width=180, minwidth=120)
-        self.log_results_tree.column("message", width=500, minwidth=350)
+        self.log_results_tree.column("message", width=400, minwidth=300)
         self.log_results_tree.column("line", width=70, minwidth=50)
 
         # Scrollbars
@@ -4140,6 +4194,26 @@ WORKFLOW:
         if filename:
             self.comfyui_log_path.set(filename)
 
+    def browse_solutions_directory(self):
+        """Ouvrir un dialogue pour sélectionner le répertoire des solutions"""
+        from tkinter import filedialog
+
+        initial_dir = self.error_solutions_dir.get() or "g:/temp"
+
+        directory = filedialog.askdirectory(
+            title="Sélectionner le répertoire pour les solutions d'erreurs",
+            initialdir=initial_dir,
+        )
+
+        if directory:
+            self.error_solutions_dir.set(directory)
+            # Sauvegarder dans les préférences
+            self.user_prefs.set_error_solutions_directory(directory)
+            messagebox.showinfo(
+                "Configuration",
+                f"Répertoire des solutions mis à jour :\n{directory}"
+            )
+
     def analyze_comfyui_log(self):
         """Analyser le fichier de log ComfyUI"""
         log_path = self.comfyui_log_path.get().strip()
@@ -4196,6 +4270,7 @@ WORKFLOW:
                     "",
                     "end",
                     values=(
+                        entry.get("timestamp", "N/A"),
                         entry["type"],
                         entry["category"],
                         entry["element"],
@@ -4376,6 +4451,7 @@ WORKFLOW:
                     "",
                     "end",
                     values=(
+                        entry.get("timestamp", "N/A"),
                         entry["type"],
                         entry["category"],
                         entry["element"],
@@ -4402,13 +4478,13 @@ WORKFLOW:
         item = selection[0]
         values = self.log_results_tree.item(item)["values"]
 
-        if len(values) >= 4:
-            type_val, category, element, message, line = values
+        if len(values) >= 6:  # Maintenant on a timestamp, type, category, element, message, line
+            timestamp, type_val, category, element, message, line = values
 
-            # Créer une fenêtre de détails
+            # Créer une fenêtre de détails simple
             detail_window = tk.Toplevel(self.root)
             detail_window.title(f"Détails - {type_val}")
-            detail_window.geometry("600x400")
+            detail_window.geometry("700x500")
             detail_window.transient(self.root)
             detail_window.grab_set()
 
@@ -4416,51 +4492,396 @@ WORKFLOW:
             main_frame = ttk.Frame(detail_window, padding="10")
             main_frame.pack(fill="both", expand=True)
 
-            # Informations
-            info_frame = ttk.LabelFrame(main_frame, text="Informations", padding="10")
+            # === SECTION 1: INFORMATIONS DE L'ERREUR ===
+            info_frame = ttk.LabelFrame(main_frame, text="📋 Informations de l'erreur", padding="10")
             info_frame.pack(fill="x", pady=(0, 10))
 
-            ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(
+            # Grille d'informations
+            ttk.Label(info_frame, text="Timestamp:", font=("TkDefaultFont", 9, "bold")).grid(
                 row=0, column=0, sticky="w", padx=(0, 10)
             )
-            ttk.Label(info_frame, text=type_val).grid(row=0, column=1, sticky="w")
+            ttk.Label(info_frame, text=timestamp).grid(row=0, column=1, sticky="w")
+
+            ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(
+                row=1, column=0, sticky="w", padx=(0, 10)
+            )
+            ttk.Label(info_frame, text=type_val).grid(row=1, column=1, sticky="w")
 
             ttk.Label(
                 info_frame, text="Catégorie:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=1, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=category).grid(row=1, column=1, sticky="w")
+            ).grid(row=2, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=category).grid(row=2, column=1, sticky="w")
 
             ttk.Label(
                 info_frame, text="Élément:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=2, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=element).grid(row=2, column=1, sticky="w")
+            ).grid(row=3, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=element).grid(row=3, column=1, sticky="w")
 
             ttk.Label(
                 info_frame, text="Ligne:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=3, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=line).grid(row=3, column=1, sticky="w")
+            ).grid(row=4, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=line).grid(row=4, column=1, sticky="w")
 
-            # Message détaillé
-            message_frame = ttk.LabelFrame(
-                main_frame, text="Message complet", padding="10"
+            # === SECTION 2: MESSAGE D'ERREUR ===
+            error_frame = ttk.LabelFrame(
+                main_frame, text="⚠️ Message d'erreur", padding="10"
             )
-            message_frame.pack(fill="both", expand=True, pady=(0, 10))
+            error_frame.pack(fill="x", pady=(0, 10))
 
-            text_widget = tk.Text(message_frame, wrap="word", font=("Consolas", 9))
-            text_scrollbar = ttk.Scrollbar(
-                message_frame, orient="vertical", command=text_widget.yview
+            error_text = tk.Text(error_frame, wrap="word", font=("Consolas", 9), height=4)
+            error_scrollbar = ttk.Scrollbar(
+                error_frame, orient="vertical", command=error_text.yview
             )
-            text_widget.configure(yscrollcommand=text_scrollbar.set)
+            error_text.configure(yscrollcommand=error_scrollbar.set)
 
-            text_widget.insert("1.0", message)
-            text_widget.config(state="disabled")
+            error_text.insert("1.0", message)
+            error_text.config(state="disabled")
 
-            text_widget.pack(side="left", fill="both", expand=True)
-            text_scrollbar.pack(side="right", fill="y")
+            error_text.pack(side="left", fill="both", expand=True)
+            error_scrollbar.pack(side="right", fill="y")
 
-            # Bouton fermer
-            ttk.Button(main_frame, text="Fermer", command=detail_window.destroy).pack(
-                pady=(10, 0)
+            # === SECTION 3: ANALYSE DU LOG COMPLET ===
+            analysis_frame = ttk.LabelFrame(
+                main_frame, text="🤖 Analyse du log complet avec Mistral AI", padding="10"
+            )
+            analysis_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+            # Zone de texte pour l'analyse
+            analysis_text = tk.Text(analysis_frame, wrap="word", font=("TkDefaultFont", 9))
+            analysis_text_scrollbar = ttk.Scrollbar(
+                analysis_frame, orient="vertical", command=analysis_text.yview
+            )
+            analysis_text.configure(yscrollcommand=analysis_text_scrollbar.set)
+
+            analysis_text.pack(side="left", fill="both", expand=True)
+            analysis_text_scrollbar.pack(side="right", fill="y")
+
+            # Message initial
+            initial_message = """📋 ANALYSE DU LOG COMFYUI
+
+Pour obtenir une analyse complète du log ComfyUI avec cette erreur spécifique,
+cliquez sur le bouton "Analyser le log complet" ci-dessous.
+
+L'analyse portera sur :
+• Contexte global du log
+• Séquence des événements
+• Relations entre les erreurs
+• Solutions complètes et détaillées
+• Recommandations de diagnostic
+
+L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
+"""
+            analysis_text.insert("1.0", initial_message)
+            analysis_text.config(state="disabled")
+
+            # Label de statut
+            status_frame = ttk.Frame(analysis_frame)
+            status_frame.pack(fill="x", pady=(5, 0))
+
+            status_label = ttk.Label(
+                status_frame,
+                text="� Prêt pour l'analyse complète du log",
+                font=("TkDefaultFont", 8)
+            )
+            status_label.pack(side="left")
+
+            # === SECTION 4: BOUTONS D'ACTION ===
+            buttons_frame = ttk.Frame(main_frame)
+            buttons_frame.pack(fill="x", pady=(10, 0))
+
+            ttk.Button(
+                buttons_frame,
+                text="� Analyser le log complet",
+                command=lambda: self.analyze_complete_log_with_ai(
+                    timestamp, analysis_text, status_label, detail_window
+                )
+            ).pack(side="left", padx=(0, 10))
+
+            ttk.Button(
+                buttons_frame,
+                text="💾 Sauvegarder analyse",
+                command=lambda: self.save_log_analysis(
+                    timestamp, analysis_text.get("1.0", "end-1c")
+                )
+            ).pack(side="left", padx=(0, 10))
+
+            ttk.Button(
+                buttons_frame,
+                text="📁 Ouvrir dossier",
+                command=lambda: self.open_solutions_folder()
+            ).pack(side="left", padx=(0, 10))
+
+            ttk.Button(
+                buttons_frame,
+                text="❌ Fermer",
+                command=detail_window.destroy
+            ).pack(side="right")
+
+    def open_solutions_folder(self):
+        """Ouvrir le dossier des solutions"""
+        try:
+            solutions_dir = self.error_solutions_dir.get()
+
+            # Créer le dossier s'il n'existe pas
+            os.makedirs(solutions_dir, exist_ok=True)
+
+            # Ouvrir le dossier
+            if os.name == 'nt':  # Windows
+                os.startfile(solutions_dir)
+            elif os.name == 'posix':  # Linux/Mac
+                subprocess.run(['xdg-open', solutions_dir])
+            else:
+                messagebox.showinfo("Info", f"Dossier des solutions :\n{solutions_dir}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir le dossier :\n{e}")
+
+    def analyze_complete_log_global(self):
+        """Analyse complète du log avec Mistral AI (bouton global)"""
+        log_path = self.comfyui_log_path.get().strip()
+
+        if not log_path or not os.path.exists(log_path):
+            messagebox.showerror(
+                "Erreur",
+                "Veuillez d'abord sélectionner un fichier log valide."
+            )
+            return
+
+        # Créer une fenêtre de popup pour l'analyse globale
+        analysis_window = tk.Toplevel(self.root)
+        analysis_window.title("🤖 Analyse complète du log ComfyUI - Mistral AI")
+        analysis_window.geometry("1000x800")
+        analysis_window.transient(self.root)
+        analysis_window.grab_set()
+
+        # Contenu de la fenêtre
+        main_frame = ttk.Frame(analysis_window, padding="15")
+        main_frame.pack(fill="both", expand=True)
+
+        # === TITRE ET INFORMATIONS ===
+        title_frame = ttk.Frame(main_frame)
+        title_frame.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(
+            title_frame,
+            text="🤖 Analyse complète du log ComfyUI avec Mistral AI",
+            font=("TkDefaultFont", 14, "bold")
+        ).pack(side="left")
+
+        # Informations sur le log
+        info_frame = ttk.LabelFrame(main_frame, text="📋 Informations du log", padding="10")
+        info_frame.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(info_frame, text="Fichier:", font=("TkDefaultFont", 9, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(0, 10)
+        )
+        ttk.Label(info_frame, text=log_path, font=("Consolas", 9)).grid(
+            row=0, column=1, sticky="w"
+        )
+
+        try:
+            file_size = os.path.getsize(log_path) / 1024  # KB
+            ttk.Label(info_frame, text="Taille:", font=("TkDefaultFont", 9, "bold")).grid(
+                row=1, column=0, sticky="w", padx=(0, 10)
+            )
+            ttk.Label(info_frame, text=f"{file_size:.1f} KB").grid(
+                row=1, column=1, sticky="w"
+            )
+        except Exception:
+            pass
+
+        # === ZONE D'ANALYSE ===
+        analysis_frame = ttk.LabelFrame(
+            main_frame, text="🔍 Analyse et solutions", padding="10"
+        )
+        analysis_frame.pack(fill="both", expand=True, pady=(0, 15))
+
+        # Zone de texte pour l'analyse
+        analysis_text = tk.Text(analysis_frame, wrap="word", font=("TkDefaultFont", 10))
+        analysis_scrollbar = ttk.Scrollbar(
+            analysis_frame, orient="vertical", command=analysis_text.yview
+        )
+        analysis_text.configure(yscrollcommand=analysis_scrollbar.set)
+
+        analysis_text.pack(side="left", fill="both", expand=True)
+        analysis_scrollbar.pack(side="right", fill="y")
+
+        # Message initial
+        initial_message = """📋 ANALYSE COMPLÈTE DU LOG COMFYUI AVEC MISTRAL AI
+
+Cliquez sur "🚀 Lancer l'analyse" pour obtenir une analyse complète du log ComfyUI.
+
+L'analyse portera sur :
+• Détection et analyse de toutes les erreurs
+• Contexte global et séquence des événements
+• Solutions détaillées pour chaque problème identifié
+• Recommandations d'optimisation et de diagnostic
+• Suggestions de configuration
+
+L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
+
+⏳ L'analyse peut prendre quelques secondes selon la taille du log...
+"""
+        analysis_text.insert("1.0", initial_message)
+        analysis_text.config(state="disabled")
+
+        # Label de statut
+        status_frame = ttk.Frame(main_frame)
+        status_frame.pack(fill="x", pady=(0, 10))
+
+        status_label = ttk.Label(
+            status_frame,
+            text="💡 Prêt pour l'analyse complète du log ComfyUI",
+            font=("TkDefaultFont", 9)
+        )
+        status_label.pack(side="left")
+
+        # === BOUTONS D'ACTION ===
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill="x")
+
+        ttk.Button(
+            buttons_frame,
+            text="🚀 Lancer l'analyse",
+            command=lambda: self.start_global_log_analysis(
+                log_path, analysis_text, status_label, analysis_window
+            ),
+            style="Accent.TButton"
+        ).pack(side="left", padx=(0, 15))
+
+        ttk.Button(
+            buttons_frame,
+            text="💾 Sauvegarder",
+            command=lambda: self.save_global_analysis(
+                analysis_text.get("1.0", "end-1c")
+            )
+        ).pack(side="left", padx=(0, 15))
+
+        ttk.Button(
+            buttons_frame,
+            text="📁 Ouvrir dossier",
+            command=lambda: self.open_solutions_folder()
+        ).pack(side="left", padx=(0, 15))
+
+        ttk.Button(
+            buttons_frame,
+            text="❌ Fermer",
+            command=analysis_window.destroy
+        ).pack(side="right")
+
+    def start_global_log_analysis(self, log_path, analysis_text, status_label, window):
+        """Démarre l'analyse globale du log avec Mistral AI"""
+        import threading
+        from datetime import datetime
+
+        def analyze_in_thread():
+            try:
+                # Mise à jour du statut
+                status_label.config(text="⏳ Lecture du fichier log...")
+                window.update()
+
+                # Lire le contenu du log
+                with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    log_content = f.read()
+
+                if not log_content.strip():
+                    analysis_text.config(state="normal")
+                    analysis_text.delete("1.0", "end")
+                    analysis_text.insert("1.0", "❌ Le fichier log est vide ou illisible.")
+                    analysis_text.config(state="disabled")
+                    status_label.config(text="❌ Échec de l'analyse")
+                    return
+
+                # Mise à jour du statut
+                status_label.config(text="🤖 Analyse en cours avec Mistral AI...")
+                window.update()
+
+                # Importer le module Mistral
+                try:
+                    from cy8_mistral import analyze_comfyui_log_complete
+
+                    # Lancer l'analyse complète
+                    question = "Proposes moi des solutions pour les erreurs dans le fichier log"
+                    role = "Tu es un expert assistant Python et ComfyUI"
+
+                    result = analyze_comfyui_log_complete(log_content, question, role)
+
+                    # Afficher le résultat
+                    analysis_text.config(state="normal")
+                    analysis_text.delete("1.0", "end")
+
+                    formatted_result = f"""🤖 ANALYSE COMPLÈTE DU LOG COMFYUI
+Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
+
+{result}
+
+---
+💾 Cette analyse a été générée par Mistral AI et peut être sauvegardée pour référence future.
+"""
+                    analysis_text.insert("1.0", formatted_result)
+                    analysis_text.config(state="disabled")
+
+                    status_label.config(text="✅ Analyse terminée avec succès")
+
+                except ImportError:
+                    analysis_text.config(state="normal")
+                    analysis_text.delete("1.0", "end")
+                    analysis_text.insert("1.0", "❌ Module Mistral AI non disponible. Vérifiez la configuration.")
+                    analysis_text.config(state="disabled")
+                    status_label.config(text="❌ Module Mistral AI manquant")
+
+                except Exception as e:
+                    analysis_text.config(state="normal")
+                    analysis_text.delete("1.0", "end")
+                    analysis_text.insert("1.0", f"❌ Erreur lors de l'analyse IA :\n{str(e)}")
+                    analysis_text.config(state="disabled")
+                    status_label.config(text="❌ Erreur lors de l'analyse")
+
+            except Exception as e:
+                analysis_text.config(state="normal")
+                analysis_text.delete("1.0", "end")
+                analysis_text.insert("1.0", f"❌ Erreur lors de la lecture du log :\n{str(e)}")
+                analysis_text.config(state="disabled")
+                status_label.config(text="❌ Erreur de lecture")
+
+        # Lancer l'analyse dans un thread séparé
+        thread = threading.Thread(target=analyze_in_thread)
+        thread.daemon = True
+        thread.start()
+
+    def save_global_analysis(self, analysis_content):
+        """Sauvegarde l'analyse globale dans un fichier"""
+        try:
+            from datetime import datetime
+
+            # Vérifier le contenu
+            if not analysis_content or analysis_content.strip() == "":
+                messagebox.showwarning("Attention", "Aucune analyse à sauvegarder.")
+                return
+
+            # Obtenir le répertoire de sauvegarde
+            solutions_dir = self.user_prefs.get_error_solutions_directory()
+            if not os.path.exists(solutions_dir):
+                os.makedirs(solutions_dir, exist_ok=True)
+
+            # Créer le nom de fichier avec timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"analyse_log_complete_{timestamp}.txt"
+            filepath = os.path.join(solutions_dir, filename)
+
+            # Sauvegarder
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(analysis_content)
+
+            messagebox.showinfo(
+                "Sauvegarde réussie",
+                f"Analyse sauvegardée :\n{filepath}"
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Erreur de sauvegarde",
+                f"Impossible de sauvegarder l'analyse :\n{str(e)}"
             )
 
 

@@ -109,6 +109,7 @@ class cy8_log_analyzer:
             if in_custom_nodes_section and "custom_nodes" in line:
                 node_info = self._extract_custom_node_from_import_line(line)
                 if node_info:
+                    timestamp = self._extract_timestamp(line)
                     if "(IMPORT FAILED)" in line:
                         self.custom_nodes_failed.append(
                             {
@@ -116,42 +117,100 @@ class cy8_log_analyzer:
                                 "content": line,
                                 "node_name": node_info,
                                 "error": "Import failed",
+                                "timestamp": timestamp,
                             }
                         )
                     else:
                         self.custom_nodes_ok.append(
-                            {"line": line_num, "content": line, "node_name": node_info}
+                            {
+                                "line": line_num,
+                                "content": line,
+                                "node_name": node_info,
+                                "timestamp": timestamp,
+                            }
                         )
 
             # Détecter les erreurs
             elif self._is_error(line):
                 error_info = self._extract_error_info(line)
+                timestamp = self._extract_timestamp(line)
                 self.errors.append(
                     {
                         "line": line_num,
                         "content": line,
                         "error_type": error_info.get("type", "Error"),
                         "message": error_info.get("message", line),
+                        "timestamp": timestamp,
                     }
                 )
 
             # Détecter les warnings
             elif self._is_warning(line):
                 warning_info = self._extract_warning_info(line)
+                timestamp = self._extract_timestamp(line)
                 self.warnings.append(
                     {
                         "line": line_num,
                         "content": line,
                         "message": warning_info.get("message", line),
+                        "timestamp": timestamp,
                     }
                 )
 
             # Détecter les messages d'information importantes
             elif self._is_important_info(line):
                 info = self._extract_info(line)
+                timestamp = self._extract_timestamp(line)
                 self.info_messages.append(
-                    {"line": line_num, "content": line, "message": info}
+                    {
+                        "line": line_num,
+                        "content": line,
+                        "message": info,
+                        "timestamp": timestamp,
+                    }
                 )
+
+    def _extract_timestamp(self, line: str) -> Optional[str]:
+        """Extraire le timestamp d'une ligne de log avec format détaillé"""
+        # Patterns de timestamp courants dans les logs
+        timestamp_patterns = [
+            # Format ISO: 2025-09-28 14:30:25.123
+            r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{2,3})",
+            # Format avec [] : [2025-09-28 14:30:25.123]
+            r"\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{2,3})\]",
+            # Format avec () : (2025-09-28 14:30:25.123)
+            r"\((\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{2,3})\)",
+            # Format sans millisecondes mais avec secondes: 2025-09-28 14:30:25
+            r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})",
+            # Format heure seule avec millisecondes: 14:30:25.123
+            r"(\d{2}:\d{2}:\d{2}\.\d{2,3})",
+            # Format heure seule: 14:30:25
+            r"(\d{2}:\d{2}:\d{2})",
+        ]
+
+        for pattern in timestamp_patterns:
+            match = re.search(pattern, line)
+            if match:
+                timestamp_str = match.group(1)
+                # Si c'est juste l'heure, ajouter la date actuelle
+                if not timestamp_str.startswith('20'):
+                    current_date = datetime.now().strftime('%Y-%m-%d')
+                    timestamp_str = f"{current_date} {timestamp_str}"
+
+                # S'assurer que le timestamp a des centièmes
+                if '.' not in timestamp_str:
+                    timestamp_str += ".00"
+                elif len(timestamp_str.split('.')[-1]) == 1:
+                    timestamp_str += "0"
+                elif len(timestamp_str.split('.')[-1]) > 3:
+                    # Tronquer à 2 décimales pour les centièmes
+                    parts = timestamp_str.split('.')
+                    timestamp_str = f"{parts[0]}.{parts[1][:2]}"
+
+                return timestamp_str
+
+        # Si aucun timestamp trouvé, générer un timestamp par défaut
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-4]
 
     def _extract_config_id(self, line: str) -> Optional[str]:
         """
@@ -290,6 +349,7 @@ class cy8_log_analyzer:
                     "message": f"Custom node chargé avec succès",
                     "line": node["line"],
                     "details": node["content"],
+                    "timestamp": node.get("timestamp", "N/A"),
                 }
             )
 
@@ -303,6 +363,7 @@ class cy8_log_analyzer:
                     "message": f"Échec du chargement: {node.get('error', 'Erreur inconnue')}",
                     "line": node["line"],
                     "details": node["content"],
+                    "timestamp": node.get("timestamp", "N/A"),
                 }
             )
 
@@ -316,6 +377,7 @@ class cy8_log_analyzer:
                     "message": error["message"],
                     "line": error["line"],
                     "details": error["content"],
+                    "timestamp": error.get("timestamp", "N/A"),
                 }
             )
 
@@ -328,6 +390,7 @@ class cy8_log_analyzer:
                     "element": "Système",
                     "message": warning["message"],
                     "line": warning["line"],
+                    "timestamp": warning.get("timestamp", "N/A"),
                     "details": warning["content"],
                 }
             )
@@ -342,6 +405,7 @@ class cy8_log_analyzer:
                     "message": info["message"],
                     "line": info["line"],
                     "details": info["content"],
+                    "timestamp": info.get("timestamp", "N/A"),
                 }
             )
 
@@ -349,6 +413,10 @@ class cy8_log_analyzer:
         entries.sort(key=lambda x: x["line"])
 
         return entries
+
+    def get_all_entries(self) -> List[Dict]:
+        """Méthode publique pour obtenir toutes les entrées d'analyse"""
+        return self._get_analysis_entries()
 
     def get_summary_text(self) -> str:
         """Obtenir un résumé textuel de l'analyse"""

@@ -53,7 +53,12 @@ class cy8_user_preferences:
             print(f"Erreur lors du chargement des préférences: {e}")
 
         # Préférences par défaut
-        return {"version": "1.0", "created_at": "", "last_updated": ""}
+        return {
+            "version": "1.0",
+            "created_at": "",
+            "last_updated": "",
+            "error_solutions_directory": "g:/temp"
+        }
 
     def _load_cookies(self):
         """Charger les cookies depuis le fichier"""
@@ -179,6 +184,20 @@ class cy8_user_preferences:
         self.cookies["recent_databases"] = recent
         self._save_cookies()
 
+    def get_error_solutions_directory(self):
+        """Obtenir le répertoire des solutions d'erreurs"""
+        return self.preferences.get("error_solutions_directory", "g:/temp")
+
+    def set_error_solutions_directory(self, directory):
+        """Définir le répertoire des solutions d'erreurs"""
+        if directory:
+            # Normaliser le chemin
+            normalized_path = os.path.normpath(os.path.abspath(directory))
+            self.preferences["error_solutions_directory"] = normalized_path
+            self._save_preferences()
+            return True
+        return False
+
     def get_preferences_info(self):
         """Obtenir des informations sur les préférences"""
         return {
@@ -188,4 +207,5 @@ class cy8_user_preferences:
             "preferences_exists": os.path.exists(self.preferences_file),
             "cookies_exists": os.path.exists(self.cookies_file),
             "recent_databases_count": len(self.get_recent_databases()),
+            "error_solutions_directory": self.get_error_solutions_directory(),
         }
