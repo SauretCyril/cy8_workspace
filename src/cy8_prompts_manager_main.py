@@ -1451,14 +1451,36 @@ class cy8_prompts_manager:
         self.executions_tree.bind("<<TreeviewSelect>>", self.on_execution_select)
 
     def setup_images_tab(self, parent):
-        """Configuration de l'onglet explorateur d'images"""
+        """Configuration de l'onglet explorateur d'images avec sous-onglets"""
+        # Créer un notebook pour les sous-onglets
+        images_notebook = ttk.Notebook(parent)
+        images_notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Sous-onglet 1: Images du prompt sélectionné
+        prompt_images_frame = ttk.Frame(images_notebook)
+        images_notebook.add(prompt_images_frame, text="📋 Images du prompt")
+
+        # Sous-onglet 2: Galerie complète
+        gallery_frame = ttk.Frame(images_notebook)
+        images_notebook.add(gallery_frame, text="🖼️ Galerie complète")
+
+        # Configuration du sous-onglet "Images du prompt"
+        self.setup_prompt_images_tab(prompt_images_frame)
+
+        # Configuration du sous-onglet "Galerie complète"
+        self.setup_gallery_tab(gallery_frame)
+
+        # Bind pour charger la galerie seulement quand l'onglet est sélectionné
+        images_notebook.bind("<<NotebookTabChanged>>", self.on_gallery_tab_selected)
+        self.images_notebook = images_notebook    def setup_prompt_images_tab(self, parent):
+        """Configuration du sous-onglet images du prompt sélectionné"""
         images_frame = ttk.Frame(parent, padding="10")
         images_frame.pack(fill="both", expand=True)
 
         # Titre
         ttk.Label(
             images_frame,
-            text="Images générées par le prompt",
+            text="Images générées par le prompt sélectionné",
             font=("TkDefaultFont", 12, "bold"),
         ).pack(pady=(0, 10))
 
@@ -1564,6 +1586,327 @@ class cy8_prompts_manager:
 
         # Variable pour stocker l'image courante
         self.current_preview_image = None
+
+    def setup_gallery_tab(self, parent):
+        """Configuration du sous-onglet galerie complète"""
+        gallery_frame = ttk.Frame(parent, padding="10")
+        gallery_frame.pack(fill="both", expand=True)
+
+        # Titre et contrôles
+        header_frame = ttk.Frame(gallery_frame)
+        header_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(
+            header_frame,
+            text="Galerie complète - Toutes les images du répertoire IMAGES_COLLECTE",
+            font=("TkDefaultFont", 12, "bold"),
+        ).pack(side="left")
+
+        # Boutons de contrôle
+        controls_frame = ttk.Frame(header_frame)
+        controls_frame.pack(side="right")
+
+        ttk.Button(
+            controls_frame,
+            text="🔄 Actualiser",
+            command=self.refresh_gallery,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            controls_frame,
+            text="📁 Ouvrir dossier",
+            command=self.open_images_folder,
+        ).pack(side="left")
+
+        # Frame pour la grille d'images avec scrollbar
+        gallery_container = ttk.Frame(gallery_frame)
+        gallery_container.pack(fill="both", expand=True)
+
+        # Canvas pour permettre le scroll
+        self.gallery_canvas = tk.Canvas(gallery_container, bg="white")
+        gallery_scrollbar = ttk.Scrollbar(
+            gallery_container, orient="vertical", command=self.gallery_canvas.yview
+        )
+        self.gallery_scrollable_frame = ttk.Frame(self.gallery_canvas)
+
+        # Configuration du scroll
+        self.gallery_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.gallery_canvas.configure(
+                scrollregion=self.gallery_canvas.bbox("all")
+            ),
+        )
+
+        self.gallery_canvas.create_window(
+            (0, 0), window=self.gallery_scrollable_frame, anchor="nw"
+        )
+        self.gallery_canvas.configure(yscrollcommand=gallery_scrollbar.set)
+
+        # Pack du canvas et scrollbar
+        self.gallery_canvas.pack(side="left", fill="both", expand=True)
+        gallery_scrollbar.pack(side="right", fill="y")
+
+        # Bind scroll de la souris
+        self.gallery_canvas.bind_all(
+            "<MouseWheel>",
+            lambda e: self.gallery_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        )
+
+        # Variables pour la galerie
+        self.gallery_images = []
+        self.gallery_thumbnails = {}
+        self.gallery_loaded = False
+
+        # Message d'information pour charger la galerie
+        info_label = ttk.Label(
+            self.gallery_scrollable_frame,
+            text="🖼️ Cliquez sur 'Actualiser' pour charger la galerie d'images",
+            font=("TkDefaultFont", 10),
+            foreground="blue"
+        )
+        info_label.grid(row=0, column=0, columnspan=5, pady=20)
+
+        # NE PAS charger la galerie au démarrage pour éviter les erreurs
+        # self.refresh_gallery() - sera appelé plus tard
+
+    def refresh_gallery(self):
+        """Actualiser la galerie complète"""
+        try:
+            # Vider les anciennes images
+            for widget in self.gallery_scrollable_frame.winfo_children():
+                widget.destroy()
+
+            self.gallery_images.clear()
+            self.gallery_thumbnails.clear()
+
+            # Obtenir le répertoire IMAGES_COLLECTE
+            images_dir = os.getenv("IMAGES_COLLECTE")
+            if not images_dir or not os.path.exists(images_dir):
+                error_label = ttk.Label(
+                    self.gallery_scrollable_frame,
+                    text="❌ Répertoire IMAGES_COLLECTE non trouvé ou invalide",
+                    foreground="red"
+                )
+                error_label.grid(row=0, column=0, columnspan=5, pady=20)
+                return
+
+            # Scanner les fichiers image
+            image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff'}
+            image_files = []
+
+            for root, dirs, files in os.walk(images_dir):
+                for file in files:
+                    if os.path.splitext(file.lower())[1] in image_extensions:
+                        image_files.append(os.path.join(root, file))
+
+            # Trier par date de modification (plus récent en premier)
+            image_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+            if not image_files:
+                empty_label = ttk.Label(
+                    self.gallery_scrollable_frame,
+                    text="📁 Aucune image trouvée dans le répertoire",
+                    foreground="orange"
+                )
+                empty_label.grid(row=0, column=0, columnspan=5, pady=20)
+                return
+
+            # Créer la grille 5 colonnes
+            self.create_gallery_grid(image_files)
+
+            # Mettre à jour le titre avec le nombre d'images
+            self.update_status(f"Galerie: {len(image_files)} images trouvées")
+
+        except Exception as e:
+            print(f"Erreur lors du rafraîchissement de la galerie: {e}")
+            error_label = ttk.Label(
+                self.gallery_scrollable_frame,
+                text=f"❌ Erreur: {str(e)}",
+                foreground="red"
+            )
+            error_label.grid(row=0, column=0, columnspan=5, pady=20)
+
+    def create_gallery_grid(self, image_files):
+        """Créer la grille d'images 5 colonnes"""
+        try:
+            row = 0
+            col = 0
+            thumbnail_size = (150, 150)
+
+            for i, image_path in enumerate(image_files):
+                try:
+                    # Créer le frame pour chaque image
+                    image_frame = ttk.Frame(self.gallery_scrollable_frame, padding="5")
+                    image_frame.grid(row=row, column=col, padx=5, pady=5, sticky="w")
+
+                    # Créer la miniature
+                    image = Image.open(image_path)
+                    image.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(image)
+
+                    # Stocker la référence
+                    self.gallery_thumbnails[image_path] = photo
+
+                    # Créer le bouton image cliquable
+                    image_button = tk.Button(
+                        image_frame,
+                        image=photo,
+                        border=2,
+                        relief="raised",
+                        command=lambda path=image_path: self.enlarge_gallery_image(path)
+                    )
+                    image_button.pack()
+
+                    # Ajouter le nom du fichier
+                    filename = os.path.basename(image_path)
+                    if len(filename) > 20:
+                        filename = filename[:17] + "..."
+
+                    ttk.Label(
+                        image_frame,
+                        text=filename,
+                        font=("TkDefaultFont", 8),
+                        justify="center"
+                    ).pack(pady=(2, 0))
+
+                    # Passer à la colonne suivante
+                    col += 1
+                    if col >= 5:  # 5 colonnes
+                        col = 0
+                        row += 1
+
+                except Exception as e:
+                    print(f"Erreur lors du traitement de l'image {image_path}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Erreur lors de la création de la grille: {e}")
+
+    def enlarge_gallery_image(self, image_path):
+        """Agrandir une image de la galerie dans une nouvelle fenêtre"""
+        try:
+            # Créer une nouvelle fenêtre
+            enlarge_window = tk.Toplevel(self.root)
+            enlarge_window.title(f"Image: {os.path.basename(image_path)}")
+            enlarge_window.geometry("800x600")
+
+            # Centrer la fenêtre
+            enlarge_window.transient(self.root)
+            enlarge_window.grab_set()
+
+            # Frame principal avec scrollbars
+            main_frame = ttk.Frame(enlarge_window)
+            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # Canvas pour l'image avec scrollbars
+            canvas = tk.Canvas(main_frame, bg="white")
+            v_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            h_scrollbar = ttk.Scrollbar(main_frame, orient="horizontal", command=canvas.xview)
+
+            # Frame pour l'image
+            image_frame = ttk.Frame(canvas)
+
+            # Charger et afficher l'image
+            image = Image.open(image_path)
+
+            # Redimensionner si trop grande (max 1200x800)
+            max_size = (1200, 800)
+            if image.size[0] > max_size[0] or image.size[1] > max_size[1]:
+                image.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+            photo = ImageTk.PhotoImage(image)
+
+            image_label = ttk.Label(image_frame, image=photo)
+            image_label.image = photo  # Garder une référence
+            image_label.pack()
+
+            # Configuration du canvas
+            canvas.create_window((0, 0), window=image_frame, anchor="nw")
+            canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+            # Pack des éléments
+            canvas.pack(side="left", fill="both", expand=True)
+            v_scrollbar.pack(side="right", fill="y")
+            h_scrollbar.pack(side="bottom", fill="x")
+
+            # Frame pour les boutons
+            buttons_frame = ttk.Frame(enlarge_window)
+            buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+            # Boutons d'action
+            ttk.Button(
+                buttons_frame,
+                text="📁 Ouvrir avec...",
+                command=lambda: self.open_image_with_default(image_path)
+            ).pack(side="left", padx=(0, 5))
+
+            ttk.Button(
+                buttons_frame,
+                text="📋 Copier chemin",
+                command=lambda: self.copy_path_to_clipboard(image_path)
+            ).pack(side="left", padx=(0, 5))
+
+            ttk.Button(
+                buttons_frame,
+                text="❌ Fermer",
+                command=enlarge_window.destroy
+            ).pack(side="right")
+
+            # Informations sur l'image
+            info_text = f"Fichier: {os.path.basename(image_path)}\n"
+            info_text += f"Taille: {image.size[0]}x{image.size[1]} pixels\n"
+            try:
+                file_size = os.path.getsize(image_path) / 1024  # KB
+                info_text += f"Poids: {file_size:.1f} KB"
+            except:
+                pass
+
+            ttk.Label(buttons_frame, text=info_text, font=("TkDefaultFont", 8)).pack(side="left", padx=20)
+
+            # Mise à jour de la region de scroll
+            image_frame.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
+
+    def open_image_with_default(self, image_path):
+        """Ouvrir une image avec l'application par défaut"""
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(image_path)
+            else:  # Linux/Mac
+                subprocess.run(['xdg-open', image_path])
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
+
+    def on_gallery_tab_selected(self, event):
+        """Callback appelé quand un sous-onglet des images est sélectionné"""
+        try:
+            # Ne rien faire si la galerie n'est pas encore configurée
+            if not hasattr(self, 'gallery_scrollable_frame'):
+                return
+
+            notebook = event.widget
+            selected_tab_id = notebook.select()
+            tab_text = notebook.tab(selected_tab_id, "text")
+
+            # Si c'est l'onglet galerie et qu'elle n'est pas encore chargée
+            if "Galerie complète" in tab_text and not self.gallery_loaded:
+                print("🖼️ Chargement de la galerie...")
+                self.refresh_gallery()
+                self.gallery_loaded = True
+        except Exception as e:
+            print(f"Erreur lors du changement d'onglet: {e}")
+
+    def copy_path_to_clipboard(self, path):
+        """Copier le chemin vers le presse-papier"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(path)
+            self.update_status(f"Chemin copié: {os.path.basename(path)}")
+        except Exception as e:
+            print(f"Erreur copie presse-papier: {e}")
 
     def setup_status_bar(self):
         """Configuration de la barre de statut"""
@@ -2789,8 +3132,16 @@ WORKFLOW:
 
     def update_status(self, message):
         """Mettre à jour la barre de statut"""
-        self.status_text.set(message)
-        self.root.update_idletasks()
+        try:
+            if hasattr(self, 'status_text') and self.status_text:
+                self.status_text.set(message)
+                self.root.update_idletasks()
+            else:
+                # Fallback: juste imprimer le message
+                print(f"Status: {message}")
+        except Exception as e:
+            print(f"Erreur update_status: {e}")
+            print(f"Message était: {message}")
 
     def update_database_stats(self):
         """Mettre à jour les statistiques de la base de données"""
