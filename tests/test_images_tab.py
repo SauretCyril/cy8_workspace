@@ -76,13 +76,13 @@ def test_prompt_image_database():
         print(f"✓ {len(retrieved_images)} images récupérées de la base")
 
         # Vérifier les données récupérées
-        for i, (image_id, image_path, created_at) in enumerate(retrieved_images):
+        for i, (image_id, image_path, environment_id, created_at) in enumerate(retrieved_images):
             assert os.path.basename(image_path) in [
                 os.path.basename(p) for p in test_images
             ], f"Image inattendue: {image_path}"
             assert created_at is not None, "Date de création manquante"
             print(
-                f"✓ Image {i+1}: ID={image_id}, Path={os.path.basename(image_path)}, Date={created_at}"
+                f"✓ Image {i+1}: ID={image_id}, Path={os.path.basename(image_path)}, Env={environment_id}, Date={created_at}"
             )
 
         # Test suppression d'une image
