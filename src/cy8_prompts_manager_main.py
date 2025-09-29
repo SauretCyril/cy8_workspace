@@ -7,7 +7,15 @@ import json
 import subprocess
 from datetime import datetime
 from PIL import Image, ImageTk
-from safetensors.torch import safe_open
+
+# Import conditionnel de safetensors (optionnel)
+try:
+    from safetensors.torch import safe_open
+    SAFETENSORS_AVAILABLE = True
+except ImportError:
+    SAFETENSORS_AVAILABLE = False
+    safe_open = None
+
 from cy8_database_manager import cy8_database_manager
 from cy8_popup_manager import cy8_popup_manager
 from cy8_editable_tables import cy8_editable_tables
@@ -3678,6 +3686,9 @@ WORKFLOW:
         """
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Fichier introuvable : {model_path}")
+
+        if not SAFETENSORS_AVAILABLE:
+            raise RuntimeError("safetensors n'est pas disponible. Installez torch et safetensors pour cette fonctionnalité.")
 
         try:
             with safe_open(model_path, framework="pt") as f:

@@ -11,7 +11,14 @@ import requests
 import time
 from typing import Dict, List, Optional, Any
 from urllib.parse import urljoin
-from safetensors.torch import safe_open
+
+# Import conditionnel de safetensors (optionnel)
+try:
+    from safetensors.torch import safe_open
+    SAFETENSORS_AVAILABLE = True
+except ImportError:
+    SAFETENSORS_AVAILABLE = False
+    safe_open = None
 
 
 class ComfyUICustomNodeCaller:
