@@ -128,19 +128,39 @@ class ComfyUICustomNodeCaller:
         Returns:
             Workflow formaté pour ComfyUI
         """
-        # Workflow avec le custom node et un node de sortie pour éviter l'erreur "no outputs"
-        workflow = {
-            "1": {
-                "class_type": node_type,
-                "inputs": node_inputs,
-                "_meta": {"title": f"{node_type}"},
-            },
-            "2": {
-                "class_type": "ShowText|pysssss",
-                "inputs": {"text": ["1", 0]},  # Prendre la sortie du node 1
-                "_meta": {"title": "Show Output"},
-            },
-        }
+        # Workflow adapté selon le type de nœud
+        if node_type == "ExtraPathReader":
+            # ExtraPathReader avec PreviewAny (nœud de sortie universel)
+            workflow = {
+                "1": {
+                    "class_type": "ExtraPathReader",
+                    "inputs": {},
+                    "_meta": {"title": "Extra Path Reader"},
+                },
+                "2": {
+                    "class_type": "PreviewAny",
+                    "inputs": {
+                        "source": ["1", 0],  # Prendre la sortie STRING du node 1
+                    },
+                    "_meta": {"title": "Preview Extra Paths"},
+                }
+            }
+        else:
+            # Workflow générique avec PreviewAny (nœud de sortie universel)
+            workflow = {
+                "1": {
+                    "class_type": node_type,
+                    "inputs": node_inputs,
+                    "_meta": {"title": f"{node_type}"},
+                },
+                "2": {
+                    "class_type": "PreviewAny",
+                    "inputs": {
+                        "source": ["1", 0],  # Prendre la sortie du node 1
+                    },
+                    "_meta": {"title": "Preview Output"},
+                },
+            }
 
         return workflow
 
@@ -167,14 +187,32 @@ class ComfyUICustomNodeCaller:
             elif self.api_key:
                 payload["extra_data"] = {"api_key_comfy_org": self.api_key}
 
+            # Debug: afficher le workflow généré
+            print(f"🔍 Workflow généré pour debug:")
+            print(json.dumps(workflow, indent=2))
+
             # Envoyer la requête
             url = urljoin(self.server_url, "/prompt")
             response = self.session.post(url, json=payload, timeout=30)
-            response.raise_for_status()
 
+            # Gestion d'erreur détaillée
+            if response.status_code == 400:
+                try:
+                    error_details = response.json()
+                    print(f"❌ Erreur 400 détaillée: {json.dumps(error_details, indent=2)}")
+                    raise Exception(f"Erreur 400 - Workflow invalide: {error_details}")
+                except ValueError:
+                    print(f"❌ Erreur 400 - Réponse: {response.text}")
+                    raise Exception(f"Erreur 400 - Bad Request: {response.text}")
+
+            response.raise_for_status()
             return response.json()
 
         except requests.exceptions.RequestException as e:
+            print(f"❌ Erreur de requête: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"❌ Statut: {e.response.status_code}")
+                print(f"❌ Contenu: {e.response.text}")
             raise Exception(f"Erreur lors de l'exécution du workflow: {e}")
 
     def call_custom_node(
@@ -193,6 +231,185 @@ class ComfyUICustomNodeCaller:
         """
         workflow = self.create_custom_node_workflow(node_type, inputs)
         return self.execute_custom_node_workflow(workflow, extra_data)
+
+    def test_extra_path_reader_direct(self) -> Dict[str, Any]:
+        """
+        Tester ExtraPathReader avec différents workflows
+
+        Returns:
+            Résultat de l'exécution ou informations d'erreur
+        """
+        workflows_to_test = [
+            # Test 1: Avec SaveText (standard ComfyUI)
+            {
+                "name": "SaveText output",
+                "workflow": {
+                    "1": {
+                        "class_type": "ExtraPathReader",
+                        "inputs": {}
+                    },
+                    "2": {
+                        "class_type": "SaveText",
+                        "inputs": {
+                            "text": ["1", 0],
+                            "filename_prefix": "extra_paths"
+                        }
+                    }
+                }
+            },
+            # Test 2: Avec PreviewText (si disponible)
+            {
+                "name": "PreviewText output",
+                "workflow": {
+                    "1": {
+                        "class_type": "ExtraPathReader",
+                        "inputs": {}
+                    },
+                    "2": {
+                        "class_type": "PreviewText",
+                        "inputs": {"text": ["1", 0]}
+                    }
+                }
+            },
+            # Test 3: Avec CLIPTextEncode (toujours disponible)
+            {
+                "name": "CLIPTextEncode output",
+                "workflow": {
+                    "1": {
+                        "class_type": "ExtraPathReader",
+                        "inputs": {}
+                    },
+                    "2": {
+                        "class_type": "CLIPTextEncode",
+                        "inputs": {
+                            "text": ["1", 0],
+                            "clip": ["3", 0]
+                        }
+                    },
+                    "3": {
+                        "class_type": "CheckpointLoaderSimple",
+                        "inputs": {
+                            "ckpt_name": "v1-5-pruned-emaonly.ckpt"  # Modèle standard
+                        }
+                    }
+                }
+            }
+        ]
+
+        for test in workflows_to_test:
+            print(f"🧪 Test: {test['name']}")
+            try:
+                workflow = test["workflow"]
+
+                # Préparer le payload
+                payload = {
+                    "prompt": workflow,
+                    "client_id": "cy8_test_client"
+                }
+
+                # Envoyer la requête
+                url = urljoin(self.server_url, "/prompt")
+                response = self.session.post(url, json=payload, timeout=30)
+
+                print(f"📡 Statut: {response.status_code}")
+
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"✅ Succès avec {test['name']} !")
+                    return {
+                        "error": False,
+                        "result": result,
+                        "workflow_used": workflow,
+                        "method": test['name']
+                    }
+                else:
+                    try:
+                        error_details = response.json()
+                        print(f"❌ Erreur: {error_details.get('error', {}).get('message', 'Unknown')}")
+                    except:
+                        print(f"❌ Erreur HTTP: {response.text}")
+
+            except Exception as e:
+                print(f"❌ Exception avec {test['name']}: {e}")
+                continue
+
+        # Si tous les tests échouent
+        return {
+            "error": True,
+            "message": "Tous les workflows testés ont échoué",
+            "workflows_tested": [t["name"] for t in workflows_to_test]
+        }
+
+    def get_extra_paths(self) -> Dict[str, Any]:
+        """
+        Récupérer les chemins extra de ComfyUI via ExtraPathReader
+
+        Returns:
+            Dict contenant les chemins ou informations d'erreur
+        """
+        try:
+            print("🗂️  Récupération des chemins extra via ExtraPathReader...")
+
+            # Exécuter ExtraPathReader
+            result = self.call_custom_node('ExtraPathReader', {})
+
+            if 'prompt_id' in result:
+                prompt_id = result['prompt_id']
+
+                # Attendre l'exécution
+                import time
+                time.sleep(2)
+
+                # Récupérer l'historique
+                url = urljoin(self.server_url, f"/history/{prompt_id}")
+                response = self.session.get(url, timeout=10)
+
+                if response.status_code == 200:
+                    history = response.json()
+
+                    if prompt_id in history:
+                        prompt_data = history[prompt_id]
+
+                        if 'outputs' in prompt_data and '2' in prompt_data['outputs']:
+                            # Extraire le texte JSON du nœud PreviewAny
+                            output_text = prompt_data['outputs']['2']['text'][0]
+
+                            # Parser le JSON
+                            import json
+                            paths_data = json.loads(output_text)
+
+                            print("✅ Chemins extra récupérés avec succès")
+                            return {
+                                "error": False,
+                                "data": paths_data
+                            }
+                        else:
+                            return {
+                                "error": True,
+                                "message": "Pas de sortie dans l'historique"
+                            }
+                    else:
+                        return {
+                            "error": True,
+                            "message": "Prompt ID non trouvé dans l'historique"
+                        }
+                else:
+                    return {
+                        "error": True,
+                        "message": f"Erreur récupération historique: {response.status_code}"
+                    }
+            else:
+                return {
+                    "error": True,
+                    "message": "Pas de prompt_id dans la réponse",
+                    "response": result
+                }
+
+        except Exception as e:
+            return {
+                "error": True,
+                "message": f"Exception lors de la récupération: {e}"
+            }
 
     def get_custom_node_schema(self, node_type: str) -> Optional[Dict[str, Any]]:
         """

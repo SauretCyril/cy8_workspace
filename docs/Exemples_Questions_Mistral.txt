@@ -1,0 +1,50 @@
+"""
+Exemples de questions personnalisées pour l'analyse Mistral AI du log ComfyUI
+================================================================
+
+Voici des exemples de questions que vous pouvez utiliser dans la zone de question modifiable
+de l'analyse complète du log ComfyUI :
+
+🔍 QUESTIONS GÉNÉRALES
+=====================
+• "Proposes moi des solutions pour les erreurs dans le fichier log"
+• "Analyse toutes les erreurs et donne-moi un plan d'action détaillé"
+• "Identifie les problèmes de performance et propose des optimisations"
+
+⚠️ PROBLÈMES SPÉCIFIQUES
+========================
+• "Focus sur les erreurs de modèles manquants et comment les résoudre"
+• "Analyse les erreurs de mémoire (CUDA/RAM) et propose des solutions"
+• "Identifie les problèmes de custom nodes et comment les corriger"
+• "Focus sur les erreurs de connexion réseau ou d'API"
+
+🔧 DIAGNOSTIC TECHNIQUE
+=======================
+• "Analyse la séquence d'événements menant aux erreurs principales"
+• "Identifie les dépendances manquantes et comment les installer"
+• "Explique les erreurs de configuration et comment les corriger"
+• "Détecte les conflits entre extensions/custom nodes"
+
+🚀 OPTIMISATION
+===============
+• "Propose des améliorations de configuration pour éviter ces erreurs"
+• "Suggest performance optimizations based on the log analysis"
+• "Analyse les patterns d'utilisation et recommande des améliorations"
+• "Identifie les goulots d'étranglement et propose des solutions"
+
+💡 QUESTIONS CRÉATIVES
+======================
+• "Si tu étais un développeur ComfyUI, comment débugguerais-tu ces problèmes ?"
+• "Explique-moi comme si j'étais débutant comment résoudre ces erreurs"
+• "Classe les erreurs par priorité et donne un plan de résolution étape par étape"
+• "Quelles sont les erreurs critiques vs celles qui sont juste informationnelles ?"
+
+🎯 FOCUS CONTEXTUEL
+==================
+• "Analyse seulement les erreurs des dernières 24h de ce log"
+• "Focus sur les erreurs qui empêchent la génération d'images"
+• "Identifie les erreurs liées au chargement des modèles Stable Diffusion"
+• "Analyse les problèmes de workflow et de noeuds custom"
+
+CONSEIL : Soyez spécifique dans vos questions pour obtenir des réponses plus précises !
+"""

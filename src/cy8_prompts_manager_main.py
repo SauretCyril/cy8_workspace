@@ -25,6 +25,10 @@ from cy6_wkf001_Basic import comfyui_basic_task
 from cy8_log_analyzer import cy8_log_analyzer
 from cy8_mistral import analyze_comfyui_error, save_error_solution, load_error_solution
 
+# Nouveaux imports pour l'optimisation des images
+from cy8_image_index_manager import ImageIndexManager
+from cy8_fast_image_processor import get_image_processor
+
 
 class cy8_prompts_manager:
     """Gestionnaire principal des prompts - Version cy8 refactorisée"""
@@ -52,6 +56,11 @@ class cy8_prompts_manager:
         self.db_manager = cy8_database_manager(self.db_path)
         self.popup_manager = cy8_popup_manager(self.root, self.db_manager)
         self.table_manager = cy8_editable_tables(self.root, self.popup_manager)
+
+        # Gestionnaire d'index d'images optimisé
+        self.image_index = ImageIndexManager()
+        self.fast_processor = get_image_processor()
+        print(f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}")
 
         # Connecter le callback de sauvegarde
         self.table_manager.set_save_callback(self.save_current_info)
@@ -1611,7 +1620,19 @@ class cy8_prompts_manager:
         ttk.Button(
             controls_frame,
             text="🔄 Actualiser",
-            command=self.refresh_gallery,
+            command=self.refresh_gallery_with_scan,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            controls_frame,
+            text="⚡ Recharger index",
+            command=self.force_refresh_gallery,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            controls_frame,
+            text="📊 Statistiques",
+            command=self.show_gallery_stats,
         ).pack(side="left", padx=(0, 5))
 
         ttk.Button(
@@ -1619,6 +1640,56 @@ class cy8_prompts_manager:
             text="📁 Ouvrir dossier",
             command=self.open_images_folder,
         ).pack(side="left")
+
+        # Barre de boutons contextuels (cachée par défaut)
+        self.gallery_context_frame = ttk.Frame(gallery_frame)
+        self.gallery_context_frame.pack(fill="x", pady=(0, 10))
+
+        # Label pour l'image sélectionnée
+        self.gallery_selected_label = ttk.Label(
+            self.gallery_context_frame,
+            text="",
+            font=("TkDefaultFont", 10, "bold"),
+            foreground="blue"
+        )
+        self.gallery_selected_label.pack(side="left")
+
+        # Boutons contextuels
+        context_buttons_frame = ttk.Frame(self.gallery_context_frame)
+        context_buttons_frame.pack(side="right")
+
+        ttk.Button(
+            context_buttons_frame,
+            text="🗑️ Marquer supprimée",
+            command=self.mark_gallery_image_deleted,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            context_buttons_frame,
+            text="♻️ Restaurer",
+            command=self.restore_gallery_image,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            context_buttons_frame,
+            text="🗑️ Supprimer définitivement",
+            command=self.delete_selected_gallery_image,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            context_buttons_frame,
+            text="📁 Ouvrir avec...",
+            command=self.open_selected_gallery_image,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            context_buttons_frame,
+            text="📋 Copier chemin",
+            command=self.copy_selected_gallery_path,
+        ).pack(side="left")
+
+        # Cacher la barre par défaut
+        self.gallery_context_frame.pack_forget()
 
         # Frame pour la grille d'images avec scrollbar
         gallery_container = ttk.Frame(gallery_frame)
@@ -1658,6 +1729,8 @@ class cy8_prompts_manager:
         self.gallery_images = []
         self.gallery_thumbnails = {}
         self.gallery_loaded = False
+        self.selected_gallery_image = None
+        self.selected_gallery_button = None
 
         # Message d'information pour charger la galerie
         info_label = ttk.Label(
@@ -1672,8 +1745,13 @@ class cy8_prompts_manager:
         # self.refresh_gallery() - sera appelé plus tard
 
     def refresh_gallery(self):
-        """Actualiser la galerie complète"""
+        """Actualiser la galerie complète (rapide - utilise l'index)"""
         try:
+            # Réinitialiser la sélection
+            self.selected_gallery_image = None
+            self.selected_gallery_button = None
+            self.gallery_context_frame.pack_forget()
+
             # Vider les anciennes images
             for widget in self.gallery_scrollable_frame.winfo_children():
                 widget.destroy()
@@ -1692,41 +1770,210 @@ class cy8_prompts_manager:
                 error_label.grid(row=0, column=0, columnspan=5, pady=20)
                 return
 
-            # Scanner les fichiers image
-            image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff'}
-            image_files = []
+            # Utiliser l'index optimisé au lieu du scan de fichiers
+            print("🔄 Chargement depuis l'index...")
+            indexed_images = self.image_index.get_images(images_dir, include_deleted=True)
 
-            for root, dirs, files in os.walk(images_dir):
-                for file in files:
-                    if os.path.splitext(file.lower())[1] in image_extensions:
-                        image_files.append(os.path.join(root, file))
-
-            # Trier par date de modification (plus récent en premier)
-            image_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-
-            if not image_files:
-                empty_label = ttk.Label(
+            if not indexed_images:
+                info_label = ttk.Label(
                     self.gallery_scrollable_frame,
-                    text="📁 Aucune image trouvée dans le répertoire",
+                    text="📁 Aucune image dans l'index. Cliquez sur 'Actualiser' pour scanner.",
                     foreground="orange"
                 )
-                empty_label.grid(row=0, column=0, columnspan=5, pady=20)
+                info_label.grid(row=0, column=0, columnspan=5, pady=20)
                 return
 
-            # Créer la grille 5 colonnes
-            self.create_gallery_grid(image_files)
+            # Créer la grille optimisée depuis l'index
+            self.create_gallery_grid_from_index(indexed_images)
 
-            # Mettre à jour le titre avec le nombre d'images
-            self.update_status(f"Galerie: {len(image_files)} images trouvées")
+            # Mettre à jour le statut
+            active_count = sum(1 for img in indexed_images if not img['is_deleted'])
+            deleted_count = sum(1 for img in indexed_images if img['is_deleted'])
+
+            status_text = f"Galerie: {active_count} images"
+            if deleted_count > 0:
+                status_text += f" ({deleted_count} supprimées)"
+
+            self.update_status(status_text)
 
         except Exception as e:
-            print(f"Erreur lors du rafraîchissement de la galerie: {e}")
+            print(f"❌ Erreur lors du rafraîchissement de la galerie: {e}")
             error_label = ttk.Label(
                 self.gallery_scrollable_frame,
                 text=f"❌ Erreur: {str(e)}",
                 foreground="red"
             )
             error_label.grid(row=0, column=0, columnspan=5, pady=20)
+
+    def refresh_gallery_with_scan(self):
+        """Actualiser la galerie avec scan des fichiers (plus lent mais complet)"""
+        try:
+            images_dir = os.getenv("IMAGES_COLLECTE")
+            if not images_dir or not os.path.exists(images_dir):
+                messagebox.showerror("Erreur", "Répertoire IMAGES_COLLECTE non trouvé")
+                return
+
+            # Afficher un message de progression
+            progress_label = ttk.Label(
+                self.gallery_scrollable_frame,
+                text="⏳ Scan en cours... Veuillez patienter",
+                foreground="blue"
+            )
+            progress_label.grid(row=0, column=0, columnspan=5, pady=20)
+            self.root.update()
+
+            # Scanner et indexer les fichiers
+            stats = self.image_index.scan_directory(images_dir)
+
+            # Afficher les résultats du scan
+            if "error" in stats:
+                messagebox.showerror("Erreur", f"Erreur lors du scan: {stats['error']}")
+            else:
+                info_msg = f"Scan terminé:\n"
+                info_msg += f"• {stats['total_files']} fichiers traités\n"
+                info_msg += f"• {stats['new_files']} nouveaux\n"
+                info_msg += f"• {stats['updated_files']} mis à jour\n"
+                info_msg += f"• {stats['deleted_files']} supprimés\n"
+                info_msg += f"• Temps: {stats['scan_time']:.2f}s"
+
+                messagebox.showinfo("Scan terminé", info_msg)
+
+            # Actualiser l'affichage
+            self.refresh_gallery()
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors du scan: {str(e)}")
+
+    def force_refresh_gallery(self):
+        """Forcer la régénération complète de l'index"""
+        try:
+            images_dir = os.getenv("IMAGES_COLLECTE")
+            if not images_dir or not os.path.exists(images_dir):
+                messagebox.showerror("Erreur", "Répertoire IMAGES_COLLECTE non trouvé")
+                return
+
+            result = messagebox.askyesno(
+                "Confirmation",
+                "Régénérer complètement l'index ?\n\n"
+                "Cela peut prendre du temps selon le nombre d'images.",
+                icon="question"
+            )
+
+            if result:
+                # Vider le cache
+                self.image_index.clear_cache()
+
+                # Forcer le scan complet
+                progress_label = ttk.Label(
+                    self.gallery_scrollable_frame,
+                    text="⚡ Régénération de l'index... Veuillez patienter",
+                    foreground="blue"
+                )
+                progress_label.grid(row=0, column=0, columnspan=5, pady=20)
+                self.root.update()
+
+                stats = self.image_index.scan_directory(images_dir, force_refresh=True)
+
+                info_msg = f"Index régénéré:\n"
+                info_msg += f"• {stats['total_files']} fichiers traités\n"
+                info_msg += f"• Temps: {stats['scan_time']:.2f}s"
+
+                messagebox.showinfo("Régénération terminée", info_msg)
+
+                # Actualiser l'affichage
+                self.refresh_gallery()
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la régénération: {str(e)}")
+
+    def create_gallery_grid_from_index(self, indexed_images):
+        """Créer la grille d'images optimisée depuis l'index"""
+        try:
+            row = 0
+            col = 0
+
+            for i, image_data in enumerate(indexed_images):
+                try:
+                    file_path = image_data['file_path']
+                    is_deleted = image_data['is_deleted']
+
+                    # Créer le frame pour chaque image
+                    image_frame = ttk.Frame(self.gallery_scrollable_frame, padding="5")
+                    image_frame.grid(row=row, column=col, padx=5, pady=5, sticky="w")
+
+                    # Obtenir la miniature depuis l'index (beaucoup plus rapide)
+                    photo = self.image_index.get_thumbnail(file_path)
+
+                    if photo is None:
+                        # Créer une miniature par défaut si problème
+                        photo = self._create_default_thumbnail(is_deleted)
+
+                    # Stocker la référence
+                    self.gallery_thumbnails[file_path] = photo
+
+                    # Créer le bouton image cliquable
+                    image_button = tk.Button(
+                        image_frame,
+                        image=photo,
+                        border=2,
+                        relief="raised",
+                        bg="white" if not is_deleted else "#f0f0f0"
+                    )
+                    image_button.pack()
+
+                    # Modifier les couleurs si image supprimée
+                    if is_deleted:
+                        image_button.configure(bg="#ffe6e6", activebackground="#ffcccc")
+
+                    # Bindings pour sélection et agrandissement
+                    image_button.bind("<Button-1>",
+                        lambda e, path=file_path, btn=image_button: self.select_gallery_image(path, btn))
+                    image_button.bind("<Double-Button-1>",
+                        lambda e, path=file_path: self.enlarge_gallery_image(path))
+
+                    # Ajouter le nom du fichier avec indicateur de statut
+                    filename = image_data['file_name']
+                    if len(filename) > 20:
+                        filename = filename[:17] + "..."
+
+                    if is_deleted:
+                        filename = f"🗑️ {filename}"
+
+                    ttk.Label(
+                        image_frame,
+                        text=filename,
+                        font=("TkDefaultFont", 8),
+                        justify="center",
+                        foreground="gray" if is_deleted else "black"
+                    ).pack(pady=(2, 0))
+
+                    # Passer à la colonne suivante
+                    col += 1
+                    if col >= 5:  # 5 colonnes
+                        col = 0
+                        row += 1
+
+                except Exception as e:
+                    print(f"Erreur lors du traitement de l'image {image_data.get('file_path', 'unknown')}: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Erreur lors de la création de la grille depuis l'index: {e}")
+
+    def _create_default_thumbnail(self, is_deleted=False):
+        """Créer une miniature par défaut"""
+        try:
+            if is_deleted:
+                return self.image_index._create_trash_icon()
+            else:
+                # Image par défaut pour erreur de chargement
+                img = Image.new('RGB', (150, 150), (200, 200, 200))
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(img)
+                draw.text((50, 70), "❌\nErreur", fill=(100, 100, 100))
+                return ImageTk.PhotoImage(img)
+        except Exception:
+            return None
 
     def create_gallery_grid(self, image_files):
         """Créer la grille d'images 5 colonnes"""
@@ -1755,9 +2002,15 @@ class cy8_prompts_manager:
                         image=photo,
                         border=2,
                         relief="raised",
-                        command=lambda path=image_path: self.enlarge_gallery_image(path)
+                        bg="white"
                     )
                     image_button.pack()
+
+                    # Bindings pour sélection et agrandissement
+                    image_button.bind("<Button-1>",
+                        lambda e, path=image_path, btn=image_button: self.select_gallery_image(path, btn))
+                    image_button.bind("<Double-Button-1>",
+                        lambda e, path=image_path: self.enlarge_gallery_image(path))
 
                     # Ajouter le nom du fichier
                     filename = os.path.basename(image_path)
@@ -1882,6 +2135,238 @@ class cy8_prompts_manager:
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
 
+    def select_gallery_image(self, image_path, button):
+        """Sélectionner une image dans la galerie"""
+        try:
+            # Désélectionner l'image précédente
+            if self.selected_gallery_button:
+                self.selected_gallery_button.configure(
+                    relief="raised",
+                    bg="white",
+                    highlightbackground="white",
+                    highlightcolor="white",
+                    highlightthickness=0
+                )
+
+            # Sélectionner la nouvelle image
+            self.selected_gallery_image = image_path
+            self.selected_gallery_button = button
+
+            # Mettre en évidence l'image sélectionnée
+            button.configure(
+                relief="solid",
+                bg="#e6f3ff",
+                highlightbackground="#0078d4",
+                highlightcolor="#0078d4",
+                highlightthickness=3
+            )
+
+            # Afficher la barre de boutons contextuels
+            filename = os.path.basename(image_path)
+            if len(filename) > 50:
+                filename = filename[:47] + "..."
+            self.gallery_selected_label.config(text=f"📸 Sélectionnée: {filename}")
+            self.gallery_context_frame.pack(fill="x", pady=(0, 10), after=self.gallery_context_frame.master.winfo_children()[0])
+
+        except Exception as e:
+            print(f"Erreur lors de la sélection d'image: {e}")
+
+    def delete_selected_gallery_image(self):
+        """Supprimer l'image sélectionnée dans la galerie"""
+        if not self.selected_gallery_image:
+            messagebox.showwarning("Attention", "Aucune image sélectionnée")
+            return
+
+        try:
+            filename = os.path.basename(self.selected_gallery_image)
+            result = messagebox.askyesno(
+                "Confirmer la suppression",
+                f"Êtes-vous sûr de vouloir supprimer définitivement l'image ?\n\n{filename}\n\n⚠️ Cette action est irréversible !",
+                icon="warning"
+            )
+
+            if result:
+                # Supprimer le fichier
+                os.remove(self.selected_gallery_image)
+
+                # Masquer la barre contextuelle
+                self.gallery_context_frame.pack_forget()
+
+                # Actualiser la galerie
+                self.refresh_gallery()
+
+                # Réinitialiser la sélection
+                self.selected_gallery_image = None
+                self.selected_gallery_button = None
+
+                messagebox.showinfo("Succès", f"L'image '{filename}' a été supprimée avec succès.")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de supprimer l'image:\n{str(e)}")
+
+    def open_selected_gallery_image(self):
+        """Ouvrir l'image sélectionnée avec l'application par défaut"""
+        if not self.selected_gallery_image:
+            messagebox.showwarning("Attention", "Aucune image sélectionnée")
+            return
+        self.open_image_with_default(self.selected_gallery_image)
+
+    def copy_selected_gallery_path(self):
+        """Copier le chemin de l'image sélectionnée vers le presse-papier"""
+        if not self.selected_gallery_image:
+            messagebox.showwarning("Attention", "Aucune image sélectionnée")
+            return
+        self.copy_path_to_clipboard(self.selected_gallery_image)
+
+    def mark_gallery_image_deleted(self):
+        """Marquer une image comme supprimée (soft delete)"""
+        if not self.selected_gallery_image:
+            messagebox.showwarning("Attention", "Aucune image sélectionnée")
+            return
+
+        try:
+            filename = os.path.basename(self.selected_gallery_image)
+            result = messagebox.askyesno(
+                "Marquer comme supprimée",
+                f"Marquer l'image comme supprimée ?\n\n{filename}\n\n"
+                "L'image sera cachée mais le fichier restera sur le disque.",
+                icon="question"
+            )
+
+            if result:
+                # Marquer comme supprimée dans l'index
+                self.image_index.mark_deleted(self.selected_gallery_image)
+
+                # Actualiser l'affichage
+                self.refresh_gallery()
+
+                messagebox.showinfo("Succès", f"L'image '{filename}' a été marquée comme supprimée.")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de marquer l'image: {str(e)}")
+
+    def restore_gallery_image(self):
+        """Restaurer une image marquée comme supprimée"""
+        if not self.selected_gallery_image:
+            messagebox.showwarning("Attention", "Aucune image sélectionnée")
+            return
+
+        try:
+            filename = os.path.basename(self.selected_gallery_image)
+
+            # Vérifier si l'image est marquée comme supprimée
+            images = self.image_index.get_images(
+                os.path.dirname(self.selected_gallery_image),
+                include_deleted=True
+            )
+
+            selected_image = next(
+                (img for img in images if img['file_path'] == self.selected_gallery_image),
+                None
+            )
+
+            if not selected_image or not selected_image['is_deleted']:
+                messagebox.showinfo("Information", "Cette image n'est pas marquée comme supprimée.")
+                return
+
+            result = messagebox.askyesno(
+                "Restaurer l'image",
+                f"Restaurer l'image ?\n\n{filename}\n\n"
+                "L'image redeviendra visible dans la galerie.",
+                icon="question"
+            )
+
+            if result:
+                # Restaurer dans l'index
+                self.image_index.restore_deleted(self.selected_gallery_image)
+
+                # Actualiser l'affichage
+                self.refresh_gallery()
+
+                messagebox.showinfo("Succès", f"L'image '{filename}' a été restaurée.")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de restaurer l'image: {str(e)}")
+
+    def show_gallery_stats(self):
+        """Afficher les statistiques de la galerie"""
+        try:
+            stats = self.image_index.get_stats()
+            perf_info = self.fast_processor.get_performance_info()
+
+            stats_text = "📊 STATISTIQUES DE LA GALERIE\n"
+            stats_text += "=" * 40 + "\n\n"
+
+            stats_text += f"📸 Images totales: {stats.get('total_images', 0)}\n"
+            stats_text += f"✅ Images actives: {stats.get('active_images', 0)}\n"
+            stats_text += f"🗑️ Images supprimées: {stats.get('deleted_images', 0)}\n"
+            stats_text += f"💾 Taille totale: {stats.get('total_size_mb', 0)} MB\n"
+            stats_text += f"🧠 Cache mémoire: {stats.get('cache_size', 0)} miniatures\n\n"
+
+            stats_text += "⚡ PERFORMANCE\n"
+            stats_text += "-" * 20 + "\n"
+            stats_text += f"Backend: {perf_info['backend']}\n"
+            stats_text += f"Vitesse: {perf_info['estimated_speed']}\n"
+
+            if perf_info['recommended_action'] != "Aucune":
+                stats_text += f"Recommandation: {perf_info['recommended_action']}\n"
+
+            # Afficher dans une fenêtre popup
+            stats_window = tk.Toplevel(self.root)
+            stats_window.title("Statistiques de la galerie")
+            stats_window.geometry("500x400")
+            stats_window.transient(self.root)
+            stats_window.grab_set()
+
+            # Centrer la fenêtre
+            stats_window.update_idletasks()
+            x = (stats_window.winfo_screenwidth() // 2) - (500 // 2)
+            y = (stats_window.winfo_screenheight() // 2) - (400 // 2)
+            stats_window.geometry(f"500x400+{x}+{y}")
+
+            # Zone de texte avec scrollbar
+            text_frame = ttk.Frame(stats_window)
+            text_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            text_widget = tk.Text(text_frame, wrap="word", font=("Consolas", 10))
+            scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+            text_widget.configure(yscrollcommand=scrollbar.set)
+
+            text_widget.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            text_widget.insert("1.0", stats_text)
+            text_widget.configure(state="disabled")
+
+            # Boutons d'action
+            buttons_frame = ttk.Frame(stats_window)
+            buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+            ttk.Button(
+                buttons_frame,
+                text="🧹 Vider le cache",
+                command=lambda: self._clear_cache_and_refresh(stats_window)
+            ).pack(side="left", padx=(0, 5))
+
+            ttk.Button(
+                buttons_frame,
+                text="❌ Fermer",
+                command=stats_window.destroy
+            ).pack(side="right")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'afficher les statistiques: {str(e)}")
+
+    def _clear_cache_and_refresh(self, parent_window):
+        """Vider le cache et actualiser"""
+        try:
+            self.image_index.clear_cache()
+            messagebox.showinfo("Cache vidé", "Le cache mémoire a été vidé.")
+            parent_window.destroy()
+            self.refresh_gallery()
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de vider le cache: {str(e)}")
+
     def on_gallery_tab_selected(self, event):
         """Callback appelé quand un sous-onglet des images est sélectionné"""
         try:
@@ -1893,11 +2378,12 @@ class cy8_prompts_manager:
             selected_tab_id = notebook.select()
             tab_text = notebook.tab(selected_tab_id, "text")
 
-            # Si c'est l'onglet galerie et qu'elle n'est pas encore chargée
+            # Afficher un message informatif mais ne pas charger automatiquement
             if "Galerie complète" in tab_text and not self.gallery_loaded:
-                print("🖼️ Chargement de la galerie...")
-                self.refresh_gallery()
-                self.gallery_loaded = True
+                print("🖼️ Onglet galerie sélectionné - Cliquez sur 'Actualiser' pour charger")
+                # Ne pas charger automatiquement pour laisser l'utilisateur choisir
+                # self.refresh_gallery()
+                # self.gallery_loaded = True
         except Exception as e:
             print(f"Erreur lors du changement d'onglet: {e}")
 
@@ -4103,12 +4589,30 @@ WORKFLOW:
                 print("🟢 Serveur ComfyUI accessible et en ligne")
                 logger.info("Serveur ComfyUI accessible et en ligne")
 
-                # Appeler le custom node ExtraPathReader
-                print("🚀 Appel du custom node ExtraPathReader...")
-                logger.info("Appel du custom node ExtraPathReader avec inputs vides")
+                # Test direct d'ExtraPathReader avec diagnostic
+                print("🚀 Test diagnostic d'ExtraPathReader...")
+                logger.info("Test diagnostic d'ExtraPathReader")
 
                 start_time = time.time()
-                result = caller.call_custom_node(node_type="ExtraPathReader", inputs={})
+
+                # Essayer d'abord la méthode de test direct
+                diagnostic_result = caller.test_extra_path_reader_direct()
+
+                if diagnostic_result.get("error", True):
+                    print("❌ Test direct échoué, tentative avec méthode standard...")
+                    try:
+                        result = caller.call_custom_node(node_type="ExtraPathReader", inputs={})
+                    except Exception as e:
+                        print(f"❌ Méthode standard également échouée: {e}")
+                        print("🔍 Diagnostic détaillé:")
+                        print(f"   - Workflow utilisé: {diagnostic_result.get('workflow_used', 'N/A')}")
+                        print(f"   - Statut HTTP: {diagnostic_result.get('status_code', 'N/A')}")
+                        print(f"   - Erreur: {diagnostic_result.get('exception', 'N/A')}")
+                        raise e
+                else:
+                    result = diagnostic_result["result"]
+                    print("✅ Test direct réussi !")
+
                 end_time = time.time()
 
                 print(
@@ -5152,6 +5656,34 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
         )
         analysis_frame.pack(fill="both", expand=True, pady=(0, 15))
 
+        # === ZONE DE QUESTION MODIFIABLE ===
+        question_frame = ttk.Frame(analysis_frame)
+        question_frame.pack(fill="x", pady=(0, 10))
+
+        question_header = ttk.Frame(question_frame)
+        question_header.pack(fill="x")
+
+        ttk.Label(question_header, text="❓ Question pour Mistral AI:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+
+        ttk.Button(
+            question_header,
+            text="📋 Exemples",
+            command=lambda: self.show_question_examples(question_text),
+            width=12
+        ).pack(side="right")
+
+        question_text = tk.Text(question_frame, height=4, wrap="word", font=("TkDefaultFont", 10))
+        question_scrollbar = ttk.Scrollbar(question_frame, orient="vertical", command=question_text.yview)
+        question_text.configure(yscrollcommand=question_scrollbar.set)
+
+        question_text.pack(side="left", fill="x", expand=True, pady=(5, 0))
+        question_scrollbar.pack(side="right", fill="y", pady=(5, 0))
+
+        # Question par défaut
+        default_question = "Proposes moi des solutions pour les erreurs dans le fichier log"
+        question_text.insert("1.0", default_question)        # Séparateur
+        ttk.Separator(analysis_frame, orient="horizontal").pack(fill="x", pady=10)
+
         # Zone de texte pour l'analyse
         analysis_text = tk.Text(analysis_frame, wrap="word", font=("TkDefaultFont", 10))
         analysis_scrollbar = ttk.Scrollbar(
@@ -5165,7 +5697,8 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
         # Message initial
         initial_message = """📋 ANALYSE COMPLÈTE DU LOG COMFYUI AVEC MISTRAL AI
 
-Cliquez sur "🚀 Lancer l'analyse" pour obtenir une analyse complète du log ComfyUI.
+✏️ ÉTAPE 1 : Modifiez la question ci-dessus selon vos besoins
+✅ ÉTAPE 2 : Cliquez sur "🚀 Lancer l'analyse" pour obtenir une analyse complète
 
 L'analyse portera sur :
 • Détection et analyse de toutes les erreurs
@@ -5173,6 +5706,11 @@ L'analyse portera sur :
 • Solutions détaillées pour chaque problème identifié
 • Recommandations d'optimisation et de diagnostic
 • Suggestions de configuration
+
+Vous pouvez personnaliser la question pour obtenir :
+• Une analyse focalisée sur un type d'erreur spécifique
+• Des recommandations particulières
+• Un diagnostic approfondi d'un problème précis
 
 L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
 
@@ -5200,7 +5738,7 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             buttons_frame,
             text="🚀 Lancer l'analyse",
             command=lambda: self.start_global_log_analysis(
-                log_path, analysis_text, status_label, analysis_window
+                log_path, analysis_text, status_label, analysis_window, question_text
             ),
             style="Accent.TButton",
         ).pack(side="left", padx=(0, 15))
@@ -5223,13 +5761,18 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             buttons_frame, text="❌ Fermer", command=analysis_window.destroy
         ).pack(side="right")
 
-    def start_global_log_analysis(self, log_path, analysis_text, status_label, window):
+    def start_global_log_analysis(self, log_path, analysis_text, status_label, window, question_text):
         """Démarre l'analyse globale du log avec Mistral AI"""
         import threading
         from datetime import datetime
 
         def analyze_in_thread():
             try:
+                # Récupérer la question personnalisée
+                custom_question = question_text.get("1.0", "end-1c").strip()
+                if not custom_question:
+                    custom_question = "Proposes moi des solutions pour les erreurs dans le fichier log"
+
                 # Mise à jour du statut
                 status_label.config(text="⏳ Lecture du fichier log...")
                 window.update()
@@ -5256,11 +5799,10 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
                 try:
                     from cy8_mistral import analyze_comfyui_log_complete
 
-                    # Lancer l'analyse complète
-                    question = "Proposes moi des solutions pour les erreurs dans le fichier log"
+                    # Lancer l'analyse complète avec la question personnalisée
                     role = "Tu es un expert assistant Python et ComfyUI"
 
-                    result = analyze_comfyui_log_complete(log_content, question, role)
+                    result = analyze_comfyui_log_complete(log_content, custom_question, role)
 
                     # Afficher le résultat
                     analysis_text.config(state="normal")
@@ -5268,6 +5810,8 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
 
                     formatted_result = f"""🤖 ANALYSE COMPLÈTE DU LOG COMFYUI
 Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
+
+❓ Question posée : {custom_question}
 
 {result}
 
@@ -5311,6 +5855,110 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
         thread = threading.Thread(target=analyze_in_thread)
         thread.daemon = True
         thread.start()
+
+    def show_question_examples(self, question_text_widget):
+        """Affiche une popup avec des exemples de questions pour Mistral AI"""
+        examples_window = tk.Toplevel(self.root)
+        examples_window.title("📋 Exemples de questions pour Mistral AI")
+        examples_window.geometry("800x600")
+        examples_window.transient(self.root)
+        examples_window.grab_set()
+
+        main_frame = ttk.Frame(examples_window, padding="15")
+        main_frame.pack(fill="both", expand=True)
+
+        # Titre
+        ttk.Label(
+            main_frame,
+            text="📋 Exemples de questions pour Mistral AI",
+            font=("TkDefaultFont", 12, "bold"),
+        ).pack(pady=(0, 15))
+
+        # Zone de texte avec exemples
+        examples_text = tk.Text(main_frame, wrap="word", font=("TkDefaultFont", 10))
+        examples_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=examples_text.yview)
+        examples_text.configure(yscrollcommand=examples_scrollbar.set)
+
+        examples_text.pack(side="left", fill="both", expand=True)
+        examples_scrollbar.pack(side="right", fill="y")
+
+        # Contenu des exemples
+        examples_content = """🔍 QUESTIONS GÉNÉRALES
+=======================
+• Proposes moi des solutions pour les erreurs dans le fichier log
+• Analyse toutes les erreurs et donne-moi un plan d'action détaillé
+• Identifie les problèmes de performance et propose des optimisations
+
+⚠️ PROBLÈMES SPÉCIFIQUES
+=========================
+• Focus sur les erreurs de modèles manquants et comment les résoudre
+• Analyse les erreurs de mémoire (CUDA/RAM) et propose des solutions
+• Identifie les problèmes de custom nodes et comment les corriger
+• Focus sur les erreurs de connexion réseau ou d'API
+
+🔧 DIAGNOSTIC TECHNIQUE
+========================
+• Analyse la séquence d'événements menant aux erreurs principales
+• Identifie les dépendances manquantes et comment les installer
+• Explique les erreurs de configuration et comment les corriger
+• Détecte les conflits entre extensions/custom nodes
+
+🚀 OPTIMISATION
+===============
+• Propose des améliorations de configuration pour éviter ces erreurs
+• Suggest performance optimizations based on the log analysis
+• Analyse les patterns d'utilisation et recommande des améliorations
+• Identifie les goulots d'étranglement et propose des solutions
+
+💡 QUESTIONS CRÉATIVES
+=======================
+• Si tu étais un développeur ComfyUI, comment débugguerais-tu ces problèmes ?
+• Explique-moi comme si j'étais débutant comment résoudre ces erreurs
+• Classe les erreurs par priorité et donne un plan de résolution étape par étape
+• Quelles sont les erreurs critiques vs celles qui sont juste informationnelles ?
+
+🎯 FOCUS CONTEXTUEL
+===================
+• Analyse seulement les erreurs des dernières 24h de ce log
+• Focus sur les erreurs qui empêchent la génération d'images
+• Identifie les erreurs liées au chargement des modèles Stable Diffusion
+• Analyse les problèmes de workflow et de noeuds custom
+
+💡 CONSEIL : Soyez spécifique dans vos questions pour obtenir des réponses plus précises !"""
+
+        examples_text.insert("1.0", examples_content)
+        examples_text.config(state="disabled")
+
+        # Boutons
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill="x", pady=(15, 0))
+
+        def use_selected_question():
+            """Utilise la question sélectionnée dans le widget principal"""
+            try:
+                selected_text = examples_text.selection_get()
+                if selected_text and selected_text.startswith("•"):
+                    # Nettoyer la question (enlever le bullet point)
+                    clean_question = selected_text.replace("• ", "").strip()
+                    question_text_widget.delete("1.0", "end")
+                    question_text_widget.insert("1.0", clean_question)
+                    examples_window.destroy()
+                else:
+                    tk.messagebox.showinfo("Info", "Sélectionnez une ligne commençant par • dans la liste")
+            except tk.TclError:
+                tk.messagebox.showinfo("Info", "Sélectionnez une question dans la liste puis cliquez sur 'Utiliser'")
+
+        ttk.Button(
+            buttons_frame,
+            text="✅ Utiliser la sélection",
+            command=use_selected_question,
+        ).pack(side="left", padx=(0, 10))
+
+        ttk.Button(
+            buttons_frame,
+            text="❌ Fermer",
+            command=examples_window.destroy,
+        ).pack(side="right")
 
     def save_global_analysis(self, analysis_content):
         """Sauvegarde l'analyse globale dans un fichier"""

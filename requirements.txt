@@ -18,6 +18,10 @@ requests>=2.31.0
 # Variables d'environnement
 python-dotenv>=1.0.0
 
+# Optimisation Rust (optionnelle - voir install_rust_optimization.bat/sh)
+# pyo3>=0.20.0        # Bindings Python-Rust (installé avec Rust)
+# maturin>=1.0.0      # Build tool pour modules Rust (optionnel)
+
 # Machine Learning et modèles (optionnel)
 # safetensors>=0.4.0  # Nécessite torch, optionnel pour l'instant
 
