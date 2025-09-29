@@ -1472,7 +1472,9 @@ class cy8_prompts_manager:
 
         # Bind pour charger la galerie seulement quand l'onglet est sélectionné
         images_notebook.bind("<<NotebookTabChanged>>", self.on_gallery_tab_selected)
-        self.images_notebook = images_notebook    def setup_prompt_images_tab(self, parent):
+        self.images_notebook = images_notebook
+
+    def setup_prompt_images_tab(self, parent):
         """Configuration du sous-onglet images du prompt sélectionné"""
         images_frame = ttk.Frame(parent, padding="10")
         images_frame.pack(fill="both", expand=True)
