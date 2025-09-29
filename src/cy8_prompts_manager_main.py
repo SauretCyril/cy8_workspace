@@ -7,6 +7,7 @@ import json
 import subprocess
 from datetime import datetime
 from PIL import Image, ImageTk
+from safetensors.torch import safe_open
 from cy8_database_manager import cy8_database_manager
 from cy8_popup_manager import cy8_popup_manager
 from cy8_editable_tables import cy8_editable_tables
@@ -15,6 +16,7 @@ from cy8_paths import normalize_path, ensure_dir, get_default_db_path, cy8_paths
 from cy6_wkf001_Basic import comfyui_basic_task
 from cy8_log_analyzer import cy8_log_analyzer
 from cy8_mistral import analyze_comfyui_error, save_error_solution, load_error_solution
+
 
 class cy8_prompts_manager:
     """Gestionnaire principal des prompts - Version cy8 refactorisée"""
@@ -964,9 +966,9 @@ class cy8_prompts_manager:
         solutions_dir_frame = ttk.Frame(solutions_config_frame)
         solutions_dir_frame.pack(fill="x", pady=(0, 5))
 
-        ttk.Label(
-            solutions_dir_frame, text="Répertoire des solutions:", width=20
-        ).pack(side="left")
+        ttk.Label(solutions_dir_frame, text="Répertoire des solutions:", width=20).pack(
+            side="left"
+        )
 
         # Variable pour le répertoire des solutions
         self.error_solutions_dir = tk.StringVar()
@@ -2172,8 +2174,8 @@ class cy8_prompts_manager:
 
         finally:
             # Nettoyer l'ID d'environnement d'exécution
-            if hasattr(self, 'current_execution_environment_id'):
-                delattr(self, 'current_execution_environment_id')
+            if hasattr(self, "current_execution_environment_id"):
+                delattr(self, "current_execution_environment_id")
                 print("🧹 Environment ID d'exécution nettoyé")
 
     def update_prompt_status_after_execution(self, prompt_id, status):
@@ -2465,7 +2467,11 @@ WORKFLOW:
             if os.path.exists(image_path):
                 filename = os.path.basename(image_path)
                 # Afficher l'environnement s'il existe
-                env_display = environment_id[:12] + "..." if environment_id and len(environment_id) > 15 else (environment_id or "N/A")
+                env_display = (
+                    environment_id[:12] + "..."
+                    if environment_id and len(environment_id) > 15
+                    else (environment_id or "N/A")
+                )
                 self.images_tree.insert(
                     "", "end", values=(filename, image_path, env_display, created_at)
                 )
@@ -2534,10 +2540,16 @@ WORKFLOW:
         if filenames:
             success_count = 0
             # Récupérer l'environment_id actuel (peut être null pour les ajouts manuels)
-            environment_id = self.comfyui_config_id.get().strip() if hasattr(self, 'comfyui_config_id') else None
+            environment_id = (
+                self.comfyui_config_id.get().strip()
+                if hasattr(self, "comfyui_config_id")
+                else None
+            )
 
             for filename in filenames:
-                if self.db_manager.add_prompt_image(prompt_id, filename, environment_id):
+                if self.db_manager.add_prompt_image(
+                    prompt_id, filename, environment_id
+                ):
                     success_count += 1
 
             messagebox.showinfo(
@@ -2702,10 +2714,14 @@ WORKFLOW:
         images_added = 0
 
         # Récupérer l'ID de l'environnement d'exécution
-        environment_id = getattr(self, 'current_execution_environment_id', None)
+        environment_id = getattr(self, "current_execution_environment_id", None)
         if not environment_id:
             # Essayer de récupérer depuis l'interface
-            environment_id = self.comfyui_config_id.get().strip() if hasattr(self, 'comfyui_config_id') else None
+            environment_id = (
+                self.comfyui_config_id.get().strip()
+                if hasattr(self, "comfyui_config_id")
+                else None
+            )
 
         print(f"🔗 Ajout d'images avec environment_id: {environment_id}")
 
@@ -2729,9 +2745,13 @@ WORKFLOW:
                 # Vérifier que le fichier existe
                 if image_path and os.path.exists(image_path):
                     # Ajouter à la base de données avec l'environment_id
-                    if self.db_manager.add_prompt_image(prompt_id, image_path, environment_id):
+                    if self.db_manager.add_prompt_image(
+                        prompt_id, image_path, environment_id
+                    ):
                         images_added += 1
-                        print(f"DEBUG: Image ajoutée à la BDD avec env {environment_id}: {image_path}")
+                        print(
+                            f"DEBUG: Image ajoutée à la BDD avec env {environment_id}: {image_path}"
+                        )
                     else:
                         print(f"DEBUG: Échec ajout image en BDD: {image_path}")
                 else:
@@ -3652,8 +3672,6 @@ WORKFLOW:
             if not self.details_frame.winfo_viewable():
                 self.details_frame.pack(fill="both", expand=True, pady=(20, 0))
 
-
-
     def get_model_metadata(model_path: str) -> dict:
         """
         Lit les métadonnées d'un fichier .safetensors et les retourne sous forme de dictionnaire.
@@ -3667,7 +3685,6 @@ WORKFLOW:
             return metadata
         except Exception as e:
             raise RuntimeError(f"Erreur lors de la lecture du modèle : {str(e)}")
-
 
     def identify_comfyui_environment(self):
         """Identifier l'environnement ComfyUI en récupérant les extra paths via le custom node"""
@@ -4277,8 +4294,7 @@ WORKFLOW:
             # Sauvegarder dans les préférences
             self.user_prefs.set_error_solutions_directory(directory)
             messagebox.showinfo(
-                "Configuration",
-                f"Répertoire des solutions mis à jour :\n{directory}"
+                "Configuration", f"Répertoire des solutions mis à jour :\n{directory}"
             )
 
     def analyze_comfyui_log(self):
@@ -4545,7 +4561,9 @@ WORKFLOW:
         item = selection[0]
         values = self.log_results_tree.item(item)["values"]
 
-        if len(values) >= 6:  # Maintenant on a timestamp, type, category, element, message, line
+        if (
+            len(values) >= 6
+        ):  # Maintenant on a timestamp, type, category, element, message, line
             timestamp, type_val, category, element, message, line = values
 
             # Créer une fenêtre de détails simple
@@ -4560,13 +4578,15 @@ WORKFLOW:
             main_frame.pack(fill="both", expand=True)
 
             # === SECTION 1: INFORMATIONS DE L'ERREUR ===
-            info_frame = ttk.LabelFrame(main_frame, text="📋 Informations de l'erreur", padding="10")
+            info_frame = ttk.LabelFrame(
+                main_frame, text="📋 Informations de l'erreur", padding="10"
+            )
             info_frame.pack(fill="x", pady=(0, 10))
 
             # Grille d'informations
-            ttk.Label(info_frame, text="Timestamp:", font=("TkDefaultFont", 9, "bold")).grid(
-                row=0, column=0, sticky="w", padx=(0, 10)
-            )
+            ttk.Label(
+                info_frame, text="Timestamp:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=0, column=0, sticky="w", padx=(0, 10))
             ttk.Label(info_frame, text=timestamp).grid(row=0, column=1, sticky="w")
 
             ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(
@@ -4595,7 +4615,9 @@ WORKFLOW:
             )
             error_frame.pack(fill="x", pady=(0, 10))
 
-            error_text = tk.Text(error_frame, wrap="word", font=("Consolas", 9), height=4)
+            error_text = tk.Text(
+                error_frame, wrap="word", font=("Consolas", 9), height=4
+            )
             error_scrollbar = ttk.Scrollbar(
                 error_frame, orient="vertical", command=error_text.yview
             )
@@ -4609,12 +4631,16 @@ WORKFLOW:
 
             # === SECTION 3: ANALYSE DU LOG COMPLET ===
             analysis_frame = ttk.LabelFrame(
-                main_frame, text="🤖 Analyse du log complet avec Mistral AI", padding="10"
+                main_frame,
+                text="🤖 Analyse du log complet avec Mistral AI",
+                padding="10",
             )
             analysis_frame.pack(fill="both", expand=True, pady=(0, 10))
 
             # Zone de texte pour l'analyse
-            analysis_text = tk.Text(analysis_frame, wrap="word", font=("TkDefaultFont", 9))
+            analysis_text = tk.Text(
+                analysis_frame, wrap="word", font=("TkDefaultFont", 9)
+            )
             analysis_text_scrollbar = ttk.Scrollbar(
                 analysis_frame, orient="vertical", command=analysis_text.yview
             )
@@ -4648,7 +4674,7 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
             status_label = ttk.Label(
                 status_frame,
                 text="� Prêt pour l'analyse complète du log",
-                font=("TkDefaultFont", 8)
+                font=("TkDefaultFont", 8),
             )
             status_label.pack(side="left")
 
@@ -4661,7 +4687,7 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
                 text="� Analyser le log complet",
                 command=lambda: self.analyze_complete_log_with_ai(
                     timestamp, analysis_text, status_label, detail_window
-                )
+                ),
             ).pack(side="left", padx=(0, 10))
 
             ttk.Button(
@@ -4669,19 +4695,17 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
                 text="💾 Sauvegarder analyse",
                 command=lambda: self.save_log_analysis(
                     timestamp, analysis_text.get("1.0", "end-1c")
-                )
+                ),
             ).pack(side="left", padx=(0, 10))
 
             ttk.Button(
                 buttons_frame,
                 text="📁 Ouvrir dossier",
-                command=lambda: self.open_solutions_folder()
+                command=lambda: self.open_solutions_folder(),
             ).pack(side="left", padx=(0, 10))
 
             ttk.Button(
-                buttons_frame,
-                text="❌ Fermer",
-                command=detail_window.destroy
+                buttons_frame, text="❌ Fermer", command=detail_window.destroy
             ).pack(side="right")
 
     def open_solutions_folder(self):
@@ -4693,10 +4717,10 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
             os.makedirs(solutions_dir, exist_ok=True)
 
             # Ouvrir le dossier
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 os.startfile(solutions_dir)
-            elif os.name == 'posix':  # Linux/Mac
-                subprocess.run(['xdg-open', solutions_dir])
+            elif os.name == "posix":  # Linux/Mac
+                subprocess.run(["xdg-open", solutions_dir])
             else:
                 messagebox.showinfo("Info", f"Dossier des solutions :\n{solutions_dir}")
 
@@ -4709,8 +4733,7 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
 
         if not log_path or not os.path.exists(log_path):
             messagebox.showerror(
-                "Erreur",
-                "Veuillez d'abord sélectionner un fichier log valide."
+                "Erreur", "Veuillez d'abord sélectionner un fichier log valide."
             )
             return
 
@@ -4732,11 +4755,13 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
         ttk.Label(
             title_frame,
             text="🤖 Analyse complète du log ComfyUI avec Mistral AI",
-            font=("TkDefaultFont", 14, "bold")
+            font=("TkDefaultFont", 14, "bold"),
         ).pack(side="left")
 
         # Informations sur le log
-        info_frame = ttk.LabelFrame(main_frame, text="📋 Informations du log", padding="10")
+        info_frame = ttk.LabelFrame(
+            main_frame, text="📋 Informations du log", padding="10"
+        )
         info_frame.pack(fill="x", pady=(0, 15))
 
         ttk.Label(info_frame, text="Fichier:", font=("TkDefaultFont", 9, "bold")).grid(
@@ -4748,9 +4773,9 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
 
         try:
             file_size = os.path.getsize(log_path) / 1024  # KB
-            ttk.Label(info_frame, text="Taille:", font=("TkDefaultFont", 9, "bold")).grid(
-                row=1, column=0, sticky="w", padx=(0, 10)
-            )
+            ttk.Label(
+                info_frame, text="Taille:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=1, column=0, sticky="w", padx=(0, 10))
             ttk.Label(info_frame, text=f"{file_size:.1f} KB").grid(
                 row=1, column=1, sticky="w"
             )
@@ -4799,7 +4824,7 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
         status_label = ttk.Label(
             status_frame,
             text="💡 Prêt pour l'analyse complète du log ComfyUI",
-            font=("TkDefaultFont", 9)
+            font=("TkDefaultFont", 9),
         )
         status_label.pack(side="left")
 
@@ -4813,7 +4838,7 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             command=lambda: self.start_global_log_analysis(
                 log_path, analysis_text, status_label, analysis_window
             ),
-            style="Accent.TButton"
+            style="Accent.TButton",
         ).pack(side="left", padx=(0, 15))
 
         ttk.Button(
@@ -4821,19 +4846,17 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             text="💾 Sauvegarder",
             command=lambda: self.save_global_analysis(
                 analysis_text.get("1.0", "end-1c")
-            )
+            ),
         ).pack(side="left", padx=(0, 15))
 
         ttk.Button(
             buttons_frame,
             text="📁 Ouvrir dossier",
-            command=lambda: self.open_solutions_folder()
+            command=lambda: self.open_solutions_folder(),
         ).pack(side="left", padx=(0, 15))
 
         ttk.Button(
-            buttons_frame,
-            text="❌ Fermer",
-            command=analysis_window.destroy
+            buttons_frame, text="❌ Fermer", command=analysis_window.destroy
         ).pack(side="right")
 
     def start_global_log_analysis(self, log_path, analysis_text, status_label, window):
@@ -4848,13 +4871,15 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
                 window.update()
 
                 # Lire le contenu du log
-                with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
                     log_content = f.read()
 
                 if not log_content.strip():
                     analysis_text.config(state="normal")
                     analysis_text.delete("1.0", "end")
-                    analysis_text.insert("1.0", "❌ Le fichier log est vide ou illisible.")
+                    analysis_text.insert(
+                        "1.0", "❌ Le fichier log est vide ou illisible."
+                    )
                     analysis_text.config(state="disabled")
                     status_label.config(text="❌ Échec de l'analyse")
                     return
@@ -4893,21 +4918,28 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 except ImportError:
                     analysis_text.config(state="normal")
                     analysis_text.delete("1.0", "end")
-                    analysis_text.insert("1.0", "❌ Module Mistral AI non disponible. Vérifiez la configuration.")
+                    analysis_text.insert(
+                        "1.0",
+                        "❌ Module Mistral AI non disponible. Vérifiez la configuration.",
+                    )
                     analysis_text.config(state="disabled")
                     status_label.config(text="❌ Module Mistral AI manquant")
 
                 except Exception as e:
                     analysis_text.config(state="normal")
                     analysis_text.delete("1.0", "end")
-                    analysis_text.insert("1.0", f"❌ Erreur lors de l'analyse IA :\n{str(e)}")
+                    analysis_text.insert(
+                        "1.0", f"❌ Erreur lors de l'analyse IA :\n{str(e)}"
+                    )
                     analysis_text.config(state="disabled")
                     status_label.config(text="❌ Erreur lors de l'analyse")
 
             except Exception as e:
                 analysis_text.config(state="normal")
                 analysis_text.delete("1.0", "end")
-                analysis_text.insert("1.0", f"❌ Erreur lors de la lecture du log :\n{str(e)}")
+                analysis_text.insert(
+                    "1.0", f"❌ Erreur lors de la lecture du log :\n{str(e)}"
+                )
                 analysis_text.config(state="disabled")
                 status_label.config(text="❌ Erreur de lecture")
 
@@ -4937,18 +4969,17 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
             filepath = os.path.join(solutions_dir, filename)
 
             # Sauvegarder
-            with open(filepath, 'w', encoding='utf-8') as f:
+            with open(filepath, "w", encoding="utf-8") as f:
                 f.write(analysis_content)
 
             messagebox.showinfo(
-                "Sauvegarde réussie",
-                f"Analyse sauvegardée :\n{filepath}"
+                "Sauvegarde réussie", f"Analyse sauvegardée :\n{filepath}"
             )
 
         except Exception as e:
             messagebox.showerror(
                 "Erreur de sauvegarde",
-                f"Impossible de sauvegarder l'analyse :\n{str(e)}"
+                f"Impossible de sauvegarder l'analyse :\n{str(e)}",
             )
 
 

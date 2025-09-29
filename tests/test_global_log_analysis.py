@@ -9,7 +9,8 @@ import tkinter as tk
 from tkinter import ttk
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def test_global_log_analysis():
     """Test de l'analyse globale du log avec le nouveau bouton"""
@@ -26,24 +27,24 @@ def test_global_log_analysis():
         print("✅ Application créée")
 
         # Vérifier que le bouton d'analyse IA globale existe
-        if hasattr(app, 'ai_analyze_btn'):
+        if hasattr(app, "ai_analyze_btn"):
             print("✅ Bouton d'analyse IA globale trouvé")
             print(f"   Text: {app.ai_analyze_btn.cget('text')}")
         else:
             print("❌ Bouton d'analyse IA globale non trouvé")
 
         # Vérifier que la méthode d'analyse globale existe
-        if hasattr(app, 'analyze_complete_log_global'):
+        if hasattr(app, "analyze_complete_log_global"):
             print("✅ Méthode analyze_complete_log_global trouvée")
         else:
             print("❌ Méthode analyze_complete_log_global non trouvée")
 
         # Vérifier que les méthodes obsolètes ont été supprimées
         obsolete_methods = [
-            'analyze_complete_log_with_ai',
-            'display_log_analysis',
-            'display_analysis_error',
-            'save_log_analysis'
+            "analyze_complete_log_with_ai",
+            "display_log_analysis",
+            "display_analysis_error",
+            "save_log_analysis",
         ]
 
         for method in obsolete_methods:
@@ -53,7 +54,7 @@ def test_global_log_analysis():
                 print(f"✅ Méthode obsolète supprimée: {method}")
 
         # Vérifier que la méthode show_log_detail est simplifiée
-        if hasattr(app, 'show_log_detail'):
+        if hasattr(app, "show_log_detail"):
             print("✅ Méthode show_log_detail présente (fenêtre détails simple)")
         else:
             print("❌ Méthode show_log_detail manquante")
@@ -61,6 +62,7 @@ def test_global_log_analysis():
         # Vérifier l'existence du module Mistral
         try:
             from cy8_mistral import analyze_comfyui_log_complete
+
             print("✅ Fonction analyze_comfyui_log_complete disponible")
         except ImportError as e:
             print(f"❌ Fonction analyze_comfyui_log_complete non disponible: {e}")
@@ -81,8 +83,10 @@ def test_global_log_analysis():
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_global_log_analysis()

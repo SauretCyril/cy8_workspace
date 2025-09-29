@@ -18,6 +18,9 @@ requests>=2.31.0
 # Variables d'environnement
 python-dotenv>=1.0.0
 
+# Machine Learning et modèles
+safetensors>=0.4.0
+
 # Tests (optionnel)
 pytest>=7.4.0
 

@@ -9,7 +9,8 @@ import tempfile
 from datetime import datetime
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def create_sample_log():
     """Créer un log d'exemple pour les tests"""
@@ -27,9 +28,12 @@ def create_sample_log():
 """
 
     # Créer un fichier temporaire
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False, encoding='utf-8') as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".log", delete=False, encoding="utf-8"
+    ) as f:
         f.write(log_content)
         return f.name
+
 
 def test_complete_workflow():
     """Test complet du nouveau workflow d'analyse globale"""
@@ -47,7 +51,7 @@ def test_complete_workflow():
         from cy8_mistral import analyze_comfyui_log_complete
 
         # Lire le contenu du log
-        with open(temp_log_file, 'r', encoding='utf-8') as f:
+        with open(temp_log_file, "r", encoding="utf-8") as f:
             log_content = f.read()
 
         print(f"✅ Contenu du log lu ({len(log_content)} caractères)")
@@ -68,6 +72,7 @@ def test_complete_workflow():
 
         # Tester la création d'un fichier de sauvegarde
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         test_analysis = f"""📊 ANALYSE COMPLÈTE DU LOG COMFYUI
 Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
@@ -96,16 +101,16 @@ RECOMMANDATIONS:
         filename = f"test_analyse_log_complete_{timestamp}.txt"
         filepath = os.path.join(solutions_dir, filename)
 
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(test_analysis)
 
         print(f"✅ Fichier de test sauvegardé: {filepath}")
 
         # Vérifier la structure du log
-        lines = log_content.split('\n')
-        error_lines = [line for line in lines if 'ERROR:' in line]
-        warning_lines = [line for line in lines if 'WARNING:' in line]
-        info_lines = [line for line in lines if 'INFO:' in line]
+        lines = log_content.split("\n")
+        error_lines = [line for line in lines if "ERROR:" in line]
+        warning_lines = [line for line in lines if "WARNING:" in line]
+        info_lines = [line for line in lines if "INFO:" in line]
 
         print(f"\n📊 Analyse du log d'exemple:")
         print(f"   Total lignes: {len(lines)}")
@@ -136,6 +141,7 @@ RECOMMANDATIONS:
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -148,6 +154,7 @@ RECOMMANDATIONS:
             except:
                 print(f"⚠️  Impossible de supprimer: {temp_log_file}")
 
+
 if __name__ == "__main__":
     success = test_complete_workflow()
     if success:
@@ -156,7 +163,9 @@ if __name__ == "__main__":
         print("   • Le tableau d'analyse du log reste intact")
         print("   • Double-clic sur erreur → fenêtre de détails simple")
         print("   • Bouton global '🤖 Analyse IA complète' ajouté")
-        print("   • Question: 'Proposes moi des solutions pour les erreurs dans le fichier log'")
+        print(
+            "   • Question: 'Proposes moi des solutions pour les erreurs dans le fichier log'"
+        )
         print("   • Rôle: 'Tu es un expert assistant Python et ComfyUI'")
         print("   • Analyse du contenu complet du log (pas juste une erreur)")
     else:

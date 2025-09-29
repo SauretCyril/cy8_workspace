@@ -9,7 +9,8 @@ import tempfile
 import sqlite3
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def test_database_environment_column():
     """Tester l'ajout de la colonne environment_id"""
@@ -20,7 +21,7 @@ def test_database_environment_column():
         from cy8_database_manager import cy8_database_manager
 
         # Créer une base temporaire
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
             temp_db_path = tmp_file.name
 
         print(f"✅ Base temporaire créée: {temp_db_path}")
@@ -66,7 +67,9 @@ def test_database_environment_column():
             if len(image_data) >= 4 and image_data[2] == environment_id:
                 print("✅ Environment_id correctement stocké et récupéré")
             else:
-                print(f"❌ Environment_id incorrect: attendu {environment_id}, reçu {image_data}")
+                print(
+                    f"❌ Environment_id incorrect: attendu {environment_id}, reçu {image_data}"
+                )
                 return False
         else:
             print("❌ Aucune image récupérée")
@@ -75,7 +78,9 @@ def test_database_environment_column():
         # Tester la récupération par environnement
         env_images = db_manager.get_images_by_environment(environment_id)
         if env_images and len(env_images) > 0:
-            print(f"✅ Récupération par environnement réussie: {len(env_images)} image(s)")
+            print(
+                f"✅ Récupération par environnement réussie: {len(env_images)} image(s)"
+            )
         else:
             print("❌ Échec de la récupération par environnement")
             return False
@@ -90,8 +95,10 @@ def test_database_environment_column():
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_environment_check_workflow():
     """Tester la vérification d'environnement avant l'exécution"""
@@ -113,10 +120,13 @@ def test_environment_check_workflow():
         class MockVar:
             def __init__(self, value):
                 self._value = value
+
             def get(self):
                 return self._value
+
             def set(self, value):
                 self._value = value
+
             def strip(self):
                 return self._value.strip()
 
@@ -135,7 +145,9 @@ def test_environment_check_workflow():
         if env_id == "test_config_123":
             print("✅ Environnement correctement détecté")
         else:
-            print(f"❌ Environnement incorrect: attendu 'test_config_123', reçu '{env_id}'")
+            print(
+                f"❌ Environnement incorrect: attendu 'test_config_123', reçu '{env_id}'"
+            )
             return False
 
         return True
@@ -143,8 +155,10 @@ def test_environment_check_workflow():
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_integration_simulation():
     """Test d'intégration complet avec simulation"""
@@ -155,7 +169,7 @@ def test_integration_simulation():
         from cy8_database_manager import cy8_database_manager
 
         # Créer une base temporaire
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
             temp_db_path = tmp_file.name
 
         # Initialiser la base
@@ -167,11 +181,7 @@ def test_integration_simulation():
         environment_id = "integration_test_env_789"
 
         # Simuler l'ajout de plusieurs images avec le même environnement
-        test_images = [
-            "/test/image1.png",
-            "/test/image2.png",
-            "/test/image3.png"
-        ]
+        test_images = ["/test/image1.png", "/test/image2.png", "/test/image3.png"]
 
         images_added = 0
         for image_path in test_images:
@@ -189,7 +199,9 @@ def test_integration_simulation():
         if len(prompt_images) == len(test_images):
             print("✅ Toutes les images récupérées par prompt")
         else:
-            print(f"❌ {len(prompt_images)}/{len(test_images)} images récupérées par prompt")
+            print(
+                f"❌ {len(prompt_images)}/{len(test_images)} images récupérées par prompt"
+            )
             return False
 
         # Vérifier la récupération par environnement
@@ -197,7 +209,9 @@ def test_integration_simulation():
         if len(env_images) == len(test_images):
             print("✅ Toutes les images récupérées par environnement")
         else:
-            print(f"❌ {len(env_images)}/{len(test_images)} images récupérées par environnement")
+            print(
+                f"❌ {len(env_images)}/{len(test_images)} images récupérées par environnement"
+            )
             return False
 
         # Vérifier les données détaillées
@@ -217,8 +231,10 @@ def test_integration_simulation():
     except Exception as e:
         print(f"❌ Erreur lors du test d'intégration: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     print("🧪 TESTS DES MODIFICATIONS ENVIRONNEMENT + TRAÇABILITÉ")
