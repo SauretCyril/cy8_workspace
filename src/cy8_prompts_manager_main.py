@@ -3841,8 +3841,111 @@ WORKFLOW:
             )
 
     def import_json(self):
-        """Importer des données JSON"""
-        messagebox.showinfo("Import", "Fonctionnalité d'import à implémenter")
+        """Importer des données JSON - Crée un prompt depuis un fichier workflow"""
+        try:
+            # Dialogue de sélection de fichier
+            file_path = filedialog.askopenfilename(
+                title="Sélectionner un fichier workflow JSON",
+                filetypes=[
+                    ("Fichiers JSON", "*.json"),
+                    ("Tous les fichiers", "*.*")
+                ],
+                defaultextension=".json"
+            )
+
+            if not file_path:
+                return  # Utilisateur a annulé
+
+            # Lire le contenu du fichier
+            with open(file_path, 'r', encoding='utf-8') as f:
+                workflow_content = json.load(f)
+
+            # Extraire le nom du fichier (sans extension)
+            import os
+            prompt_name = os.path.splitext(os.path.basename(file_path))[0]
+
+            # Vérifier si un prompt avec ce nom existe déjà
+            if self.db_manager.prompt_name_exists(prompt_name):
+                response = messagebox.askyesno(
+                    "Nom existant",
+                    f"Un prompt nommé '{prompt_name}' existe déjà.\nVoulez-vous utiliser un nom différent ?"
+                )
+                if response:
+                    # Ajouter un suffixe numérique
+                    counter = 1
+                    original_name = prompt_name
+                    while self.db_manager.prompt_name_exists(prompt_name):
+                        prompt_name = f"{original_name}_{counter}"
+                        counter += 1
+                else:
+                    return  # Utilisateur a annulé
+
+            # Valeurs par défaut pour prompt_values
+            default_values = {
+                "1": {
+                    "id": "6",
+                    "type": "prompt",
+                    "value": "beautiful scenery nature glass bottle landscape, purple galaxy bottle",
+                },
+                "2": {"id": "7", "type": "prompt", "value": "text, watermark"},
+                "3": {"id": "3", "type": "seed", "value": 1234567},
+                "4": {"id": "9", "type": "SaveImage", "filename_prefix": "basic"},
+            }
+
+            # Dériver le modèle depuis le workflow
+            model = self.db_manager.derive_model_from_workflow(workflow_content)
+
+            # Créer le nouveau prompt
+            prompt_id = self.db_manager.create_prompt(
+                name=prompt_name,
+                prompt_values=json.dumps(default_values, ensure_ascii=False),
+                workflow=json.dumps(workflow_content, ensure_ascii=False),
+                url="",
+                model=model,
+                status="new",
+                comment=f"Importé depuis {os.path.basename(file_path)}",
+                parent=None
+            )
+
+            # Rafraîchir l'affichage
+            self.load_prompts()
+
+            # Sélectionner le nouveau prompt dans la liste (si possible)
+            try:
+                if hasattr(self, 'prompts_tree') and self.prompts_tree:
+                    for item in self.prompts_tree.get_children():
+                        values = self.prompts_tree.item(item)['values']
+                        if values and int(values[0]) == prompt_id:  # ID du prompt
+                            self.prompts_tree.selection_set(item)
+                            self.prompts_tree.focus(item)
+                            self.prompts_tree.see(item)
+                            self.on_prompt_select(None)  # Charger les détails
+                            break
+            except Exception as e:
+                print(f"Erreur lors de la sélection du prompt: {e}")
+                # Ce n'est pas critique, on continue sans sélectionner
+
+            messagebox.showinfo(
+                "Import réussi",
+                f"Workflow importé avec succès !\n\nNom du prompt : {prompt_name}\nModèle détecté : {model or 'Aucun'}\nFichier : {os.path.basename(file_path)}"
+            )
+
+        except json.JSONDecodeError as e:
+            messagebox.showerror(
+                "Erreur JSON",
+                f"Le fichier sélectionné n'est pas un JSON valide :\n{str(e)}"
+            )
+        except FileNotFoundError:
+            messagebox.showerror(
+                "Fichier introuvable",
+                "Le fichier sélectionné n'existe pas ou n'est pas accessible."
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "Erreur d'import",
+                f"Une erreur est survenue lors de l'import :\n{str(e)}"
+            )
+            print(f"Erreur lors de l'import JSON: {e}")  # Pour le debug
 
     def export_json(self):
         """Exporter des données JSON"""
