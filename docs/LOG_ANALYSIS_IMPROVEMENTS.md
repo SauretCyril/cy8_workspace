@@ -44,7 +44,7 @@ APRÈS: Élément: "ComfyUI-Manager" | Message: "Import failed" | Détails: "Loa
 
 **Détails contextuels :**
 - CUDA-related issue
-- Memory issue  
+- Memory issue
 - Resource not found
 - Permission issue
 - Timeout occurred
@@ -83,7 +83,7 @@ CONTEXTE COMPLET:
 **Nouveau tableau avec colonnes :**
 1. **Timestamp** (140px) - Horodatage précis
 2. **État** (80px) - OK/ERREUR/ATTENTION
-3. **Catégorie** (110px) - Type d'erreur/événement  
+3. **Catégorie** (110px) - Type d'erreur/événement
 4. **Custom Node/Élément** (160px) - Nom du node ou "Système"
 5. **Message Principal** (300px) - Message nettoyé
 6. **Détails/Temps** (150px) - **NOUVEAU** - Temps de chargement ou détails d'erreur
@@ -95,7 +95,7 @@ Un test complet a été créé : `tests/test_log_analysis_improvements.py`
 
 **Résultats des tests :**
 - ✅ Extraction des custom nodes depuis erreurs
-- ✅ Détection des types d'erreur spécifiques  
+- ✅ Détection des types d'erreur spécifiques
 - ✅ Extraction des temps de chargement
 - ✅ Identification des raisons d'échec
 - ✅ Toutes les nouvelles méthodes fonctionnelles
@@ -110,7 +110,7 @@ Timestamp | État | Catégorie | Élément | Message | Ligne
 
 ### Après les améliorations :
 ```
-Timestamp | État | Catégorie | Custom Node | Message | Détails | Ligne  
+Timestamp | État | Catégorie | Custom Node | Message | Détails | Ligne
 14:30:25 | ERREUR | Module Not Found | ComfyUI-Manager | Import failed | Loading failure | 45
 ```
 
@@ -125,7 +125,7 @@ Timestamp | État | Catégorie | Custom Node | Message | Détails | Ligne
 ## 🔧 Fichiers Modifiés
 
 - `src/cy8_log_analyzer.py` : Amélioration des méthodes d'extraction
-- `src/cy8_prompts_manager_main.py` : Interface enrichie et popup améliorée  
+- `src/cy8_prompts_manager_main.py` : Interface enrichie et popup améliorée
 - `tests/test_log_analysis_improvements.py` : Tests de validation
 
 ## ✨ Utilisation

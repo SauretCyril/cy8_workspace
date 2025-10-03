@@ -295,7 +295,7 @@ class cy8_log_analyzer:
 
         # Extraire le nom du custom node s'il est présent
         custom_node = self._extract_custom_node_from_error(line)
-        
+
         # Extraire le message d'erreur principal
         message = line
         if ":" in line:
@@ -305,9 +305,9 @@ class cy8_log_analyzer:
 
         # Extraire des détails supplémentaires
         details = self._extract_error_details(line)
-        
+
         return {
-            "type": error_type, 
+            "type": error_type,
             "message": message,
             "custom_node": custom_node,
             "details": details,
@@ -346,7 +346,7 @@ class cy8_log_analyzer:
             r"module\s+'([^']+)'",  # Module name in quotes
             r"No\s+module\s+named\s+'([^']+)'",  # No module named error
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, line, re.IGNORECASE)
             if match:
@@ -355,13 +355,13 @@ class cy8_log_analyzer:
                 node_name = re.sub(r"[^\w\-_.]", "", node_name)
                 if node_name and node_name not in ["__pycache__", "__init__"]:
                     return node_name
-        
+
         return "Unknown"
 
     def _extract_error_details(self, line: str) -> str:
         """Extraire des détails supplémentaires de l'erreur"""
         details = []
-        
+
         # Détecter des patterns spécifiques
         if "cuda" in line.lower():
             details.append("CUDA-related issue")
@@ -375,7 +375,7 @@ class cy8_log_analyzer:
             details.append("Timeout occurred")
         if "failed to load" in line.lower():
             details.append("Loading failure")
-            
+
             return " | ".join(details) if details else "General error"
 
     def _extract_loading_time(self, line: str) -> str:
@@ -430,7 +430,7 @@ class cy8_log_analyzer:
             # Extraire le temps de chargement s'il est disponible
             loading_time = self._extract_loading_time(node["content"])
             load_info = f" ({loading_time})" if loading_time else ""
-            
+
             entries.append(
                 {
                     "type": "OK",

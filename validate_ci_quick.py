@@ -31,7 +31,7 @@ def log_with_timestamp(message, level="INFO"):
         "STEP": "🔄",
         "TEST": "🧪"
     }.get(level, "📝")
-    
+
     print(f"[{timestamp}] {prefix} {message}")
 
 
@@ -45,7 +45,7 @@ def print_section(title):
 def detect_virtual_env():
     """Détecter et retourner le chemin de l'environnement virtuel s'il existe"""
     log_with_timestamp("Détection de l'environnement virtuel...", "STEP")
-    
+
     project_root = Path(__file__).parent.absolute()
 
     # Vérifier si on est déjà dans un venv
@@ -76,7 +76,7 @@ def run_command(cmd, description, cwd=None, timeout=120):
     """Exécuter une commande et retourner le résultat"""
     log_with_timestamp(f"Exécution: {description}", "STEP")
     start_time = time.time()
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -90,7 +90,7 @@ def run_command(cmd, description, cwd=None, timeout=120):
         )
 
         elapsed_time = time.time() - start_time
-        
+
         if result.returncode == 0:
             log_with_timestamp(f"{description} - Terminé en {elapsed_time:.1f}s", "SUCCESS")
             return True
@@ -111,7 +111,7 @@ def run_command(cmd, description, cwd=None, timeout=120):
 def check_python_version():
     """Vérifier la version de Python"""
     log_with_timestamp("Vérification de la version Python...", "STEP")
-    
+
     version = sys.version_info
     version_str = f"{version.major}.{version.minor}.{version.micro}"
     log_with_timestamp(f"Version Python détectée: {version_str}")
@@ -186,7 +186,7 @@ def check_imports():
 def run_critical_tests():
     """Exécuter les tests critiques pour vérifier le bon fonctionnement"""
     log_with_timestamp("Exécution de tests critiques...", "TEST")
-    
+
     project_root = Path(__file__).parent.absolute()
     python_cmd = detect_virtual_env()
 
@@ -199,7 +199,7 @@ def run_critical_tests():
     success_count = 0
     for i, (test_file, description) in enumerate(critical_tests, 1):
         test_path = project_root / "tests" / test_file
-        
+
         if test_path.exists():
             log_with_timestamp(f"Test critique {i}/{len(critical_tests)}: {description}")
             cmd = f'"{python_cmd}" "{test_path}"'
@@ -217,14 +217,14 @@ def run_critical_tests():
 def check_git_status():
     """Vérifier le statut Git"""
     log_with_timestamp("Vérification du statut Git...", "STEP")
-    
+
     project_root = Path(__file__).parent.absolute()
-    
+
     # Vérifier qu'on est dans un repo git
     if not (project_root / ".git").exists():
         log_with_timestamp("Pas un repository Git", "WARNING")
         return True
-    
+
     # Vérifier s'il y a des modifications
     cmd = "git status --porcelain"
     if run_command(cmd, "Statut Git", cwd=project_root):
@@ -238,11 +238,11 @@ def check_git_status():
 def main():
     """Fonction principale de validation CI rapide"""
     start_time = time.time()
-    
+
     print("🚀 VALIDATION CI RAPIDE - cy8_workspace")
     print("="*60)
     log_with_timestamp("Démarrage de la validation CI rapide pour push", "INFO")
-    
+
     # Liste des vérifications critiques
     validation_steps = [
         ("Version Python", check_python_version),
@@ -251,42 +251,42 @@ def main():
         ("Tests critiques", run_critical_tests),
         ("Statut Git", check_git_status),
     ]
-    
+
     results = []
     total_steps = len(validation_steps)
-    
+
     for i, (step_name, step_function) in enumerate(validation_steps, 1):
         print_section(f"{i}/{total_steps}: {step_name}")
-        
+
         try:
             result = step_function()
             results.append((step_name, result))
-            
+
             if result:
                 log_with_timestamp(f"✅ {step_name} - SUCCÈS", "SUCCESS")
             else:
                 log_with_timestamp(f"❌ {step_name} - ÉCHEC", "ERROR")
-                
+
         except Exception as e:
             log_with_timestamp(f"❌ {step_name} - ERREUR: {e}", "ERROR")
             results.append((step_name, False))
-    
+
     # Résumé final
     print_section("RÉSUMÉ DE LA VALIDATION RAPIDE")
-    
+
     passed = sum(1 for _, result in results if result)
     total = len(results)
     success_rate = (passed / total) * 100
-    
+
     log_with_timestamp(f"Résultats: {passed}/{total} vérifications réussies ({success_rate:.1f}%)")
-    
+
     for step_name, result in results:
         status = "✅ SUCCÈS" if result else "❌ ÉCHEC"
         log_with_timestamp(f"  {step_name}: {status}")
-    
+
     elapsed_time = time.time() - start_time
     log_with_timestamp(f"Durée totale: {elapsed_time:.1f} secondes")
-    
+
     # Seuil plus bas pour la validation rapide
     if success_rate >= 80:
         log_with_timestamp("🎉 VALIDATION CI RAPIDE RÉUSSIE - Prêt pour le push!", "SUCCESS")

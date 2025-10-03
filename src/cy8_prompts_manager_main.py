@@ -5503,37 +5503,51 @@ WORKFLOW:
                 # Déterminer la couleur selon le type
                 tag = entry["type"]
 
-                # Stocker le résultat dans la base de données
-                try:
-                    success = self.db_manager.add_analysis_result(
-                        environment_id=self.current_environment_id,
-                        fichier=os.path.basename(log_path),  # Nom du fichier log
-                        type_result=entry["type"],
-                        niveau=entry["category"],
-                        message=entry["message"],
-                        details=f"Element: {entry.get('element', '')}, Line: {entry.get('line', '')}, Timestamp: {entry.get('timestamp', '')}"
-                    )
-                    if success:
-                        stored_count += 1
-                except Exception as e:
-                    print(f"Erreur lors du stockage du résultat: {e}")
-
-                # Insérer dans le tableau avec la nouvelle colonne details
+                # Préparer les informations pour l'affichage et le stockage
+                original_message = entry["message"]
+                display_message = original_message
                 details_info = ""
-                # Extraire des informations supplémentaires selon le type
+
+                # Extraire des informations supplémentaires selon le type pour l'affichage
                 if entry["type"] == "OK" and "(" in entry["message"]:
                     # Pour les custom nodes OK, extraire le temps
                     import re
                     time_match = re.search(r'\(([^)]+)\)', entry["message"])
                     if time_match:
                         details_info = time_match.group(1)
+                        display_message = entry["message"].split(" (")[0]  # Message sans le temps
                 elif entry["type"] == "ERREUR" and " | " in entry["message"]:
                     # Pour les erreurs, extraire les détails après le |
                     parts = entry["message"].split(" | ", 1)
                     if len(parts) > 1:
+                        display_message = parts[0]  # Message principal
+                        details_info = parts[1]     # Détails pour l'UI
+                elif entry["type"] == "ATTENTION" and " | " in entry["message"]:
+                    # Pour les warnings, traiter de même
+                    parts = entry["message"].split(" | ", 1)
+                    if len(parts) > 1:
+                        display_message = parts[0]
                         details_info = parts[1]
-                        entry["message"] = parts[0]  # Garder seulement le message principal
-                
+
+                # Construire des détails enrichis pour la base de données
+                details_db = self._build_rich_details_for_db(entry, original_message)
+
+                # Stocker le résultat dans la base de données avec informations enrichies
+                try:
+                    success = self.db_manager.add_analysis_result(
+                        environment_id=self.current_environment_id,
+                        fichier=os.path.basename(log_path),  # Nom du fichier log
+                        type_result=entry["type"],
+                        niveau=entry["category"],
+                        message=original_message,  # Stocker le message original complet
+                        details=details_db  # Détails enrichis
+                    )
+                    if success:
+                        stored_count += 1
+                except Exception as e:
+                    print(f"Erreur lors du stockage du résultat: {e}")
+
+                # Insérer dans le tableau avec les informations traitées pour l'affichage
                 item = self.log_results_tree.insert(
                     "",
                     "end",
@@ -5542,14 +5556,12 @@ WORKFLOW:
                         entry["type"],
                         entry["category"],
                         entry["element"],
-                        entry["message"],
-                        details_info,
+                        display_message,  # Message traité pour l'affichage
+                        details_info,     # Détails pour l'affichage (temps, type d'erreur, etc.)
                         entry["line"],
                     ),
                     tags=(tag,),
-                )
-
-            # Mettre à jour le compteur de résultats
+                )            # Mettre à jour le compteur de résultats
             if hasattr(self, "log_results_count_label"):
                 self.log_results_count_label.config(text=f"{len(entries)} résultats")
 
@@ -6018,9 +6030,9 @@ WORKFLOW:
             text_frame.pack(fill="both", expand=True)
 
             message_text = tk.Text(
-                text_frame, 
-                wrap="word", 
-                font=("Consolas", 9), 
+                text_frame,
+                wrap="word",
+                font=("Consolas", 9),
                 height=8,
                 background="#f8f9fa"
             )
@@ -6031,11 +6043,11 @@ WORKFLOW:
 
             # Insérer le message complet avec formatage
             detailed_message = f"MESSAGE:\n{message}\n\n"
-            
+
             # Essayer de récupérer plus de détails depuis l'entrée originale
             if hasattr(self, '_original_log_results'):
                 for entry in self._original_log_results:
-                    if (entry.get("line") == int(line) and 
+                    if (entry.get("line") == int(line) and
                         entry.get("message") == message.split(" | ")[0]):
                         if "details" in entry:
                             detailed_message += f"CONTEXTE COMPLET:\n{entry['details']}\n\n"
@@ -6104,6 +6116,31 @@ Message: {message}
             messagebox.showinfo("Copié", "Les détails ont été copiés dans le presse-papier.")
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de copier dans le presse-papier: {e}")
+
+    def _build_rich_details_for_db(self, entry, original_message):
+        """Construire des détails enrichis pour le stockage en base de données"""
+        details_parts = []
+
+        # Informations de base
+        details_parts.append(f"Element: {entry.get('element', 'N/A')}")
+        details_parts.append(f"Line: {entry.get('line', 'N/A')}")
+        details_parts.append(f"Timestamp: {entry.get('timestamp', 'N/A')}")
+
+        # Ajouter le message original complet s'il est différent du message affiché
+        if " | " in original_message:
+            parts = original_message.split(" | ", 1)
+            if len(parts) > 1:
+                details_parts.append(f"Context: {parts[1]}")
+
+        # Ajouter les détails spécifiques selon le type
+        if entry["type"] == "ERREUR":
+            details_parts.append(f"Error_Type: {entry.get('category', 'Unknown')}")
+
+        # Ajouter les détails bruts s'ils existent
+        if "details" in entry and entry["details"]:
+            details_parts.append(f"Full_Line: {entry['details']}")
+
+        return " | ".join(details_parts)
 
     def open_solutions_folder(self):
         """Ouvrir le dossier des solutions"""
