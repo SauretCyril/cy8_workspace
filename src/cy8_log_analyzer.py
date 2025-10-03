@@ -140,6 +140,8 @@ class cy8_log_analyzer:
                         "content": line,
                         "error_type": error_info.get("type", "Error"),
                         "message": error_info.get("message", line),
+                        "custom_node": error_info.get("custom_node", "Unknown"),
+                        "details": error_info.get("details", ""),
                         "timestamp": timestamp,
                     }
                 )
@@ -262,7 +264,7 @@ class cy8_log_analyzer:
         return any(re.search(pattern, line_lower) for pattern in patterns)
 
     def _extract_error_info(self, line: str) -> Dict:
-        """Extraire les informations d'erreur"""
+        """Extraire les informations d'erreur avec plus de détails"""
         error_types = {
             "modulenotfounderror": "Module Not Found",
             "importerror": "Import Error",
@@ -274,6 +276,12 @@ class cy8_log_analyzer:
             "permissionerror": "Permission Error",
             "connectionerror": "Connection Error",
             "timeout": "Timeout Error",
+            "cuda": "CUDA Error",
+            "memory": "Memory Error",
+            "torch": "PyTorch Error",
+            "loading": "Loading Error",
+            "failed to load": "Loading Failed",
+            "cannot load": "Cannot Load",
         }
 
         line_lower = line.lower()
@@ -285,14 +293,26 @@ class cy8_log_analyzer:
                 error_type = value
                 break
 
-        # Extraire le message d'erreur
+        # Extraire le nom du custom node s'il est présent
+        custom_node = self._extract_custom_node_from_error(line)
+        
+        # Extraire le message d'erreur principal
         message = line
         if ":" in line:
             parts = line.split(":", 1)
             if len(parts) > 1:
                 message = parts[1].strip()
 
-        return {"type": error_type, "message": message}
+        # Extraire des détails supplémentaires
+        details = self._extract_error_details(line)
+        
+        return {
+            "type": error_type, 
+            "message": message,
+            "custom_node": custom_node,
+            "details": details,
+            "full_line": line
+        }
 
     def _is_warning(self, line: str) -> bool:
         """Détecter si une ligne contient un warning"""
@@ -315,6 +335,72 @@ class cy8_log_analyzer:
                 message = parts[1].strip()
 
         return {"message": message}
+
+    def _extract_custom_node_from_error(self, line: str) -> str:
+        """Extraire le nom du custom node depuis une ligne d'erreur"""
+        # Patterns pour détecter les custom nodes dans les erreurs
+        patterns = [
+            r"custom_nodes[/\\]([^/\\]+)",  # Chemin avec custom_nodes/
+            r"in\s+([^/\\]+)\.py",  # Fichier Python
+            r"from\s+([a-zA-Z0-9_\-\.]+)\s+import",  # Import statement
+            r"module\s+'([^']+)'",  # Module name in quotes
+            r"No\s+module\s+named\s+'([^']+)'",  # No module named error
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                node_name = match.group(1)
+                # Nettoyer le nom
+                node_name = re.sub(r"[^\w\-_.]", "", node_name)
+                if node_name and node_name not in ["__pycache__", "__init__"]:
+                    return node_name
+        
+        return "Unknown"
+
+    def _extract_error_details(self, line: str) -> str:
+        """Extraire des détails supplémentaires de l'erreur"""
+        details = []
+        
+        # Détecter des patterns spécifiques
+        if "cuda" in line.lower():
+            details.append("CUDA-related issue")
+        if "memory" in line.lower():
+            details.append("Memory issue")
+        if "not found" in line.lower():
+            details.append("Resource not found")
+        if "permission" in line.lower():
+            details.append("Permission issue")
+        if "timeout" in line.lower():
+            details.append("Timeout occurred")
+        if "failed to load" in line.lower():
+            details.append("Loading failure")
+            
+            return " | ".join(details) if details else "General error"
+
+    def _extract_loading_time(self, line: str) -> str:
+        """Extraire le temps de chargement d'un custom node"""
+        # Pattern pour le temps de chargement: 0.5s, 1.23s, etc.
+        time_pattern = r"(\d+\.?\d*\s*s)"
+        match = re.search(time_pattern, line, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return ""
+
+    def _extract_failure_reason(self, line: str) -> str:
+        """Extraire la raison de l'échec d'un custom node"""
+        if "IMPORT FAILED" in line:
+            return "Import failed"
+        elif "not found" in line.lower():
+            return "Module not found"
+        elif "permission" in line.lower():
+            return "Permission denied"
+        elif "syntax" in line.lower():
+            return "Syntax error"
+        elif "dependency" in line.lower():
+            return "Missing dependency"
+        else:
+            return "Unknown error"
 
     def _is_important_info(self, line: str) -> bool:
         """Détecter si une ligne contient des informations importantes"""
@@ -341,12 +427,16 @@ class cy8_log_analyzer:
 
         # Custom nodes OK
         for node in self.custom_nodes_ok:
+            # Extraire le temps de chargement s'il est disponible
+            loading_time = self._extract_loading_time(node["content"])
+            load_info = f" ({loading_time})" if loading_time else ""
+            
             entries.append(
                 {
                     "type": "OK",
                     "category": "Custom Node",
                     "element": node["node_name"],
-                    "message": f"Custom node chargé avec succès",
+                    "message": f"Chargé avec succès{load_info}",
                     "line": node["line"],
                     "details": node["content"],
                     "timestamp": node.get("timestamp", "N/A"),
@@ -355,12 +445,13 @@ class cy8_log_analyzer:
 
         # Custom nodes Failed
         for node in self.custom_nodes_failed:
+            error_reason = self._extract_failure_reason(node["content"])
             entries.append(
                 {
                     "type": "ERREUR",
                     "category": "Custom Node",
                     "element": node["node_name"],
-                    "message": f"Échec du chargement: {node.get('error', 'Erreur inconnue')}",
+                    "message": f"Échec du chargement: {error_reason}",
                     "line": node["line"],
                     "details": node["content"],
                     "timestamp": node.get("timestamp", "N/A"),
@@ -369,12 +460,14 @@ class cy8_log_analyzer:
 
         # Erreurs
         for error in self.errors:
+            custom_node = error.get("custom_node", "Unknown")
+            error_details = error.get("details", "")
             entries.append(
                 {
                     "type": "ERREUR",
                     "category": error["error_type"],
-                    "element": "Système",
-                    "message": error["message"],
+                    "element": custom_node if custom_node != "Unknown" else "Système",
+                    "message": f"{error['message']} | {error_details}",
                     "line": error["line"],
                     "details": error["content"],
                     "timestamp": error.get("timestamp", "N/A"),

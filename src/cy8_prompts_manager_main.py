@@ -9,7 +9,15 @@ from datetime import datetime
 from PIL import Image, ImageTk
 
 # Import du gestionnaire d'identifiants de popups
-from cy8_popup_id_manager import popup_manager, get_popup_id, close_popup
+try:
+    from cy8_popup_id_manager import popup_manager, get_popup_id, close_popup
+except ImportError:
+    # Fallback en cas d'absence du module
+    def get_popup_id(title, popup_type="dialog"):
+        return f"popup_{id(title)}", title
+    def close_popup(popup_id):
+        pass
+    popup_manager = None
 
 # Import conditionnel de safetensors (optionnel)
 try:
@@ -1241,27 +1249,29 @@ class cy8_prompts_manager:
         main_content_frame = ttk.Frame(results_frame)
         main_content_frame.pack(side="top", fill="both", expand=True)
 
-        # Créer le Treeview pour afficher les résultats
-        columns = ("timestamp", "type", "category", "element", "message", "line")
+        # Créer le Treeview pour afficher les résultats avec plus de colonnes
+        columns = ("timestamp", "type", "category", "element", "message", "details", "line")
         self.log_results_tree = ttk.Treeview(
             main_content_frame, columns=columns, show="headings", height=15
         )
 
-        # Configuration des colonnes
+        # Configuration des colonnes avec plus de détails
         self.log_results_tree.heading("timestamp", text="Timestamp")
         self.log_results_tree.heading("type", text="État")
         self.log_results_tree.heading("category", text="Catégorie")
-        self.log_results_tree.heading("element", text="Élément")
-        self.log_results_tree.heading("message", text="Message")
+        self.log_results_tree.heading("element", text="Custom Node/Élément")
+        self.log_results_tree.heading("message", text="Message Principal")
+        self.log_results_tree.heading("details", text="Détails/Temps")
         self.log_results_tree.heading("line", text="Ligne")
 
-        # Largeurs optimisées
-        self.log_results_tree.column("timestamp", width=160, minwidth=140)
-        self.log_results_tree.column("type", width=90, minwidth=70)
-        self.log_results_tree.column("category", width=130, minwidth=100)
-        self.log_results_tree.column("element", width=180, minwidth=120)
-        self.log_results_tree.column("message", width=400, minwidth=300)
-        self.log_results_tree.column("line", width=70, minwidth=50)
+        # Largeurs optimisées pour plus d'informations
+        self.log_results_tree.column("timestamp", width=140, minwidth=120)
+        self.log_results_tree.column("type", width=80, minwidth=60)
+        self.log_results_tree.column("category", width=110, minwidth=90)
+        self.log_results_tree.column("element", width=160, minwidth=120)
+        self.log_results_tree.column("message", width=300, minwidth=250)
+        self.log_results_tree.column("details", width=150, minwidth=100)
+        self.log_results_tree.column("line", width=60, minwidth=50)
 
         # Scrollbars
         tree_v_scrollbar = ttk.Scrollbar(
@@ -5508,7 +5518,22 @@ WORKFLOW:
                 except Exception as e:
                     print(f"Erreur lors du stockage du résultat: {e}")
 
-                # Insérer dans le tableau
+                # Insérer dans le tableau avec la nouvelle colonne details
+                details_info = ""
+                # Extraire des informations supplémentaires selon le type
+                if entry["type"] == "OK" and "(" in entry["message"]:
+                    # Pour les custom nodes OK, extraire le temps
+                    import re
+                    time_match = re.search(r'\(([^)]+)\)', entry["message"])
+                    if time_match:
+                        details_info = time_match.group(1)
+                elif entry["type"] == "ERREUR" and " | " in entry["message"]:
+                    # Pour les erreurs, extraire les détails après le |
+                    parts = entry["message"].split(" | ", 1)
+                    if len(parts) > 1:
+                        details_info = parts[1]
+                        entry["message"] = parts[0]  # Garder seulement le message principal
+                
                 item = self.log_results_tree.insert(
                     "",
                     "end",
@@ -5518,6 +5543,7 @@ WORKFLOW:
                         entry["category"],
                         entry["element"],
                         entry["message"],
+                        details_info,
                         entry["line"],
                     ),
                     tags=(tag,),
@@ -5909,7 +5935,7 @@ WORKFLOW:
         self.filter_log_results()
 
     def show_log_detail(self, event):
-        """Afficher les détails d'une entrée de log (double-clic)"""
+        """Afficher les détails d'une entrée de log (double-clic) sans analyse AI automatique"""
         selection = self.log_results_tree.selection()
         if not selection:
             return
@@ -5918,14 +5944,14 @@ WORKFLOW:
         values = self.log_results_tree.item(item)["values"]
 
         if (
-            len(values) >= 6
-        ):  # Maintenant on a timestamp, type, category, element, message, line
-            timestamp, type_val, category, element, message, line = values
+            len(values) >= 7
+        ):  # Maintenant on a timestamp, type, category, element, message, details, line
+            timestamp, type_val, category, element, message, details, line = values
 
             # Créer une fenêtre de détails simple
             detail_window = tk.Toplevel(self.root)
-            detail_window.title(f"Détails - {type_val}")
-            detail_window.geometry("700x500")
+            detail_window.title(f"Détails - {type_val} - {element}")
+            detail_window.geometry("800x600")
             detail_window.transient(self.root)
             detail_window.grab_set()
 
@@ -5933,136 +5959,151 @@ WORKFLOW:
             main_frame = ttk.Frame(detail_window, padding="10")
             main_frame.pack(fill="both", expand=True)
 
-            # === SECTION 1: INFORMATIONS DE L'ERREUR ===
+            # === SECTION 1: INFORMATIONS DÉTAILLÉES ===
             info_frame = ttk.LabelFrame(
-                main_frame, text="📋 Informations de l'erreur", padding="10"
+                main_frame, text="📋 Informations détaillées", padding="10"
             )
             info_frame.pack(fill="x", pady=(0, 10))
 
-            # Grille d'informations
+            # Grille d'informations avec plus de détails
+            row = 0
             ttk.Label(
                 info_frame, text="Timestamp:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=0, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=timestamp).grid(row=0, column=1, sticky="w")
+            ).grid(row=row, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=timestamp).grid(row=row, column=1, sticky="w")
+            row += 1
 
             ttk.Label(info_frame, text="État:", font=("TkDefaultFont", 9, "bold")).grid(
-                row=1, column=0, sticky="w", padx=(0, 10)
+                row=row, column=0, sticky="w", padx=(0, 10)
             )
-            ttk.Label(info_frame, text=type_val).grid(row=1, column=1, sticky="w")
+            status_label = ttk.Label(info_frame, text=type_val)
+            status_label.grid(row=row, column=1, sticky="w")
+            # Colorer selon le type
+            if type_val == "ERREUR":
+                status_label.configure(foreground="red")
+            elif type_val == "ATTENTION":
+                status_label.configure(foreground="orange")
+            elif type_val == "OK":
+                status_label.configure(foreground="green")
+            row += 1
 
             ttk.Label(
                 info_frame, text="Catégorie:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=2, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=category).grid(row=2, column=1, sticky="w")
+            ).grid(row=row, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=category).grid(row=row, column=1, sticky="w")
+            row += 1
 
             ttk.Label(
-                info_frame, text="Élément:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=3, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=element).grid(row=3, column=1, sticky="w")
+                info_frame, text="Élément/Node:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=row, column=0, sticky="w", padx=(0, 10))
+            element_label = ttk.Label(info_frame, text=element, font=("TkDefaultFont", 9, "bold"))
+            element_label.grid(row=row, column=1, sticky="w")
+            if element != "Système" and element != "Unknown":
+                element_label.configure(foreground="blue")
+            row += 1
 
             ttk.Label(
-                info_frame, text="Ligne:", font=("TkDefaultFont", 9, "bold")
-            ).grid(row=4, column=0, sticky="w", padx=(0, 10))
-            ttk.Label(info_frame, text=line).grid(row=4, column=1, sticky="w")
+                info_frame, text="Ligne dans log:", font=("TkDefaultFont", 9, "bold")
+            ).grid(row=row, column=0, sticky="w", padx=(0, 10))
+            ttk.Label(info_frame, text=f"Ligne {line}").grid(row=row, column=1, sticky="w")
 
-            # === SECTION 2: MESSAGE D'ERREUR ===
+            # === SECTION 2: MESSAGE DÉTAILLÉ ===
             error_frame = ttk.LabelFrame(
-                main_frame, text="⚠️ Message d'erreur", padding="10"
+                main_frame, text="📝 Message et détails", padding="10"
             )
-            error_frame.pack(fill="x", pady=(0, 10))
+            error_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-            error_text = tk.Text(
-                error_frame, wrap="word", font=("Consolas", 9), height=4
+            # Créer un Text widget avec scrollbar pour le message
+            text_frame = ttk.Frame(error_frame)
+            text_frame.pack(fill="both", expand=True)
+
+            message_text = tk.Text(
+                text_frame, 
+                wrap="word", 
+                font=("Consolas", 9), 
+                height=8,
+                background="#f8f9fa"
             )
-            error_scrollbar = ttk.Scrollbar(
-                error_frame, orient="vertical", command=error_text.yview
+            message_scrollbar = ttk.Scrollbar(
+                text_frame, orient="vertical", command=message_text.yview
             )
-            error_text.configure(yscrollcommand=error_scrollbar.set)
+            message_text.configure(yscrollcommand=message_scrollbar.set)
 
-            error_text.insert("1.0", message)
-            error_text.config(state="disabled")
+            # Insérer le message complet avec formatage
+            detailed_message = f"MESSAGE:\n{message}\n\n"
+            
+            # Essayer de récupérer plus de détails depuis l'entrée originale
+            if hasattr(self, '_original_log_results'):
+                for entry in self._original_log_results:
+                    if (entry.get("line") == int(line) and 
+                        entry.get("message") == message.split(" | ")[0]):
+                        if "details" in entry:
+                            detailed_message += f"CONTEXTE COMPLET:\n{entry['details']}\n\n"
+                        break
 
-            error_text.pack(side="left", fill="both", expand=True)
-            error_scrollbar.pack(side="right", fill="y")
+            message_text.insert("1.0", detailed_message)
+            message_text.config(state="disabled")
 
-            # === SECTION 3: ANALYSE DU LOG COMPLET ===
-            analysis_frame = ttk.LabelFrame(
-                main_frame,
-                text="🤖 Analyse du log complet avec Mistral AI",
-                padding="10",
+            message_text.pack(side="left", fill="both", expand=True)
+            message_scrollbar.pack(side="right", fill="y")
+
+            # === SECTION 3: ACTIONS DISPONIBLES ===
+            buttons_frame = ttk.LabelFrame(
+                main_frame, text="🔧 Actions disponibles", padding="10"
             )
-            analysis_frame.pack(fill="both", expand=True, pady=(0, 10))
+            buttons_frame.pack(fill="x", pady=(0, 10))
 
-            # Zone de texte pour l'analyse
-            analysis_text = tk.Text(
-                analysis_frame, wrap="word", font=("TkDefaultFont", 9)
-            )
-            analysis_text_scrollbar = ttk.Scrollbar(
-                analysis_frame, orient="vertical", command=analysis_text.yview
-            )
-            analysis_text.configure(yscrollcommand=analysis_text_scrollbar.set)
-
-            analysis_text.pack(side="left", fill="both", expand=True)
-            analysis_text_scrollbar.pack(side="right", fill="y")
-
-            # Message initial
-            initial_message = """📋 ANALYSE DU LOG COMFYUI
-
-Pour obtenir une analyse complète du log ComfyUI avec cette erreur spécifique,
-cliquez sur le bouton "Analyser le log complet" ci-dessous.
-
-L'analyse portera sur :
-• Contexte global du log
-• Séquence des événements
-• Relations entre les erreurs
-• Solutions complètes et détaillées
-• Recommandations de diagnostic
-
-L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
-"""
-            analysis_text.insert("1.0", initial_message)
-            analysis_text.config(state="disabled")
-
-            # Label de statut
-            status_frame = ttk.Frame(analysis_frame)
-            status_frame.pack(fill="x", pady=(5, 0))
-
-            status_label = ttk.Label(
-                status_frame,
-                text="� Prêt pour l'analyse complète du log",
+            # Information sur l'analyse
+            info_label = ttk.Label(
+                buttons_frame,
+                text="ℹ️ Pour une analyse complète avec l'IA, utilisez le bouton d'analyse ci-dessous.",
                 font=("TkDefaultFont", 8),
+                foreground="gray"
             )
-            status_label.pack(side="left")
+            info_label.pack(anchor="w", pady=(0, 5))
 
-            # === SECTION 4: BOUTONS D'ACTION ===
-            buttons_frame = ttk.Frame(main_frame)
-            buttons_frame.pack(fill="x", pady=(10, 0))
+            # Boutons d'action
+            action_buttons_frame = ttk.Frame(buttons_frame)
+            action_buttons_frame.pack(fill="x")
 
             ttk.Button(
-                buttons_frame,
-                text="� Analyser le log complet",
+                action_buttons_frame,
+                text="🤖 Analyser avec l'IA (optionnel)",
                 command=lambda: self.analyze_complete_log_with_ai(
-                    timestamp, analysis_text, status_label, detail_window
+                    timestamp, None, None, detail_window
                 ),
             ).pack(side="left", padx=(0, 10))
 
             ttk.Button(
-                buttons_frame,
-                text="💾 Sauvegarder analyse",
-                command=lambda: self.save_log_analysis(
-                    timestamp, analysis_text.get("1.0", "end-1c")
+                action_buttons_frame,
+                text="📋 Copier les détails",
+                command=lambda: self._copy_log_details_to_clipboard(
+                    timestamp, type_val, category, element, message, line
                 ),
             ).pack(side="left", padx=(0, 10))
 
             ttk.Button(
-                buttons_frame,
-                text="📁 Ouvrir dossier",
-                command=lambda: self.open_solutions_folder(),
-            ).pack(side="left", padx=(0, 10))
-
-            ttk.Button(
-                buttons_frame, text="❌ Fermer", command=detail_window.destroy
+                action_buttons_frame, text="✖️ Fermer", command=detail_window.destroy
             ).pack(side="right")
+
+    def _copy_log_details_to_clipboard(self, timestamp, type_val, category, element, message, line):
+        """Copier les détails du log dans le presse-papier"""
+        details_text = f"""DÉTAILS DU LOG COMFYUI
+========================
+Timestamp: {timestamp}
+État: {type_val}
+Catégorie: {category}
+Élément/Node: {element}
+Ligne: {line}
+Message: {message}
+========================
+"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(details_text)
+            messagebox.showinfo("Copié", "Les détails ont été copiés dans le presse-papier.")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible de copier dans le presse-papier: {e}")
 
     def open_solutions_folder(self):
         """Ouvrir le dossier des solutions"""
