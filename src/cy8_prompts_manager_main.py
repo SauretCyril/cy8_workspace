@@ -5892,15 +5892,15 @@ WORKFLOW:
                     try:
                         import json
                         details_dict = json.loads(details)
-                        
+
                         # Extraire le nom de l'élément (custom node)
                         if "element" in details_dict and details_dict["element"]:
                             element_name = details_dict["element"]
-                        
+
                         # Extraire le numéro de ligne
                         if "line" in details_dict and details_dict["line"]:
                             line_number = str(details_dict["line"])
-                        
+
                         # Traiter le message pour extraire les détails d'affichage
                         if type_result == "OK" and "time" in details_dict:
                             details_info = details_dict["time"]
@@ -5913,7 +5913,7 @@ WORKFLOW:
                                 details_info = parts[1]
                         elif "error_details" in details_dict and details_dict["error_details"]:
                             details_info = details_dict["error_details"]
-                            
+
                     except (json.JSONDecodeError, Exception) as e:
                         # Si on ne peut pas parser les détails, utiliser les valeurs par défaut
                         print(f"Erreur de parsing des détails pour le résultat {result_id}: {e}")

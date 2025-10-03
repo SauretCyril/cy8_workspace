@@ -13,7 +13,7 @@ def test_integration_workflow():
     """Test d'intégration complète de l'application"""
     print("🔄 Test d'intégration - Workflow complet")
     print("=" * 55)
-    
+
     print("📋 SCÉNARIO DE TEST:")
     print("1. Créer un log de test avec erreurs et succès")
     print("2. Analyser le log (données enrichies)")
@@ -21,7 +21,7 @@ def test_integration_workflow():
     print("4. Revenir à l'environnement original")
     print("5. Vérifier que les données sont identiques")
     print()
-    
+
     # Créer un fichier de log de test
     test_log_content = """
 [2025-01-03 14:30:25] INFO: Starting ComfyUI...
@@ -34,28 +34,28 @@ def test_integration_workflow():
 [2025-01-03 14:30:32] ERROR: ModuleNotFoundError: No module named 'cv2' in ComfyUI-AdvancedControlNet
 [2025-01-03 14:30:33] INFO: ComfyUI startup completed
 """
-    
+
     # Créer le fichier de test
     test_log_path = os.path.join(os.path.dirname(__file__), "..", "data", "test_integration.log")
     os.makedirs(os.path.dirname(test_log_path), exist_ok=True)
-    
+
     with open(test_log_path, "w", encoding="utf-8") as f:
         f.write(test_log_content)
-    
+
     print(f"✅ Fichier de log de test créé: {test_log_path}")
     print(f"📊 Contenu: {len(test_log_content.splitlines())} lignes")
-    
+
     # Test de l'analyseur de log
     try:
         from cy8_log_analyzer import cy8_log_analyzer
-        
+
         analyzer = cy8_log_analyzer()
         result = analyzer.analyze_log_file(test_log_path)
-        
+
         if result["success"]:
             entries = result["entries"]
             print(f"✅ Analyse réussie: {len(entries)} entrées trouvées")
-            
+
             print("\n📋 RÉSULTATS D'ANALYSE:")
             for i, entry in enumerate(entries[:3]):  # Afficher les 3 premiers
                 print(f"  {i+1}. Type: {entry['type']}")
@@ -64,28 +64,28 @@ def test_integration_workflow():
                 print(f"      Message: {entry.get('message', 'N/A')[:50]}...")
                 print(f"      Line: {entry.get('line', 'N/A')}")
                 print()
-                
+
             # Vérifier que nous avons des types variés
             types_found = set(entry["type"] for entry in entries)
             print(f"📊 Types trouvés: {', '.join(types_found)}")
-            
+
             # Vérifier que les custom nodes sont détectés
             elements_found = set(entry.get("element", "") for entry in entries if entry.get("element"))
             print(f"🔌 Custom nodes détectés: {', '.join(filter(None, elements_found))}")
-            
+
             return True
-            
+
         else:
             print(f"❌ Échec de l'analyse: {result.get('error', 'Erreur inconnue')}")
             return False
-            
+
     except ImportError as e:
         print(f"❌ Erreur d'import: {e}")
         return False
     except Exception as e:
         print(f"❌ Erreur lors de l'analyse: {e}")
         return False
-    
+
     finally:
         # Nettoyer le fichier de test
         try:
@@ -99,7 +99,7 @@ def test_column_format_consistency():
     """Test de cohérence du format des colonnes"""
     print("\n📊 Test de cohérence du format des colonnes")
     print("=" * 55)
-    
+
     print("✅ VÉRIFICATIONS EFFECTUÉES:")
     print("• Fonction load_environment_analysis_results() mise à jour")
     print("• Format de 7 colonnes maintenant utilisé partout")
@@ -107,7 +107,7 @@ def test_column_format_consistency():
     print("• Variable _original_log_results mise à jour")
     print("• Tags ajoutés pour le style des lignes")
     print()
-    
+
     print("🔧 AMÉLIORATIONS APPORTÉES:")
     print("• Parsing des détails JSON pour extraction d'informations")
     print("• Reconstruction de element_name à partir des détails")
@@ -115,7 +115,7 @@ def test_column_format_consistency():
     print("• Traitement du message pour séparer affichage et détails")
     print("• Gestion d'erreur en cas de détails corrompus")
     print()
-    
+
     print("📋 FORMAT UNIFIÉ DES COLONNES:")
     print("1. Timestamp (formaté pour l'affichage)")
     print("2. Type (ERREUR, OK, ATTENTION, INFO)")
@@ -124,16 +124,16 @@ def test_column_format_consistency():
     print("5. Display Message (message principal)")
     print("6. Details Info (détails contextuels)")
     print("7. Line Number (numéro de ligne dans le log)")
-    
+
     return True
 
 if __name__ == "__main__":
     print("🚀 Test d'intégration complet")
     print("=" * 65)
-    
+
     test1 = test_integration_workflow()
     test2 = test_column_format_consistency()
-    
+
     print("\n" + "=" * 65)
     if test1 and test2:
         print("✅ TOUS LES TESTS D'INTÉGRATION RÉUSSIS!")

@@ -64,26 +64,26 @@ success = self.db_manager.add_analysis_result(
 def _build_rich_details_for_db(self, entry, original_message):
     """Construire des détails enrichis pour le stockage en base de données"""
     details_parts = []
-    
+
     # Informations de base
     details_parts.append(f"Element: {entry.get('element', 'N/A')}")
     details_parts.append(f"Line: {entry.get('line', 'N/A')}")
     details_parts.append(f"Timestamp: {entry.get('timestamp', 'N/A')}")
-    
+
     # Contexte du message original
     if " | " in original_message:
         parts = original_message.split(" | ", 1)
         if len(parts) > 1:
             details_parts.append(f"Context: {parts[1]}")
-    
+
     # Détails spécifiques selon le type
     if entry["type"] == "ERREUR":
         details_parts.append(f"Error_Type: {entry.get('category', 'Unknown')}")
-        
+
     # Ligne complète du log
     if "details" in entry and entry["details"]:
         details_parts.append(f"Full_Line: {entry['details']}")
-    
+
     return " | ".join(details_parts)
 ```
 
@@ -113,7 +113,7 @@ def _build_rich_details_for_db(self, entry, original_message):
 ### Résultats des Tests
 - ✅ **9/9 entrées stockées** avec succès
 - ✅ **Messages originaux complets** préservés
-- ✅ **Détails enrichis** stockés correctement  
+- ✅ **Détails enrichis** stockés correctement
 - ✅ **Aucune perte d'information** durant le processus
 
 ## 📊 Comparaison Avant/Après
@@ -132,7 +132,7 @@ def _build_rich_details_for_db(self, entry, original_message):
 
 Le stockage en table fonctionne maintenant correctement avec :
 - Préservation complète des informations
-- Détails enrichis et contextualisés  
+- Détails enrichis et contextualisés
 - Affichage optimisé sans dégradation
 - Récupération complète pour analyses ultérieures
 

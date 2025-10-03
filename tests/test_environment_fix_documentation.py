@@ -7,7 +7,7 @@ import os
 
 def document_fix():
     """Documenter la correction effectuée"""
-    
+
     documentation = """
 # Correction du Problème de Changement d'Environnement
 
@@ -54,11 +54,11 @@ La fonction `load_environment_analysis_results()` utilisait un format d'affichag
    ```python
    if details:
        details_dict = json.loads(details)
-       
+
        # Extraire le nom de l'élément (custom node)
        if "element" in details_dict:
            element_name = details_dict["element"]
-       
+
        # Extraire le numéro de ligne
        if "line" in details_dict:
            line_number = str(details_dict["line"])
@@ -156,16 +156,16 @@ Informations complètes: custom node extrait, ligne identifiée, détails contex
 if __name__ == "__main__":
     print("📄 Documentation de la Correction")
     print("=" * 65)
-    
+
     doc = document_fix()
-    
+
     # Sauvegarder la documentation
     doc_path = os.path.join(os.path.dirname(__file__), "..", "docs", "ENVIRONMENT_SWITCHING_FIX.md")
     os.makedirs(os.path.dirname(doc_path), exist_ok=True)
-    
+
     with open(doc_path, "w", encoding="utf-8") as f:
         f.write(doc)
-    
+
     print(f"✅ Documentation sauvegardée: {doc_path}")
     print(f"📊 Taille: {len(doc)} caractères")
     print("\n🎯 RÉSUMÉ DE LA CORRECTION:")
