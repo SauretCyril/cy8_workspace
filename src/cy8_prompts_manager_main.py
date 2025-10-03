@@ -71,6 +71,7 @@ class cy8_prompts_manager:
         self.current_values_tree = None
         self.current_workflow_tree = None
         self.executions_tree = None  # Référence au TreeView des exécutions
+        self.environments_tree = None  # Référence au TreeView des environnements
         self.filters_list = []  # Liste des filtres actifs
 
         # Variables pour la gestion des répertoires d'images
@@ -87,6 +88,9 @@ class cy8_prompts_manager:
         self.db_manager.init_database(mode)
         self.load_prompts()
         self.update_database_stats()
+
+        # Initialiser le tableau des environnements après la création de l'interface
+        self.root.after(100, self.refresh_environments)
 
     def init_images_paths(self):
         """Initialiser le chemin du répertoire d'images depuis le fichier .env"""
@@ -1077,7 +1081,78 @@ class cy8_prompts_manager:
         )
         self.log_status_label.pack(side="left")
 
-        # === SECTION 3: RESULTATS D'ANALYSE ===
+        # === SECTION 3: ENVIRONNEMENTS ===
+        environments_frame = ttk.LabelFrame(
+            log_frame, text="🌍 Environnements ComfyUI", padding="10"
+        )
+        environments_frame.pack(fill="x", pady=(0, 15))
+
+        # Tableau des environnements
+        env_table_frame = ttk.Frame(environments_frame)
+        env_table_frame.pack(fill="x", pady=(0, 10))
+
+        # Créer le Treeview pour les environnements
+        env_columns = ("id", "name", "path", "last_analysis", "status")
+        self.environments_tree = ttk.Treeview(
+            env_table_frame, columns=env_columns, show="headings", height=6
+        )
+
+        # Configuration des colonnes des environnements
+        self.environments_tree.heading("id", text="ID")
+        self.environments_tree.heading("name", text="Nom")
+        self.environments_tree.heading("path", text="Chemin")
+        self.environments_tree.heading("last_analysis", text="Dernière analyse")
+        self.environments_tree.heading("status", text="Statut")
+
+        # Largeurs des colonnes
+        self.environments_tree.column("id", width=80, minwidth=60)
+        self.environments_tree.column("name", width=120, minwidth=100)
+        self.environments_tree.column("path", width=300, minwidth=200)
+        self.environments_tree.column("last_analysis", width=150, minwidth=120)
+        self.environments_tree.column("status", width=100, minwidth=80)
+
+        # Scrollbars pour le tableau des environnements
+        env_v_scrollbar = ttk.Scrollbar(
+            env_table_frame, orient="vertical", command=self.environments_tree.yview
+        )
+        env_h_scrollbar = ttk.Scrollbar(
+            env_table_frame, orient="horizontal", command=self.environments_tree.xview
+        )
+
+        self.environments_tree.configure(
+            yscrollcommand=env_v_scrollbar.set, xscrollcommand=env_h_scrollbar.set
+        )
+
+        # Grid layout pour le tableau des environnements
+        env_table_frame.grid_rowconfigure(0, weight=1)
+        env_table_frame.grid_columnconfigure(0, weight=1)
+
+        self.environments_tree.grid(row=0, column=0, sticky="nsew")
+        env_v_scrollbar.grid(row=0, column=1, sticky="ns")
+        env_h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        # Binding pour la sélection d'un environnement
+        self.environments_tree.bind("<<TreeviewSelect>>", self.on_environment_select)
+
+        # Boutons d'actions pour les environnements
+        env_actions_frame = ttk.Frame(environments_frame)
+        env_actions_frame.pack(fill="x")
+
+        ttk.Button(
+            env_actions_frame,
+            text="🔄 Actualiser environnements",
+            command=self.refresh_environments,
+            width=25,
+        ).pack(side="left", padx=(0, 10))
+
+        ttk.Button(
+            env_actions_frame,
+            text="🔍 Analyser environnement sélectionné",
+            command=self.analyze_selected_environment,
+            width=30,
+        ).pack(side="left", padx=(0, 10))
+
+        # === SECTION 4: RESULTATS D'ANALYSE ===
         results_main_frame = ttk.LabelFrame(
             log_frame, text="📋 Résultats de l'analyse", padding="10"
         )
@@ -5474,6 +5549,147 @@ WORKFLOW:
                 )
             except Exception as e:
                 messagebox.showerror("Erreur d'export", f"Impossible d'exporter: {e}")
+
+    def refresh_environments(self):
+        """Actualiser le tableau des environnements"""
+        try:
+            # Effacer le tableau
+            for item in self.environments_tree.get_children():
+                self.environments_tree.delete(item)
+
+            # Récupérer les environnements depuis la base
+            environments = self.db_manager.get_all_environments()
+
+            for env in environments:
+                env_id, name, path, description, last_analysis, created_at, updated_at = env
+
+                # Formater la date de dernière analyse
+                if last_analysis:
+                    from datetime import datetime
+                    try:
+                        analysis_date = datetime.fromisoformat(last_analysis.replace('Z', '+00:00'))
+                        last_analysis_str = analysis_date.strftime("%d/%m/%Y %H:%M")
+                    except:
+                        last_analysis_str = last_analysis
+                else:
+                    last_analysis_str = "Jamais"
+
+                # Déterminer le statut de l'environnement
+                status = "🟢 Actif" if os.path.exists(path) else "🔴 Indisponible"
+
+                # Ajouter l'environnement au tableau
+                self.environments_tree.insert("", "end", values=(
+                    env_id, name, path, last_analysis_str, status
+                ))
+
+            print(f"Tableau des environnements actualisé : {len(environments)} environnements")
+
+        except Exception as e:
+            print(f"Erreur lors de l'actualisation des environnements : {e}")
+            messagebox.showerror("Erreur", f"Impossible d'actualiser les environnements :\n{e}")
+
+    def on_environment_select(self, event):
+        """Gérer la sélection d'un environnement"""
+        selection = self.environments_tree.selection()
+        if not selection:
+            return
+
+        # Récupérer l'ID de l'environnement sélectionné
+        item = selection[0]
+        values = self.environments_tree.item(item)['values']
+        environment_id = values[0]
+
+        print(f"Environnement sélectionné : {environment_id}")
+
+        # Charger les résultats d'analyse pour cet environnement
+        self.load_environment_analysis_results(environment_id)
+
+    def load_environment_analysis_results(self, environment_id):
+        """Charger les résultats d'analyse pour un environnement spécifique"""
+        try:
+            # Effacer le tableau des résultats
+            for item in self.log_results_tree.get_children():
+                self.log_results_tree.delete(item)
+
+            # Récupérer les résultats d'analyse depuis la base
+            results = self.db_manager.get_analysis_results(environment_id)
+
+            for result in results:
+                result_id, env_id, fichier, type_result, niveau, message, details, timestamp = result
+
+                # Formater le timestamp
+                try:
+                    from datetime import datetime
+                    analysis_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    timestamp_str = analysis_time.strftime("%d/%m/%Y %H:%M:%S")
+                except:
+                    timestamp_str = timestamp
+
+                # Ajouter le résultat au tableau
+                self.log_results_tree.insert("", "end", values=(
+                    timestamp_str, type_result, niveau or "", fichier or "", message or "", ""
+                ))
+
+            # Mettre à jour le compteur
+            count = len(results)
+            self.log_results_count_label.config(text=f"{count} résultat{'s' if count > 1 else ''}")
+
+            print(f"Résultats d'analyse chargés pour {environment_id} : {count} résultats")
+
+        except Exception as e:
+            print(f"Erreur lors du chargement des résultats : {e}")
+
+    def analyze_selected_environment(self):
+        """Analyser l'environnement sélectionné"""
+        selection = self.environments_tree.selection()
+        if not selection:
+            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un environnement à analyser.")
+            return
+
+        # Récupérer l'ID de l'environnement sélectionné
+        item = selection[0]
+        values = self.environments_tree.item(item)['values']
+        environment_id = values[0]
+
+        print(f"Analyse de l'environnement : {environment_id}")
+
+        # 1. Détecter l'ID de l'environnement (simulation de "Identifier l'environnement")
+        # TODO: Implémenter la logique de détection automatique
+
+        # 2. Mettre à jour la table environnements avec la date d'analyse
+        success = self.db_manager.update_environment_analysis(environment_id)
+        if not success:
+            messagebox.showerror("Erreur", "Impossible de mettre à jour l'environnement.")
+            return
+
+        # 3. Effacer les anciens résultats d'analyse pour cet environnement
+        self.db_manager.clear_analysis_results(environment_id)
+
+        # 4. Exécuter l'analyse du log (simulation)
+        # TODO: Intégrer avec la vraie fonction d'analyse des logs
+        self.simulate_log_analysis(environment_id)
+
+        # 5. Actualiser les tableaux
+        self.refresh_environments()
+        self.load_environment_analysis_results(environment_id)
+
+        messagebox.showinfo("Analyse terminée", f"Analyse de l'environnement {environment_id} terminée.")
+
+    def simulate_log_analysis(self, environment_id):
+        """Simulation de l'analyse de log pour tester le système"""
+        # Ajouter quelques résultats d'exemple
+        test_results = [
+            ("comfyui.log", "INFO", "Normal", "Environnement détecté avec succès", ""),
+            ("comfyui.log", "WARNING", "Attention", "Fichier manquant : model.safetensors", "Vérifier le chemin des modèles"),
+            ("comfyui.log", "ERROR", "Erreur", "Module non trouvé : custom_nodes", "Installer les nodes manquants"),
+        ]
+
+        for fichier, type_result, niveau, message, details in test_results:
+            self.db_manager.add_analysis_result(
+                environment_id, fichier, type_result, niveau, message, details
+            )
+
+        print(f"Résultats de test ajoutés pour l'environnement {environment_id}")
 
     def filter_log_results(self, event=None):
         """Filtrer les résultats selon le type sélectionné"""

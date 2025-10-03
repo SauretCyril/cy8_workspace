@@ -61,8 +61,41 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table environnements
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS environnements (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    last_analysis TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Créer la table resultats_analyses
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS resultats_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    fichier TEXT,
+                    type TEXT,
+                    niveau TEXT,
+                    message TEXT,
+                    details TEXT,
+                    timestamp_analyse TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             self.conn.commit()
             self.ensure_additional_columns()
+            self.add_default_environments()
             self.add_default_basic_prompt()
         else:  # mode == "dev"
             # Mode dev: Crée la base si elle n'existe pas
@@ -161,6 +194,7 @@ class cy8_database_manager:
                 print("Tables 'prompts' et 'prompt_image' créées avec succès")
 
             self.ensure_additional_columns()
+            self.ensure_environment_tables()
 
     def ensure_additional_columns(self):
         """Assurer que toutes les colonnes additionnelles existent"""
@@ -720,3 +754,180 @@ class cy8_database_manager:
         """Fermer la connexion"""
         if self.conn:
             self.conn.close()
+
+    def ensure_environment_tables(self):
+        """S'assurer que les tables d'environnement existent"""
+        try:
+            # Créer la table environnements si elle n'existe pas
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS environnements (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    last_analysis TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Créer la table resultats_analyses si elle n'existe pas
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS resultats_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    fichier TEXT,
+                    type TEXT,
+                    niveau TEXT,
+                    message TEXT,
+                    details TEXT,
+                    timestamp_analyse TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            self.conn.commit()
+            print("Tables d'environnement créées/vérifiées avec succès")
+
+            # Ajouter les environnements par défaut si la table est vide
+            self.cursor.execute("SELECT COUNT(*) FROM environnements")
+            if self.cursor.fetchone()[0] == 0:
+                self.add_default_environments()
+
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la création des tables d'environnement : {e}")
+
+    def add_default_environments(self):
+        """Ajouter les 5 environnements par défaut"""
+        default_environments = [
+            ("G11_01", "G11_01", "H:\\comfyui\\G11_01", "Environnement ComfyUI G11_01"),
+            ("G11_02", "G11_02", "H:\\comfyui\\G11_02", "Environnement ComfyUI G11_02"),
+            ("G11_03", "G11_03", "H:\\comfyui\\G11_03", "Environnement ComfyUI G11_03"),
+            ("G11_04", "G11_04", "H:\\comfyui\\G11_04", "Environnement ComfyUI G11_04"),
+            ("G11_05", "G11_05", "H:\\comfyui\\G11_05", "Environnement ComfyUI G11_05"),
+        ]
+
+        try:
+            for env_id, name, path, description in default_environments:
+                self.cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO environnements (id, name, path, description)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    (env_id, name, path, description),
+                )
+            self.conn.commit()
+            print("Environnements par défaut ajoutés avec succès")
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout des environnements par défaut : {e}")
+
+    def get_all_environments(self):
+        """Récupérer tous les environnements"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, description, last_analysis, created_at, updated_at
+                FROM environnements
+                ORDER BY name
+            """
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des environnements : {e}")
+            return []
+
+    def update_environment_analysis(self, environment_id):
+        """Mettre à jour la date de dernière analyse d'un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                UPDATE environnements
+                SET last_analysis = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """,
+                (environment_id,),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la mise à jour de l'environnement : {e}")
+            return False
+
+    def clear_analysis_results(self, environment_id=None):
+        """Effacer les résultats d'analyse (tous ou pour un environnement spécifique)"""
+        try:
+            if environment_id:
+                self.cursor.execute(
+                    "DELETE FROM resultats_analyses WHERE environment_id = ?",
+                    (environment_id,),
+                )
+            else:
+                self.cursor.execute("DELETE FROM resultats_analyses")
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'effacement des résultats d'analyse : {e}")
+            return False
+
+    def add_analysis_result(self, environment_id, fichier, type_result, niveau, message, details=""):
+        """Ajouter un résultat d'analyse"""
+        try:
+            self.cursor.execute(
+                """
+                INSERT INTO resultats_analyses
+                (environment_id, fichier, type, niveau, message, details)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (environment_id, fichier, type_result, niveau, message, details),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout du résultat d'analyse : {e}")
+            return False
+
+    def get_analysis_results(self, environment_id=None):
+        """Récupérer les résultats d'analyse (tous ou pour un environnement spécifique)"""
+        try:
+            if environment_id:
+                self.cursor.execute(
+                    """
+                    SELECT id, environment_id, fichier, type, niveau, message, details, timestamp_analyse
+                    FROM resultats_analyses
+                    WHERE environment_id = ?
+                    ORDER BY timestamp_analyse DESC
+                """,
+                    (environment_id,),
+                )
+            else:
+                self.cursor.execute(
+                    """
+                    SELECT id, environment_id, fichier, type, niveau, message, details, timestamp_analyse
+                    FROM resultats_analyses
+                    ORDER BY timestamp_analyse DESC
+                """
+                )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des résultats d'analyse : {e}")
+            return []
+
+    def get_environment_by_id(self, environment_id):
+        """Récupérer un environnement par son ID"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, description, last_analysis, created_at, updated_at
+                FROM environnements
+                WHERE id = ?
+            """,
+                (environment_id,),
+            )
+            return self.cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération de l'environnement : {e}")
+            return None
