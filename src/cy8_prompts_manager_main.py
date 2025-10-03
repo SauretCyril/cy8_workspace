@@ -5848,6 +5848,16 @@ WORKFLOW:
             # Récupérer les résultats d'analyse depuis la base
             results = self.db_manager.get_analysis_results(environment_id)
 
+            if not results:
+                self.log_results_count_label.config(text="0 résultat")
+                print(f"Aucun résultat d'analyse trouvé pour {environment_id}")
+                # Réinitialiser _original_log_results
+                self._original_log_results = []
+                return
+
+            # Reconstruire les données au format _original_log_results pour la cohérence
+            reconstructed_entries = []
+
             for result in results:
                 (
                     result_id,
@@ -5871,7 +5881,56 @@ WORKFLOW:
                 except:
                     timestamp_str = timestamp
 
-                # Ajouter le résultat au tableau
+                # Traiter le message pour l'affichage (comme dans l'analyse fraîche)
+                display_message = message
+                details_info = ""
+                element_name = fichier  # Par défaut, utiliser le nom du fichier
+                line_number = "N/A"
+
+                # Extraire les informations des détails enrichis si disponibles
+                if details:
+                    try:
+                        import json
+                        details_dict = json.loads(details)
+                        
+                        # Extraire le nom de l'élément (custom node)
+                        if "element" in details_dict and details_dict["element"]:
+                            element_name = details_dict["element"]
+                        
+                        # Extraire le numéro de ligne
+                        if "line" in details_dict and details_dict["line"]:
+                            line_number = str(details_dict["line"])
+                        
+                        # Traiter le message pour extraire les détails d'affichage
+                        if type_result == "OK" and "time" in details_dict:
+                            details_info = details_dict["time"]
+                            if " (" in message:
+                                display_message = message.split(" (")[0]
+                        elif type_result in ["ERREUR", "ATTENTION"] and " | " in message:
+                            parts = message.split(" | ", 1)
+                            if len(parts) > 1:
+                                display_message = parts[0]
+                                details_info = parts[1]
+                        elif "error_details" in details_dict and details_dict["error_details"]:
+                            details_info = details_dict["error_details"]
+                            
+                    except (json.JSONDecodeError, Exception) as e:
+                        # Si on ne peut pas parser les détails, utiliser les valeurs par défaut
+                        print(f"Erreur de parsing des détails pour le résultat {result_id}: {e}")
+
+                # Reconstruire l'entrée au format _original_log_results
+                entry = {
+                    "timestamp": timestamp_str,
+                    "type": type_result,
+                    "category": niveau or "",
+                    "element": element_name,
+                    "message": message,
+                    "line": line_number,
+                    "file": fichier
+                }
+                reconstructed_entries.append(entry)
+
+                # Ajouter le résultat au tableau avec le même format que l'analyse fraîche
                 self.log_results_tree.insert(
                     "",
                     "end",
@@ -5879,11 +5938,16 @@ WORKFLOW:
                         timestamp_str,
                         type_result,
                         niveau or "",
-                        fichier or "",
-                        message or "",
-                        "",
+                        element_name,
+                        display_message,
+                        details_info,
+                        line_number,
                     ),
+                    tags=(type_result,),
                 )
+
+            # Mettre à jour _original_log_results pour la cohérence avec le filtrage
+            self._original_log_results = reconstructed_entries
 
             # Mettre à jour le compteur
             count = len(results)
@@ -5892,11 +5956,13 @@ WORKFLOW:
             )
 
             print(
-                f"Résultats d'analyse chargés pour {environment_id} : {count} résultats"
+                f"✅ Résultats d'analyse chargés pour {environment_id} : {count} résultats avec format enrichi"
             )
 
         except Exception as e:
-            print(f"Erreur lors du chargement des résultats : {e}")
+            print(f"❌ Erreur lors du chargement des résultats : {e}")
+            # En cas d'erreur, réinitialiser _original_log_results
+            self._original_log_results = []
 
     def filter_log_results(self, event=None):
         """Filtrer les résultats selon le type sélectionné"""
