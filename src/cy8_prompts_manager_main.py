@@ -8,6 +8,9 @@ import subprocess
 from datetime import datetime
 from PIL import Image, ImageTk
 
+# Import du gestionnaire d'identifiants de popups
+from cy8_popup_id_manager import popup_manager, get_popup_id, close_popup
+
 # Import conditionnel de safetensors (optionnel)
 try:
     from safetensors.torch import safe_open
@@ -76,6 +79,9 @@ class cy8_prompts_manager:
         self.executions_tree = None  # Référence au TreeView des exécutions
         self.environments_tree = None  # Référence au TreeView des environnements
         self.filters_list = []  # Liste des filtres actifs
+
+        # Variable pour l'environnement identifié
+        self.current_environment_id = None
 
         # Variables pour la gestion des répertoires d'images
         self.init_images_paths()
@@ -910,9 +916,37 @@ class cy8_prompts_manager:
 
     def setup_log_tab(self, parent):
         """Configuration de l'onglet d'analyse des logs ComfyUI"""
-        # Frame principal avec padding
-        log_frame = ttk.Frame(parent, padding="15")
-        log_frame.pack(fill="both", expand=True)
+        # Créer un Canvas avec barre de défilement pour tout l'onglet
+        canvas = tk.Canvas(parent)
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # Barre de défilement verticale pour l'onglet complet
+        main_scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        main_scrollbar.pack(side="right", fill="y")
+
+        canvas.configure(yscrollcommand=main_scrollbar.set)
+
+        # Frame principal avec padding qui sera scrollable
+        log_frame = ttk.Frame(canvas, padding="15")
+        canvas_window = canvas.create_window((0, 0), window=log_frame, anchor="nw")
+
+        # Configurer le défilement
+        def configure_scroll_region(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def configure_canvas_width(event):
+            # Ajuster la largeur du frame au canvas
+            canvas_width = event.width
+            canvas.itemconfig(canvas_window, width=canvas_width)
+
+        log_frame.bind("<Configure>", configure_scroll_region)
+        canvas.bind("<Configure>", configure_canvas_width)
+
+        # Rendre la molette de la souris fonctionnelle
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
         # Titre principal
         title_frame = ttk.Frame(log_frame)
@@ -1148,13 +1182,6 @@ class cy8_prompts_manager:
             width=25,
         ).pack(side="left", padx=(0, 10))
 
-        ttk.Button(
-            env_actions_frame,
-            text="🔍 Analyser environnement sélectionné",
-            command=self.analyze_selected_environment,
-            width=30,
-        ).pack(side="left", padx=(0, 10))
-
         # === SECTION 4: RESULTATS D'ANALYSE ===
         results_main_frame = ttk.LabelFrame(
             log_frame, text="📋 Résultats de l'analyse", padding="10"
@@ -1274,6 +1301,9 @@ class cy8_prompts_manager:
 
         # Vérifier si le fichier log par défaut existe
         self.check_log_file_status()
+
+        # Initialiser l'état des boutons d'analyse (désactivés au démarrage)
+        self.update_analysis_buttons_state()
 
     def setup_data_tab(self, parent):
         """Configuration de l'onglet gestion des données"""
@@ -4963,6 +4993,9 @@ WORKFLOW:
                                 f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI",
                             )
 
+                            # Définir l'environnement actuel pour l'onglet Log
+                            self.set_current_environment(config_id)
+
                             print("🎉 SUCCÈS - Identification terminée avec succès")
                             logger.info(
                                 "Identification de l'environnement terminée avec succès"
@@ -5398,6 +5431,15 @@ WORKFLOW:
 
     def analyze_comfyui_log(self):
         """Analyser le fichier de log ComfyUI"""
+        # Vérifier qu'un environnement est identifié
+        if not self.current_environment_id:
+            messagebox.showwarning(
+                "Environnement requis",
+                "Vous devez d'abord identifier l'environnement ComfyUI avant d'analyser le log.\n\n"
+                "Allez dans l'onglet ComfyUI et cliquez sur '🔍 Identifier l'environnement'."
+            )
+            return
+
         log_path = self.comfyui_log_path.get().strip()
 
         if not log_path:
@@ -5442,10 +5484,29 @@ WORKFLOW:
             for item in self.log_results_tree.get_children():
                 self.log_results_tree.delete(item)
 
-            # Afficher les résultats dans le tableau
+            # Nettoyer les anciens résultats d'analyse pour cet environnement
+            self.db_manager.clear_analysis_results(self.current_environment_id)
+
+            # Stocker et afficher les résultats dans le tableau
+            stored_count = 0
             for entry in entries:
                 # Déterminer la couleur selon le type
                 tag = entry["type"]
+
+                # Stocker le résultat dans la base de données
+                try:
+                    success = self.db_manager.add_analysis_result(
+                        environment_id=self.current_environment_id,
+                        fichier=os.path.basename(log_path),  # Nom du fichier log
+                        type_result=entry["type"],
+                        niveau=entry["category"],
+                        message=entry["message"],
+                        details=f"Element: {entry.get('element', '')}, Line: {entry.get('line', '')}, Timestamp: {entry.get('timestamp', '')}"
+                    )
+                    if success:
+                        stored_count += 1
+                except Exception as e:
+                    print(f"Erreur lors du stockage du résultat: {e}")
 
                 # Insérer dans le tableau
                 item = self.log_results_tree.insert(
@@ -5465,6 +5526,9 @@ WORKFLOW:
             # Mettre à jour le compteur de résultats
             if hasattr(self, "log_results_count_label"):
                 self.log_results_count_label.config(text=f"{len(entries)} résultats")
+
+            # Afficher un message de confirmation du stockage
+            print(f"💾 Stockage en base: {stored_count}/{len(entries)} résultats sauvegardés pour l'environnement {self.current_environment_id}")
 
             # Mettre à jour l'ID de configuration s'il est trouvé dans le log
             detected_config_id = result.get("config_id")
@@ -5506,10 +5570,13 @@ WORKFLOW:
                 else "\n🆔 ID Configuration: Non spécifié"
             )
 
+            # Ajouter l'information de stockage
+            storage_info = f"\n💾 {stored_count} résultats stockés en base de données"
+
             if entries:
                 messagebox.showinfo(
                     "Analyse terminée",
-                    f"Analyse du log ComfyUI terminée avec succès !{config_info}\n\n{summary_text}",
+                    f"Analyse du log ComfyUI terminée avec succès !{config_info}{storage_info}\n\n{summary_text}",
                 )
             else:
                 messagebox.showinfo(
@@ -5541,16 +5608,77 @@ WORKFLOW:
                     "%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)
                 )
 
-                info_text = f"✅ Fichier trouvé ({size_mb:.1f} MB, modifié le {mtime})"
-                self.log_file_info_label.config(text=info_text, foreground="green")
+                # Construire le texte d'information avec taille et environnement
+                info_text = f"✅ Fichier trouvé ({size_mb:.1f} MB, modifié le {mtime})\n"
+
+                # Ajouter l'information d'environnement
+                if self.current_environment_id:
+                    info_text += f"🌍 Environnement: {self.current_environment_id}"
+                else:
+                    info_text += "⚠️ Environnement: Non identifié (requis pour l'analyse)"
+
+                # Couleur selon le statut de l'environnement
+                color = "green" if self.current_environment_id else "orange"
+                self.log_file_info_label.config(text=info_text, foreground=color)
+
+                # Activer/désactiver les boutons d'analyse selon l'environnement
+                self.update_analysis_buttons_state()
+
             except Exception as e:
                 self.log_file_info_label.config(
                     text=f"⚠️ Erreur lecture fichier: {e}", foreground="orange"
                 )
+                self.update_analysis_buttons_state()
         else:
             self.log_file_info_label.config(
                 text="❌ Fichier log non trouvé", foreground="red"
             )
+            self.update_analysis_buttons_state()
+
+    def update_analysis_buttons_state(self):
+        """Mettre à jour l'état des boutons d'analyse selon l'environnement identifié"""
+        # Vérifier si un environnement est identifié et si le fichier log existe
+        can_analyze = (
+            self.current_environment_id is not None
+            and os.path.exists(self.comfyui_log_path.get())
+        )
+
+        # Mettre à jour les boutons d'analyse
+        if hasattr(self, 'analyze_log_btn'):
+            if can_analyze:
+                self.analyze_log_btn.config(
+                    state="normal",
+                    text="🔍 Analyser le log"
+                )
+            else:
+                self.analyze_log_btn.config(
+                    state="disabled",
+                    text="🔍 Analyser le log (identification requise)"
+                )
+
+        if hasattr(self, 'ai_analyze_btn'):
+            if can_analyze:
+                self.ai_analyze_btn.config(
+                    state="normal",
+                    text="🤖 Analyse IA complète"
+                )
+            else:
+                self.ai_analyze_btn.config(
+                    state="disabled",
+                    text="🤖 Analyse IA complète (identification requise)"
+                )
+
+    def set_current_environment(self, environment_id):
+        """Définir l'environnement actuellement identifié"""
+        self.current_environment_id = environment_id
+        print(f"🌍 Environnement identifié: {environment_id}")
+
+        # Mettre à jour l'affichage des informations du log
+        self.check_log_file_status()
+
+        # Mettre à jour la base de données si nécessaire
+        if environment_id:
+            self.db_manager.update_environment_analysis(environment_id)
 
     def refresh_log_analysis(self):
         """Actualiser l'analyse des logs"""
@@ -5731,76 +5859,6 @@ WORKFLOW:
 
         except Exception as e:
             print(f"Erreur lors du chargement des résultats : {e}")
-
-    def analyze_selected_environment(self):
-        """Analyser l'environnement sélectionné"""
-        selection = self.environments_tree.selection()
-        if not selection:
-            messagebox.showwarning(
-                "Aucune sélection", "Veuillez sélectionner un environnement à analyser."
-            )
-            return
-
-        # Récupérer l'ID de l'environnement sélectionné
-        item = selection[0]
-        values = self.environments_tree.item(item)["values"]
-        environment_id = values[0]
-
-        print(f"Analyse de l'environnement : {environment_id}")
-
-        # 1. Détecter l'ID de l'environnement (simulation de "Identifier l'environnement")
-        # TODO: Implémenter la logique de détection automatique
-
-        # 2. Mettre à jour la table environnements avec la date d'analyse
-        success = self.db_manager.update_environment_analysis(environment_id)
-        if not success:
-            messagebox.showerror(
-                "Erreur", "Impossible de mettre à jour l'environnement."
-            )
-            return
-
-        # 3. Effacer les anciens résultats d'analyse pour cet environnement
-        self.db_manager.clear_analysis_results(environment_id)
-
-        # 4. Exécuter l'analyse du log (simulation)
-        # TODO: Intégrer avec la vraie fonction d'analyse des logs
-        self.simulate_log_analysis(environment_id)
-
-        # 5. Actualiser les tableaux
-        self.refresh_environments()
-        self.load_environment_analysis_results(environment_id)
-
-        messagebox.showinfo(
-            "Analyse terminée", f"Analyse de l'environnement {environment_id} terminée."
-        )
-
-    def simulate_log_analysis(self, environment_id):
-        """Simulation de l'analyse de log pour tester le système"""
-        # Ajouter quelques résultats d'exemple
-        test_results = [
-            ("comfyui.log", "INFO", "Normal", "Environnement détecté avec succès", ""),
-            (
-                "comfyui.log",
-                "WARNING",
-                "Attention",
-                "Fichier manquant : model.safetensors",
-                "Vérifier le chemin des modèles",
-            ),
-            (
-                "comfyui.log",
-                "ERROR",
-                "Erreur",
-                "Module non trouvé : custom_nodes",
-                "Installer les nodes manquants",
-            ),
-        ]
-
-        for fichier, type_result, niveau, message, details in test_results:
-            self.db_manager.add_analysis_result(
-                environment_id, fichier, type_result, niveau, message, details
-            )
-
-        print(f"Résultats de test ajoutés pour l'environnement {environment_id}")
 
     def filter_log_results(self, event=None):
         """Filtrer les résultats selon le type sélectionné"""
@@ -6027,6 +6085,15 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
 
     def analyze_complete_log_global(self):
         """Analyse complète du log avec Mistral AI (bouton global)"""
+        # Vérifier qu'un environnement est identifié
+        if not self.current_environment_id:
+            messagebox.showwarning(
+                "Environnement requis",
+                "Vous devez d'abord identifier l'environnement ComfyUI avant d'analyser le log.\n\n"
+                "Allez dans l'onglet ComfyUI et cliquez sur '🔍 Identifier l'environnement'."
+            )
+            return
+
         log_path = self.comfyui_log_path.get().strip()
 
         if not log_path or not os.path.exists(log_path):
@@ -6035,12 +6102,22 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
             )
             return
 
+        # Créer identifiant unique pour cette popup
+        popup_id, formatted_title = get_popup_id("Analyse complète du log ComfyUI - Mistral AI", "analysis")
+
         # Créer une fenêtre de popup pour l'analyse globale
         analysis_window = tk.Toplevel(self.root)
-        analysis_window.title("🤖 Analyse complète du log ComfyUI - Mistral AI")
+        analysis_window.title(formatted_title)
         analysis_window.geometry("1000x800")
         analysis_window.transient(self.root)
         analysis_window.grab_set()
+
+        # Gérer la fermeture avec désregistrement
+        def on_close():
+            close_popup(popup_id)
+            analysis_window.destroy()
+
+        analysis_window.protocol("WM_DELETE_WINDOW", on_close)
 
         # Contenu de la fenêtre
         main_frame = ttk.Frame(analysis_window, padding="15")
@@ -6187,7 +6264,7 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             buttons_frame,
             text="💾 Sauvegarder",
             command=lambda: self.save_global_analysis(
-                analysis_text.get("1.0", "end-1c")
+                analysis_text.get("1.0", "end-1c"), popup_id
             ),
         ).pack(side="left", padx=(0, 15))
 
@@ -6198,7 +6275,7 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
         ).pack(side="left", padx=(0, 15))
 
         ttk.Button(
-            buttons_frame, text="❌ Fermer", command=analysis_window.destroy
+            buttons_frame, text="❌ Fermer", command=on_close
         ).pack(side="right")
 
     def start_global_log_analysis(
@@ -6411,8 +6488,8 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
             command=examples_window.destroy,
         ).pack(side="right")
 
-    def save_global_analysis(self, analysis_content):
-        """Sauvegarde l'analyse globale dans un fichier"""
+    def save_global_analysis(self, analysis_content, popup_id=None):
+        """Sauvegarde l'analyse globale dans un fichier avec identifiant de popup"""
         try:
             from datetime import datetime
 
@@ -6426,18 +6503,42 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
             if not os.path.exists(solutions_dir):
                 os.makedirs(solutions_dir, exist_ok=True)
 
-            # Créer le nom de fichier avec timestamp
+            # Créer le nom de fichier avec timestamp et ID popup
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"analyse_log_complete_{timestamp}.txt"
+            if popup_id:
+                filename = f"analyse_log_complete_{popup_id}_{timestamp}.txt"
+            else:
+                filename = f"analyse_log_complete_{timestamp}.txt"
             filepath = os.path.join(solutions_dir, filename)
 
-            # Sauvegarder
+            # Préparer le contenu avec en-tête
+            header = f"""╔══════════════════════════════════════════════════════════╗
+║                    ANALYSE LOG COMFYUI                   ║
+╠══════════════════════════════════════════════════════════╣
+║ 📋 Identifiant popup: {popup_id if popup_id else 'N/A':<30} ║
+║ 📅 Date génération:   {datetime.now().strftime('%d/%m/%Y %H:%M:%S'):<30} ║
+║ 🤖 Générée par:       Mistral AI                         ║
+╚══════════════════════════════════════════════════════════╝
+
+"""
+
+            # Sauvegarder avec en-tête
             with open(filepath, "w", encoding="utf-8") as f:
+                f.write(header)
                 f.write(analysis_content)
 
-            messagebox.showinfo(
-                "Sauvegarde réussie", f"Analyse sauvegardée :\n{filepath}"
-            )
+            # Message de confirmation avec ID
+            if popup_id:
+                messagebox.showinfo(
+                    "Sauvegarde réussie",
+                    f"Analyse [{popup_id}] sauvegardée :\n{filepath}"
+                )
+            else:
+                messagebox.showinfo(
+                    "Sauvegarde réussie", f"Analyse sauvegardée :\n{filepath}"
+                )
+
+            print(f"💾 Analyse sauvegardée: {popup_id} -> {filename}")
 
         except Exception as e:
             messagebox.showerror(

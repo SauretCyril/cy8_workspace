@@ -14,19 +14,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 def test_app_startup():
     """Test de démarrage de l'application"""
-    print("🚀 Test de démarrage de l'application")
-    print("=" * 40)
+    print("🚀 Test de démarrage de l'application", flush=True)
+    print("=" * 40, flush=True)
 
     try:
         # Créer un répertoire temporaire vide pour éviter les erreurs
         temp_dir = tempfile.mkdtemp()
         os.environ["IMAGES_COLLECTE"] = temp_dir
-        print(f"📁 IMAGES_COLLECTE: {temp_dir}")
+        print(f"📁 IMAGES_COLLECTE: {temp_dir}", flush=True)
 
         # Test d'import seulement
         from cy8_prompts_manager_main import cy8_prompts_manager
 
-        print("✅ Import réussi")
+        print("Import réussi", flush=True)
 
         # Test de création sans interface (headless)
         import tkinter as tk

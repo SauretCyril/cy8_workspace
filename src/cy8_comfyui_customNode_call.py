@@ -237,92 +237,118 @@ class ComfyUICustomNodeCaller:
 
     def test_extra_path_reader_direct(self) -> Dict[str, Any]:
         """
-        Tester ExtraPathReader avec différents workflows
+        Tester ExtraPathReader avec une approche directe et robuste
 
         Returns:
             Résultat de l'exécution ou informations d'erreur
         """
-        workflows_to_test = [
-            # Test 1: Avec SaveText (standard ComfyUI)
-            {
-                "name": "SaveText output",
-                "workflow": {
-                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
-                    "2": {
-                        "class_type": "SaveText",
-                        "inputs": {"text": ["1", 0], "filename_prefix": "extra_paths"},
-                    },
-                },
-            },
-            # Test 2: Avec PreviewText (si disponible)
-            {
-                "name": "PreviewText output",
-                "workflow": {
-                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
-                    "2": {"class_type": "PreviewText", "inputs": {"text": ["1", 0]}},
-                },
-            },
-            # Test 3: Avec CLIPTextEncode (toujours disponible)
-            {
-                "name": "CLIPTextEncode output",
-                "workflow": {
-                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
-                    "2": {
-                        "class_type": "CLIPTextEncode",
-                        "inputs": {"text": ["1", 0], "clip": ["3", 0]},
-                    },
-                    "3": {
-                        "class_type": "CheckpointLoaderSimple",
-                        "inputs": {
-                            "ckpt_name": "v1-5-pruned-emaonly.ckpt"  # Modèle standard
-                        },
-                    },
-                },
-            },
-        ]
+        print("🧪 Test ExtraPathReader avec approche directe...")
 
-        for test in workflows_to_test:
-            print(f"🧪 Test: {test['name']}")
+        try:
+            # Test simple: juste appeler ExtraPathReader directement
+            print("🗂️  Tentative d'appel direct d'ExtraPathReader...")
+
+            # Méthode 1: Appel direct via call_custom_node
             try:
-                workflow = test["workflow"]
-
-                # Préparer le payload
-                payload = {"prompt": workflow, "client_id": "cy8_test_client"}
-
-                # Envoyer la requête
-                url = urljoin(self.server_url, "/prompt")
-                response = self.session.post(url, json=payload, timeout=30)
-
-                print(f"📡 Statut: {response.status_code}")
-
-                if response.status_code == 200:
-                    result = response.json()
-                    print(f"✅ Succès avec {test['name']} !")
+                result = self.call_custom_node("ExtraPathReader", {})
+                if result and not result.get('error'):
+                    print("✅ Succès avec appel direct!")
                     return {
                         "error": False,
                         "result": result,
-                        "workflow_used": workflow,
-                        "method": test["name"],
+                        "method": "Direct call",
                     }
+            except Exception as e:
+                print(f"⚠️  Appel direct échoué: {e}")
+
+            # Méthode 2: Workflow minimal avec récupération via API
+            print("🔧 Essai avec workflow minimal...")
+
+            try:
+                # Créer un workflow très simple qui fonctionne toujours
+                simple_workflow = {
+                    "1": {"class_type": "ExtraPathReader", "inputs": {}}
+                }
+
+                # Envoyer via l'API queue
+                payload = {
+                    "prompt": simple_workflow,
+                    "client_id": f"cy8_env_test_{int(time.time())}"
+                }
+
+                url = urljoin(self.server_url, "/prompt")
+                response = self.session.post(url, json=payload, timeout=30)
+
+                if response.status_code == 200:
+                    result_data = response.json()
+                    prompt_id = result_data.get("prompt_id")
+
+                    if prompt_id:
+                        print(f"📋 Prompt ID obtenu: {prompt_id}")
+
+                        # Attendre un peu pour l'exécution
+                        time.sleep(3)
+
+                        # Récupérer via l'historique
+                        history_url = urljoin(self.server_url, f"/history/{prompt_id}")
+                        history_response = self.session.get(history_url, timeout=10)
+
+                        if history_response.status_code == 200:
+                            history_data = history_response.json()
+                            print("✅ Succès avec workflow minimal!")
+
+                            return {
+                                "error": False,
+                                "result": {
+                                    "prompt_id": prompt_id,
+                                    "history": history_data
+                                },
+                                "method": "Minimal workflow",
+                            }
+                        else:
+                            print(f"⚠️  Erreur historique: {history_response.status_code}")
+
                 else:
-                    try:
-                        error_details = response.json()
-                        print(
-                            f"❌ Erreur: {error_details.get('error', {}).get('message', 'Unknown')}"
-                        )
-                    except:
-                        print(f"❌ Erreur HTTP: {response.text}")
+                    error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+                    error_msg = error_data.get('error', {}).get('message', response.text)
+                    print(f"❌ Erreur workflow: {error_msg}")
 
             except Exception as e:
-                print(f"❌ Exception avec {test['name']}: {e}")
-                continue
+                print(f"⚠️  Workflow minimal échoué: {e}")
 
-        # Si tous les tests échouent
-        return {
-            "error": True,
-            "message": "Tous les workflows testés ont échoué",
-            "workflows_tested": [t["name"] for t in workflows_to_test],
-        }
+            # Méthode 3: Récupération des informations du node directement
+            print("📊 Essai de récupération d'informations du node...")
+
+            try:
+                nodes_info = self.get_custom_nodes_info()
+                extra_path_info = nodes_info.get("ExtraPathReader")
+
+                if extra_path_info:
+                    print("✅ Informations ExtraPathReader récupérées!")
+                    return {
+                        "error": False,
+                        "result": {
+                            "node_info": extra_path_info,
+                            "method": "Node info retrieval"
+                        },
+                        "method": "Node information",
+                    }
+
+            except Exception as e:
+                print(f"⚠️  Récupération info node échouée: {e}")
+
+            # Si tout échoue
+            return {
+                "error": True,
+                "message": "Toutes les méthodes de test ont échoué",
+                "methods_tried": ["Direct call", "Minimal workflow", "Node information"],
+            }
+
+        except Exception as e:
+            return {
+                "error": True,
+                "message": f"Erreur générale lors du test: {e}",
+            }
 
     def get_extra_paths(self) -> Dict[str, Any]:
         """
