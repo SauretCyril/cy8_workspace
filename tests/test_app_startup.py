@@ -25,10 +25,12 @@ def test_app_startup():
 
         # Test d'import seulement
         from cy8_prompts_manager_main import cy8_prompts_manager
+
         print("✅ Import réussi")
 
         # Test de création sans interface (headless)
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()  # Masquer complètement
 
@@ -40,6 +42,7 @@ def test_app_startup():
 
         # Nettoyer
         import shutil
+
         shutil.rmtree(temp_dir)
 
         return True
@@ -47,6 +50,7 @@ def test_app_startup():
     except Exception as e:
         print(f"❌ Erreur: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

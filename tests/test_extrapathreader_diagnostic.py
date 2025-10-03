@@ -10,7 +10,8 @@ import requests
 from urllib.parse import urljoin
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def test_comfyui_connection(server_url="http://127.0.0.1:8188"):
     """Tester la connexion de base à ComfyUI"""
@@ -26,6 +27,7 @@ def test_comfyui_connection(server_url="http://127.0.0.1:8188"):
     except Exception as e:
         print(f"❌ Erreur de connexion: {e}")
         return False
+
 
 def test_object_info(server_url="http://127.0.0.1:8188"):
     """Récupérer les informations sur les nœuds disponibles"""
@@ -45,7 +47,7 @@ def test_object_info(server_url="http://127.0.0.1:8188"):
                 print("❌ ExtraPathReader NON trouvé dans object_info")
                 print("🔍 Nœuds disponibles contenant 'Extra':")
                 for node_name in object_info.keys():
-                    if 'Extra' in node_name or 'Path' in node_name:
+                    if "Extra" in node_name or "Path" in node_name:
                         print(f"   - {node_name}")
                 return False, None
         else:
@@ -55,17 +57,13 @@ def test_object_info(server_url="http://127.0.0.1:8188"):
         print(f"❌ Exception object_info: {e}")
         return False, None
 
+
 def test_extra_path_reader_workflow(server_url="http://127.0.0.1:8188"):
     """Tester ExtraPathReader avec différents workflows"""
 
     # Test 1: Workflow minimal
     print("\n🧪 Test 1: Workflow minimal")
-    workflow1 = {
-        "1": {
-            "class_type": "ExtraPathReader",
-            "inputs": {}
-        }
-    }
+    workflow1 = {"1": {"class_type": "ExtraPathReader", "inputs": {}}}
 
     result1 = send_workflow(server_url, workflow1, "Test 1")
 
@@ -78,6 +76,7 @@ def test_extra_path_reader_workflow(server_url="http://127.0.0.1:8188"):
     result3 = send_workflow(server_url, workflow1, "Test 3", extra_data={})
 
     return result1 or result2 or result3
+
 
 def send_workflow(server_url, workflow, test_name, client_id=None, extra_data=None):
     """Envoyer un workflow à ComfyUI et analyser la réponse"""
@@ -118,6 +117,7 @@ def send_workflow(server_url, workflow, test_name, client_id=None, extra_data=No
         print(f"❌ {test_name} - Exception: {e}")
         return False
 
+
 def test_custom_node_caller():
     """Tester avec notre classe CustomNodeCaller"""
     try:
@@ -149,8 +149,10 @@ def test_custom_node_caller():
     except Exception as e:
         print(f"❌ Erreur CustomNodeCaller: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """Fonction principale de diagnostic"""
@@ -183,6 +185,7 @@ def main():
 
     print("\n🎯 DIAGNOSTIC TERMINÉ")
     return True
+
 
 if __name__ == "__main__":
     main()

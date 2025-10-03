@@ -57,7 +57,7 @@ class cy8_user_preferences:
             "version": "1.0",
             "created_at": "",
             "last_updated": "",
-            "error_solutions_directory": "g:/temp"
+            "error_solutions_directory": "g:/temp",
         }
 
     def _load_cookies(self):

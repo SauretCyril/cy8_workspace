@@ -9,6 +9,7 @@ from typing import Optional, Tuple, Union
 from PIL import Image
 import hashlib
 
+
 class FastImageProcessor:
     """Processeur d'images optimisé avec support Rust optionnel"""
 
@@ -19,11 +20,18 @@ class FastImageProcessor:
         # Tenter d'importer le module Rust
         try:
             # Ajouter le chemin du module Rust compilé
-            rust_path = os.path.join(os.path.dirname(__file__), "..", "rust_image_processor", "target", "release")
+            rust_path = os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "rust_image_processor",
+                "target",
+                "release",
+            )
             if rust_path not in sys.path:
                 sys.path.insert(0, rust_path)
 
             import rust_image_processor
+
             self.rust_module = rust_image_processor
             self.rust_available = True
             print("🚀 Processeur Rust activé - Performance optimale")
@@ -31,7 +39,9 @@ class FastImageProcessor:
         except ImportError:
             print("⚡ Processeur Python (PIL) - Performance standard")
 
-    def create_thumbnail(self, image_path: str, width: int = 150, height: int = 150) -> Optional[bytes]:
+    def create_thumbnail(
+        self, image_path: str, width: int = 150, height: int = 150
+    ) -> Optional[bytes]:
         """Créer une miniature optimisée
 
         Args:
@@ -51,7 +61,9 @@ class FastImageProcessor:
         # Fallback sur PIL
         return self._create_thumbnail_pil(image_path, width, height)
 
-    def _create_thumbnail_pil(self, image_path: str, width: int, height: int) -> Optional[bytes]:
+    def _create_thumbnail_pil(
+        self, image_path: str, width: int, height: int
+    ) -> Optional[bytes]:
         """Créer une miniature avec PIL (fallback)"""
         try:
             with Image.open(image_path) as img:
@@ -60,8 +72,9 @@ class FastImageProcessor:
 
                 # Convertir en bytes
                 import io
+
                 buffer = io.BytesIO()
-                img.save(buffer, format='PNG')
+                img.save(buffer, format="PNG")
                 return buffer.getvalue()
 
         except Exception as e:
@@ -120,12 +133,20 @@ class FastImageProcessor:
         return {
             "rust_available": self.rust_available,
             "backend": "Rust" if self.rust_available else "PIL (Python)",
-            "estimated_speed": "5-10x plus rapide" if self.rust_available else "Standard",
-            "recommended_action": "Aucune" if self.rust_available else "Installer Rust pour de meilleures performances"
+            "estimated_speed": (
+                "5-10x plus rapide" if self.rust_available else "Standard"
+            ),
+            "recommended_action": (
+                "Aucune"
+                if self.rust_available
+                else "Installer Rust pour de meilleures performances"
+            ),
         }
+
 
 # Instance globale pour réutilisation
 _processor_instance = None
+
 
 def get_image_processor() -> FastImageProcessor:
     """Obtenir l'instance globale du processeur d'images"""
@@ -134,14 +155,19 @@ def get_image_processor() -> FastImageProcessor:
         _processor_instance = FastImageProcessor()
     return _processor_instance
 
+
 # Fonctions de commodité
-def create_thumbnail_fast(image_path: str, width: int = 150, height: int = 150) -> Optional[bytes]:
+def create_thumbnail_fast(
+    image_path: str, width: int = 150, height: int = 150
+) -> Optional[bytes]:
     """Créer une miniature rapidement"""
     return get_image_processor().create_thumbnail(image_path, width, height)
+
 
 def get_image_dimensions_fast(image_path: str) -> Optional[Tuple[int, int]]:
     """Obtenir les dimensions rapidement"""
     return get_image_processor().get_dimensions(image_path)
+
 
 def calculate_image_hash_fast(image_path: str) -> str:
     """Calculer le hash rapidement"""

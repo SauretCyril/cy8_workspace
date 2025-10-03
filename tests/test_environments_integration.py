@@ -5,7 +5,8 @@ import sys
 import tempfile
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def test_environments_integration():
     """Test d'intégration du tableau des environnements"""
@@ -17,7 +18,7 @@ def test_environments_integration():
         from cy8_database_manager import cy8_database_manager
 
         # Créer une base temporaire
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp_file:
             temp_db_path = tmp_file.name
 
         # Initialiser la base
@@ -45,12 +46,26 @@ def test_environments_integration():
         # Ajout de résultats d'analyse
         test_results = [
             ("comfyui.log", "INFO", "Normal", "Démarrage de ComfyUI", "Version 1.0"),
-            ("comfyui.log", "WARNING", "Attention", "Modèle introuvable", "model.safetensors manquant"),
-            ("comfyui.log", "ERROR", "Erreur", "Module manquant", "custom_nodes non installé"),
+            (
+                "comfyui.log",
+                "WARNING",
+                "Attention",
+                "Modèle introuvable",
+                "model.safetensors manquant",
+            ),
+            (
+                "comfyui.log",
+                "ERROR",
+                "Erreur",
+                "Module manquant",
+                "custom_nodes non installé",
+            ),
         ]
 
         for fichier, type_result, niveau, message, details in test_results:
-            db_manager.add_analysis_result(test_env, fichier, type_result, niveau, message, details)
+            db_manager.add_analysis_result(
+                test_env, fichier, type_result, niveau, message, details
+            )
 
         print(f"  ✅ {len(test_results)} résultats d'analyse ajoutés")
 
@@ -59,12 +74,23 @@ def test_environments_integration():
         print(f"  📊 Résultats récupérés : {len(results)}")
 
         for result in results:
-            result_id, env_id, fichier, type_result, niveau, message, details, timestamp = result
+            (
+                result_id,
+                env_id,
+                fichier,
+                type_result,
+                niveau,
+                message,
+                details,
+                timestamp,
+            ) = result
             print(f"    - {type_result}: {message}")
 
         # Test avec un autre environnement
         test_env2 = "G11_02"
-        db_manager.add_analysis_result(test_env2, "debug.log", "INFO", "Normal", "Test environnement 2", "")
+        db_manager.add_analysis_result(
+            test_env2, "debug.log", "INFO", "Normal", "Test environnement 2", ""
+        )
 
         results_env2 = db_manager.get_analysis_results(test_env2)
         print(f"\n🌍 Environnement {test_env2} : {len(results_env2)} résultats")
@@ -72,7 +98,9 @@ def test_environments_integration():
         # Test de suppression des résultats
         db_manager.clear_analysis_results(test_env)
         results_after_clear = db_manager.get_analysis_results(test_env)
-        print(f"  🗑️ Après suppression {test_env} : {len(results_after_clear)} résultats")
+        print(
+            f"  🗑️ Après suppression {test_env} : {len(results_after_clear)} résultats"
+        )
 
         db_manager.close()
 
@@ -92,7 +120,9 @@ def test_environments_integration():
     except Exception as e:
         print(f"❌ Erreur lors du test : {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_environments_integration()

@@ -15,6 +15,7 @@ from typing import List, Dict, Optional, Tuple
 import threading
 import json
 
+
 class ImageIndexManager:
     """Gestionnaire d'index SQLite pour optimiser l'affichage des images"""
 
@@ -34,7 +35,15 @@ class ImageIndexManager:
 
         # Configuration
         self.thumbnail_size = (150, 150)
-        self.supported_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.webp'}
+        self.supported_extensions = {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".bmp",
+            ".gif",
+            ".tiff",
+            ".webp",
+        }
 
         self._init_database()
 
@@ -45,7 +54,8 @@ class ImageIndexManager:
             self.connection.execute("PRAGMA foreign_keys = ON")
 
             # Table principale pour l'index des images
-            self.connection.execute("""
+            self.connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS image_index (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     file_path TEXT UNIQUE NOT NULL,
@@ -60,18 +70,25 @@ class ImageIndexManager:
                     created_at REAL DEFAULT (julianday('now')),
                     updated_at REAL DEFAULT (julianday('now'))
                 )
-            """)
+            """
+            )
 
             # Index pour optimiser les requêtes
-            self.connection.execute("""
+            self.connection.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_file_path ON image_index(file_path)
-            """)
-            self.connection.execute("""
+            """
+            )
+            self.connection.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_file_mtime ON image_index(file_mtime DESC)
-            """)
-            self.connection.execute("""
+            """
+            )
+            self.connection.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_is_deleted ON image_index(is_deleted)
-            """)
+            """
+            )
 
             self.connection.commit()
             print(f"✅ Index d'images initialisé: {self.db_path}")
@@ -101,8 +118,9 @@ class ImageIndexManager:
 
                 # Convertir en bytes pour stockage
                 import io
+
                 buffer = io.BytesIO()
-                img.save(buffer, format='PNG')
+                img.save(buffer, format="PNG")
                 return buffer.getvalue()
         except Exception as e:
             print(f"Erreur création miniature {image_path}: {e}")
@@ -127,7 +145,7 @@ class ImageIndexManager:
             "updated_files": 0,
             "deleted_files": 0,
             "errors": 0,
-            "scan_time": 0
+            "scan_time": 0,
         }
 
         start_time = time.time()
@@ -152,26 +170,34 @@ class ImageIndexManager:
                     stats["errors"] += 1
 
             # 3. Marquer les fichiers supprimés (non trouvés)
-            cursor = self.connection.execute("""
+            cursor = self.connection.execute(
+                """
                 SELECT file_path FROM image_index
                 WHERE file_path LIKE ? AND is_deleted = 0
-            """, (f"{directory}%",))
+            """,
+                (f"{directory}%",),
+            )
 
             indexed_files = {row[0] for row in cursor.fetchall()}
             deleted_files = indexed_files - current_files
 
             for deleted_file in deleted_files:
-                self.connection.execute("""
+                self.connection.execute(
+                    """
                     UPDATE image_index
                     SET is_deleted = 1, updated_at = julianday('now')
                     WHERE file_path = ?
-                """, (deleted_file,))
+                """,
+                    (deleted_file,),
+                )
                 stats["deleted_files"] += 1
 
             self.connection.commit()
             stats["scan_time"] = time.time() - start_time
 
-            print(f"📊 Scan terminé: {stats['total_files']} fichiers, {stats['new_files']} nouveaux, {stats['updated_files']} mis à jour, {stats['deleted_files']} supprimés en {stats['scan_time']:.2f}s")
+            print(
+                f"📊 Scan terminé: {stats['total_files']} fichiers, {stats['new_files']} nouveaux, {stats['updated_files']} mis à jour, {stats['deleted_files']} supprimés en {stats['scan_time']:.2f}s"
+            )
 
         except Exception as e:
             print(f"❌ Erreur lors du scan: {e}")
@@ -189,15 +215,20 @@ class ImageIndexManager:
             file_name = os.path.basename(file_path)
 
             # Vérifier si le fichier existe déjà dans l'index
-            cursor = self.connection.execute("""
+            cursor = self.connection.execute(
+                """
                 SELECT id, file_mtime, file_hash, thumbnail_data
                 FROM image_index WHERE file_path = ?
-            """, (file_path,))
+            """,
+                (file_path,),
+            )
 
             existing = cursor.fetchone()
 
             if existing and not force_refresh:
-                existing_id, existing_mtime, existing_hash, existing_thumbnail = existing
+                existing_id, existing_mtime, existing_hash, existing_thumbnail = (
+                    existing
+                )
 
                 # Vérifier si le fichier a été modifié
                 if abs(existing_mtime - file_mtime) < 1:  # Tolérance d'1 seconde
@@ -220,33 +251,60 @@ class ImageIndexManager:
 
             if existing:
                 # Mettre à jour l'enregistrement existant
-                self.connection.execute("""
+                self.connection.execute(
+                    """
                     UPDATE image_index SET
                         file_name = ?, file_size = ?, file_mtime = ?,
                         file_hash = ?, width = ?, height = ?,
                         thumbnail_data = ?, is_deleted = 0,
                         updated_at = julianday('now')
                     WHERE file_path = ?
-                """, (file_name, file_size, file_mtime, file_hash,
-                     width, height, thumbnail_data, file_path))
+                """,
+                    (
+                        file_name,
+                        file_size,
+                        file_mtime,
+                        file_hash,
+                        width,
+                        height,
+                        thumbnail_data,
+                        file_path,
+                    ),
+                )
                 stats["updated_files"] += 1
             else:
                 # Créer un nouvel enregistrement
-                self.connection.execute("""
+                self.connection.execute(
+                    """
                     INSERT INTO image_index
                     (file_path, file_name, file_size, file_mtime, file_hash,
                      width, height, thumbnail_data, is_deleted)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-                """, (file_path, file_name, file_size, file_mtime, file_hash,
-                     width, height, thumbnail_data))
+                """,
+                    (
+                        file_path,
+                        file_name,
+                        file_size,
+                        file_mtime,
+                        file_hash,
+                        width,
+                        height,
+                        thumbnail_data,
+                    ),
+                )
                 stats["new_files"] += 1
 
         except Exception as e:
             print(f"❌ Erreur traitement {file_path}: {e}")
             raise
 
-    def get_images(self, directory: str, include_deleted: bool = False,
-                   limit: int = None, offset: int = 0) -> List[Dict]:
+    def get_images(
+        self,
+        directory: str,
+        include_deleted: bool = False,
+        limit: int = None,
+        offset: int = 0,
+    ) -> List[Dict]:
         """Récupérer la liste des images indexées
 
         Args:
@@ -280,19 +338,29 @@ class ImageIndexManager:
 
             images = []
             for row in cursor.fetchall():
-                (file_path, file_name, file_size, file_mtime,
-                 width, height, is_deleted, thumbnail_data) = row
+                (
+                    file_path,
+                    file_name,
+                    file_size,
+                    file_mtime,
+                    width,
+                    height,
+                    is_deleted,
+                    thumbnail_data,
+                ) = row
 
-                images.append({
-                    "file_path": file_path,
-                    "file_name": file_name,
-                    "file_size": file_size,
-                    "file_mtime": file_mtime,
-                    "width": width,
-                    "height": height,
-                    "is_deleted": bool(is_deleted),
-                    "thumbnail_data": thumbnail_data
-                })
+                images.append(
+                    {
+                        "file_path": file_path,
+                        "file_name": file_name,
+                        "file_size": file_size,
+                        "file_mtime": file_mtime,
+                        "width": width,
+                        "height": height,
+                        "is_deleted": bool(is_deleted),
+                        "thumbnail_data": thumbnail_data,
+                    }
+                )
 
             return images
 
@@ -314,10 +382,13 @@ class ImageIndexManager:
             return self.thumbnail_cache[file_path]
 
         try:
-            cursor = self.connection.execute("""
+            cursor = self.connection.execute(
+                """
                 SELECT thumbnail_data, is_deleted FROM image_index
                 WHERE file_path = ?
-            """, (file_path,))
+            """,
+                (file_path,),
+            )
 
             result = cursor.fetchone()
             if not result:
@@ -332,6 +403,7 @@ class ImageIndexManager:
             if thumbnail_data:
                 # Convertir les bytes en PhotoImage
                 import io
+
                 image = Image.open(io.BytesIO(thumbnail_data))
                 photo = ImageTk.PhotoImage(image)
 
@@ -348,18 +420,31 @@ class ImageIndexManager:
         """Créer une icône de corbeille pour les images supprimées"""
         try:
             # Créer une image simple de corbeille
-            img = Image.new('RGBA', self.thumbnail_size, (240, 240, 240, 255))
+            img = Image.new("RGBA", self.thumbnail_size, (240, 240, 240, 255))
 
             # Dessiner une corbeille simple (rectangle avec couvercle)
             from PIL import ImageDraw
+
             draw = ImageDraw.Draw(img)
 
             # Fond gris clair
-            draw.rectangle([10, 10, 140, 140], fill=(220, 220, 220, 255), outline=(180, 180, 180, 255))
+            draw.rectangle(
+                [10, 10, 140, 140],
+                fill=(220, 220, 220, 255),
+                outline=(180, 180, 180, 255),
+            )
 
             # Corbeille
-            draw.rectangle([40, 60, 110, 120], fill=(160, 160, 160, 255), outline=(100, 100, 100, 255))
-            draw.rectangle([35, 50, 115, 65], fill=(160, 160, 160, 255), outline=(100, 100, 100, 255))
+            draw.rectangle(
+                [40, 60, 110, 120],
+                fill=(160, 160, 160, 255),
+                outline=(100, 100, 100, 255),
+            )
+            draw.rectangle(
+                [35, 50, 115, 65],
+                fill=(160, 160, 160, 255),
+                outline=(100, 100, 100, 255),
+            )
 
             # Symbole suppression
             draw.line([50, 70, 50, 110], fill=(100, 100, 100, 255), width=2)
@@ -380,11 +465,14 @@ class ImageIndexManager:
             file_path: Chemin vers l'image à marquer
         """
         try:
-            self.connection.execute("""
+            self.connection.execute(
+                """
                 UPDATE image_index
                 SET is_deleted = 1, updated_at = julianday('now')
                 WHERE file_path = ?
-            """, (file_path,))
+            """,
+                (file_path,),
+            )
             self.connection.commit()
 
             # Supprimer du cache mémoire
@@ -405,11 +493,14 @@ class ImageIndexManager:
         try:
             # Vérifier que le fichier existe toujours
             if os.path.exists(file_path):
-                self.connection.execute("""
+                self.connection.execute(
+                    """
                     UPDATE image_index
                     SET is_deleted = 0, updated_at = julianday('now')
                     WHERE file_path = ?
-                """, (file_path,))
+                """,
+                    (file_path,),
+                )
                 self.connection.commit()
 
                 # Supprimer du cache pour forcer le rechargement
@@ -431,14 +522,16 @@ class ImageIndexManager:
     def get_stats(self) -> Dict:
         """Obtenir les statistiques de l'index"""
         try:
-            cursor = self.connection.execute("""
+            cursor = self.connection.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     COUNT(CASE WHEN is_deleted = 0 THEN 1 END) as active,
                     COUNT(CASE WHEN is_deleted = 1 THEN 1 END) as deleted,
                     SUM(file_size) as total_size
                 FROM image_index
-            """)
+            """
+            )
 
             total, active, deleted, total_size = cursor.fetchone()
 
@@ -447,7 +540,7 @@ class ImageIndexManager:
                 "active_images": active or 0,
                 "deleted_images": deleted or 0,
                 "total_size_mb": round((total_size or 0) / (1024 * 1024), 2),
-                "cache_size": len(self.thumbnail_cache)
+                "cache_size": len(self.thumbnail_cache),
             }
 
         except Exception as e:

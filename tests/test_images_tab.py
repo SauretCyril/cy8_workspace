@@ -76,7 +76,9 @@ def test_prompt_image_database():
         print(f"✓ {len(retrieved_images)} images récupérées de la base")
 
         # Vérifier les données récupérées
-        for i, (image_id, image_path, environment_id, created_at) in enumerate(retrieved_images):
+        for i, (image_id, image_path, environment_id, created_at) in enumerate(
+            retrieved_images
+        ):
             assert os.path.basename(image_path) in [
                 os.path.basename(p) for p in test_images
             ], f"Image inattendue: {image_path}"

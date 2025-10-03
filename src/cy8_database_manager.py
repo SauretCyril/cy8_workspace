@@ -873,7 +873,9 @@ class cy8_database_manager:
             print(f"Erreur lors de l'effacement des résultats d'analyse : {e}")
             return False
 
-    def add_analysis_result(self, environment_id, fichier, type_result, niveau, message, details=""):
+    def add_analysis_result(
+        self, environment_id, fichier, type_result, niveau, message, details=""
+    ):
         """Ajouter un résultat d'analyse"""
         try:
             self.cursor.execute(

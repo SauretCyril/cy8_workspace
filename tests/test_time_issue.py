@@ -53,7 +53,9 @@ def test_basic_database_operations():
         print(f"✓ Images récupérées: {len(images)}")
 
         for image_id, image_path, environment_id, created_at in images:
-            print(f"  - Image: ID={image_id}, Path={image_path}, Env={environment_id}, Date={created_at}")
+            print(
+                f"  - Image: ID={image_id}, Path={image_path}, Env={environment_id}, Date={created_at}"
+            )
             print(f"  - test time.time() après boucle: {time.time()}")
 
         print("✓ Test terminé avec succès")

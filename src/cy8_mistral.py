@@ -143,7 +143,7 @@ Généré automatiquement par cy8_prompts_manager avec Mistral AI
 """
 
         # Écrire le fichier
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
         print(f"Solution sauvegardée: {filepath}")
@@ -172,7 +172,7 @@ def load_error_solution(timestamp, solutions_dir):
         filepath = os.path.join(solutions_dir, filename)
 
         if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
             print(f"Solution chargée: {filepath}")
             return content
@@ -203,7 +203,9 @@ def analyze_comfyui_log_complete(log_content, question, role):
         max_chars = 50000  # Limite raisonnable pour l'API
         if len(log_content) > max_chars:
             print(f"Log tronqué de {len(log_content)} à {max_chars} caractères")
-            log_content = log_content[-max_chars:]  # Prendre la fin du log (plus récent)
+            log_content = log_content[
+                -max_chars:
+            ]  # Prendre la fin du log (plus récent)
             log_content = "[...LOG TRONQUÉ...]\n" + log_content
 
         # Améliorer le contexte pour l'analyse complète

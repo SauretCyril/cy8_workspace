@@ -15,6 +15,7 @@ from urllib.parse import urljoin
 # Import conditionnel de safetensors (optionnel)
 try:
     from safetensors.torch import safe_open
+
     SAFETENSORS_AVAILABLE = True
 except ImportError:
     SAFETENSORS_AVAILABLE = False
@@ -143,7 +144,7 @@ class ComfyUICustomNodeCaller:
                         "source": ["1", 0],  # Prendre la sortie STRING du node 1
                     },
                     "_meta": {"title": "Preview Extra Paths"},
-                }
+                },
             }
         else:
             # Workflow générique avec PreviewAny (nœud de sortie universel)
@@ -199,7 +200,9 @@ class ComfyUICustomNodeCaller:
             if response.status_code == 400:
                 try:
                     error_details = response.json()
-                    print(f"❌ Erreur 400 détaillée: {json.dumps(error_details, indent=2)}")
+                    print(
+                        f"❌ Erreur 400 détaillée: {json.dumps(error_details, indent=2)}"
+                    )
                     raise Exception(f"Erreur 400 - Workflow invalide: {error_details}")
                 except ValueError:
                     print(f"❌ Erreur 400 - Réponse: {response.text}")
@@ -210,7 +213,7 @@ class ComfyUICustomNodeCaller:
 
         except requests.exceptions.RequestException as e:
             print(f"❌ Erreur de requête: {e}")
-            if hasattr(e, 'response') and e.response is not None:
+            if hasattr(e, "response") and e.response is not None:
                 print(f"❌ Statut: {e.response.status_code}")
                 print(f"❌ Contenu: {e.response.text}")
             raise Exception(f"Erreur lors de l'exécution du workflow: {e}")
@@ -244,56 +247,38 @@ class ComfyUICustomNodeCaller:
             {
                 "name": "SaveText output",
                 "workflow": {
-                    "1": {
-                        "class_type": "ExtraPathReader",
-                        "inputs": {}
-                    },
+                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
                     "2": {
                         "class_type": "SaveText",
-                        "inputs": {
-                            "text": ["1", 0],
-                            "filename_prefix": "extra_paths"
-                        }
-                    }
-                }
+                        "inputs": {"text": ["1", 0], "filename_prefix": "extra_paths"},
+                    },
+                },
             },
             # Test 2: Avec PreviewText (si disponible)
             {
                 "name": "PreviewText output",
                 "workflow": {
-                    "1": {
-                        "class_type": "ExtraPathReader",
-                        "inputs": {}
-                    },
-                    "2": {
-                        "class_type": "PreviewText",
-                        "inputs": {"text": ["1", 0]}
-                    }
-                }
+                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
+                    "2": {"class_type": "PreviewText", "inputs": {"text": ["1", 0]}},
+                },
             },
             # Test 3: Avec CLIPTextEncode (toujours disponible)
             {
                 "name": "CLIPTextEncode output",
                 "workflow": {
-                    "1": {
-                        "class_type": "ExtraPathReader",
-                        "inputs": {}
-                    },
+                    "1": {"class_type": "ExtraPathReader", "inputs": {}},
                     "2": {
                         "class_type": "CLIPTextEncode",
-                        "inputs": {
-                            "text": ["1", 0],
-                            "clip": ["3", 0]
-                        }
+                        "inputs": {"text": ["1", 0], "clip": ["3", 0]},
                     },
                     "3": {
                         "class_type": "CheckpointLoaderSimple",
                         "inputs": {
                             "ckpt_name": "v1-5-pruned-emaonly.ckpt"  # Modèle standard
-                        }
-                    }
-                }
-            }
+                        },
+                    },
+                },
+            },
         ]
 
         for test in workflows_to_test:
@@ -302,10 +287,7 @@ class ComfyUICustomNodeCaller:
                 workflow = test["workflow"]
 
                 # Préparer le payload
-                payload = {
-                    "prompt": workflow,
-                    "client_id": "cy8_test_client"
-                }
+                payload = {"prompt": workflow, "client_id": "cy8_test_client"}
 
                 # Envoyer la requête
                 url = urljoin(self.server_url, "/prompt")
@@ -320,12 +302,14 @@ class ComfyUICustomNodeCaller:
                         "error": False,
                         "result": result,
                         "workflow_used": workflow,
-                        "method": test['name']
+                        "method": test["name"],
                     }
                 else:
                     try:
                         error_details = response.json()
-                        print(f"❌ Erreur: {error_details.get('error', {}).get('message', 'Unknown')}")
+                        print(
+                            f"❌ Erreur: {error_details.get('error', {}).get('message', 'Unknown')}"
+                        )
                     except:
                         print(f"❌ Erreur HTTP: {response.text}")
 
@@ -337,7 +321,7 @@ class ComfyUICustomNodeCaller:
         return {
             "error": True,
             "message": "Tous les workflows testés ont échoué",
-            "workflows_tested": [t["name"] for t in workflows_to_test]
+            "workflows_tested": [t["name"] for t in workflows_to_test],
         }
 
     def get_extra_paths(self) -> Dict[str, Any]:
@@ -351,13 +335,14 @@ class ComfyUICustomNodeCaller:
             print("🗂️  Récupération des chemins extra via ExtraPathReader...")
 
             # Exécuter ExtraPathReader
-            result = self.call_custom_node('ExtraPathReader', {})
+            result = self.call_custom_node("ExtraPathReader", {})
 
-            if 'prompt_id' in result:
-                prompt_id = result['prompt_id']
+            if "prompt_id" in result:
+                prompt_id = result["prompt_id"]
 
                 # Attendre l'exécution
                 import time
+
                 time.sleep(2)
 
                 # Récupérer l'historique
@@ -370,46 +355,41 @@ class ComfyUICustomNodeCaller:
                     if prompt_id in history:
                         prompt_data = history[prompt_id]
 
-                        if 'outputs' in prompt_data and '2' in prompt_data['outputs']:
+                        if "outputs" in prompt_data and "2" in prompt_data["outputs"]:
                             # Extraire le texte JSON du nœud PreviewAny
-                            output_text = prompt_data['outputs']['2']['text'][0]
+                            output_text = prompt_data["outputs"]["2"]["text"][0]
 
                             # Parser le JSON
                             import json
+
                             paths_data = json.loads(output_text)
 
                             print("✅ Chemins extra récupérés avec succès")
-                            return {
-                                "error": False,
-                                "data": paths_data
-                            }
+                            return {"error": False, "data": paths_data}
                         else:
                             return {
                                 "error": True,
-                                "message": "Pas de sortie dans l'historique"
+                                "message": "Pas de sortie dans l'historique",
                             }
                     else:
                         return {
                             "error": True,
-                            "message": "Prompt ID non trouvé dans l'historique"
+                            "message": "Prompt ID non trouvé dans l'historique",
                         }
                 else:
                     return {
                         "error": True,
-                        "message": f"Erreur récupération historique: {response.status_code}"
+                        "message": f"Erreur récupération historique: {response.status_code}",
                     }
             else:
                 return {
                     "error": True,
                     "message": "Pas de prompt_id dans la réponse",
-                    "response": result
+                    "response": result,
                 }
 
         except Exception as e:
-            return {
-                "error": True,
-                "message": f"Exception lors de la récupération: {e}"
-            }
+            return {"error": True, "message": f"Exception lors de la récupération: {e}"}
 
     def get_custom_node_schema(self, node_type: str) -> Optional[Dict[str, Any]]:
         """

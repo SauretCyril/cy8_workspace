@@ -93,6 +93,7 @@ PRÉVENTION:
         # Nettoyer le répertoire de test
         try:
             import shutil
+
             if os.path.exists(test_solutions_dir):
                 shutil.rmtree(test_solutions_dir)
                 print("🧹 Répertoire de test nettoyé")
@@ -116,12 +117,12 @@ def test_interface_integration():
 
         # Vérifier que les nouvelles méthodes existent
         required_methods = [
-            'browse_solutions_directory',
-            'display_cached_solution',
-            'display_new_solution',
-            'get_new_ai_solution',
-            'save_current_solution',
-            'open_solutions_folder'
+            "browse_solutions_directory",
+            "display_cached_solution",
+            "display_new_solution",
+            "get_new_ai_solution",
+            "save_current_solution",
+            "open_solutions_folder",
         ]
 
         missing_methods = []
@@ -136,7 +137,7 @@ def test_interface_integration():
             print("✅ Toutes les méthodes nécessaires présentes")
 
         # Vérifier que la variable du répertoire existe
-        if hasattr(app, 'error_solutions_dir'):
+        if hasattr(app, "error_solutions_dir"):
             print("✅ Variable error_solutions_dir présente")
             default_dir = app.error_solutions_dir.get()
             print(f"   📁 Répertoire par défaut: {default_dir}")
@@ -146,7 +147,7 @@ def test_interface_integration():
 
         # Vérifier les préférences
         prefs_info = app.user_prefs.get_preferences_info()
-        if 'error_solutions_directory' in prefs_info:
+        if "error_solutions_directory" in prefs_info:
             print("✅ Préférence error_solutions_directory configurée")
             print(f"   📁 Valeur: {prefs_info['error_solutions_directory']}")
         else:
@@ -158,6 +159,7 @@ def test_interface_integration():
     except Exception as e:
         print(f"❌ Erreur d'intégration: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -172,7 +174,7 @@ def test_filename_generation():
         "2025-09-28 14:30:26.45",
         "2025-09-28 14:30:27.789",
         "2025-09-28 14:30:28.00",
-        "Invalid timestamp with spaces"
+        "Invalid timestamp with spaces",
     ]
 
     for timestamp in test_timestamps:

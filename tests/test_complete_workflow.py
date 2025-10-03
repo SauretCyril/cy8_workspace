@@ -42,7 +42,7 @@ def test_complete_error_solution_workflow():
         test_log_file = "test_complete_log.txt"
 
         # Écrire le fichier de test
-        with open(test_log_file, 'w', encoding='utf-8') as f:
+        with open(test_log_file, "w", encoding="utf-8") as f:
             f.write(test_log_content)
 
         print(f"📄 Fichier de log créé: {test_log_file}")
@@ -61,7 +61,7 @@ def test_complete_error_solution_workflow():
         app.analyze_comfyui_log()
 
         # Vérifier les résultats
-        if hasattr(app, 'log_results_tree'):
+        if hasattr(app, "log_results_tree"):
             items = app.log_results_tree.get_children()
             print(f"📊 {len(items)} éléments trouvés dans le tableau")
 
@@ -73,7 +73,7 @@ def test_complete_error_solution_workflow():
             error_items = []
 
             for item in items:
-                values = app.log_results_tree.item(item)['values']
+                values = app.log_results_tree.item(item)["values"]
                 if values and len(values) > 1:
                     error_type = values[1]  # type est en position 1 après timestamp
                     if error_type == "ERREUR":
@@ -92,7 +92,9 @@ def test_complete_error_solution_workflow():
             # Simuler le double-clic sur chaque erreur pour tester le cache
             print("🖱️  Simulation du double-clic sur les erreurs:")
 
-            for i, (item, values) in enumerate(error_items[:3], 1):  # Tester les 3 premières erreurs
+            for i, (item, values) in enumerate(
+                error_items[:3], 1
+            ):  # Tester les 3 premières erreurs
                 timestamp = values[0]
                 error_type = values[1]
                 message = values[4] if len(values) > 4 else "N/A"
@@ -137,9 +139,13 @@ PRÉVENTION:
 Solution générée automatiquement le {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
 
-                    saved_path = save_error_solution(timestamp, message, mock_solution, solutions_dir)
+                    saved_path = save_error_solution(
+                        timestamp, message, mock_solution, solutions_dir
+                    )
                     if saved_path:
-                        print(f"      ✅ Solution créée: {os.path.basename(saved_path)}")
+                        print(
+                            f"      ✅ Solution créée: {os.path.basename(saved_path)}"
+                        )
                     else:
                         print(f"      ❌ Échec création solution")
                 else:
@@ -151,7 +157,9 @@ Solution générée automatiquement le {datetime.now().strftime('%Y-%m-%d %H:%M:
 
             # Vérifier le contenu du répertoire des solutions
             if os.path.exists(solutions_dir):
-                solution_files = [f for f in os.listdir(solutions_dir) if f.endswith('.txt')]
+                solution_files = [
+                    f for f in os.listdir(solutions_dir) if f.endswith(".txt")
+                ]
                 print(f"📁 {len(solution_files)} fichiers de solutions créés:")
                 for solution_file in solution_files:
                     print(f"   📄 {solution_file}")
@@ -165,6 +173,7 @@ Solution générée automatiquement le {datetime.now().strftime('%Y-%m-%d %H:%M:
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -176,6 +185,7 @@ Solution générée automatiquement le {datetime.now().strftime('%Y-%m-%d %H:%M:
 
             # Nettoyer le répertoire des solutions
             import shutil
+
             if os.path.exists(solutions_dir):
                 shutil.rmtree(solutions_dir)
                 print("🧹 Répertoire des solutions test supprimé")
@@ -190,11 +200,17 @@ def test_mistral_integration_ready():
 
     try:
         # Vérifier les imports
-        from cy8_mistral import analyze_comfyui_error, save_error_solution, load_error_solution
+        from cy8_mistral import (
+            analyze_comfyui_error,
+            save_error_solution,
+            load_error_solution,
+        )
+
         print("✅ Imports Mistral OK")
 
         # Vérifier les variables d'environnement
         from dotenv import load_dotenv
+
         load_dotenv()
 
         api_key = os.getenv("MISTRAL_API_KEY")
@@ -203,7 +219,9 @@ def test_mistral_integration_ready():
             print(f"   🔑 Clé: ...{api_key[-6:] if len(api_key) > 6 else 'courte'}")
         else:
             print("⚠️  Clé API Mistral non configurée")
-            print("   💡 Ajoutez MISTRAL_API_KEY dans votre fichier .env pour utiliser l'IA")
+            print(
+                "   💡 Ajoutez MISTRAL_API_KEY dans votre fichier .env pour utiliser l'IA"
+            )
 
         # Vérifier l'interface
         from cy8_prompts_manager_main import cy8_prompts_manager

@@ -11,6 +11,7 @@ from pathlib import Path
 # Ajouter le répertoire src au path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+
 def test_mistral_popup():
     """Test de la popup d'analyse Mistral AI avec question modifiable"""
 
@@ -22,7 +23,7 @@ def test_mistral_popup():
         import tempfile
 
         # Créer une base de données temporaire
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as temp_db:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_db:
             temp_db_path = temp_db.name
 
         # Créer une instance du gestionnaire avec la DB temporaire
@@ -35,7 +36,9 @@ def test_mistral_popup():
         app = cy8_prompts_manager(root, db_manager)
 
         # Définir un chemin de log de test (créer un fichier temporaire)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False, encoding='utf-8') as temp_log:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", delete=False, encoding="utf-8"
+        ) as temp_log:
             temp_log.write("Test log content\n[ERROR] Test error message\n")
             temp_log_path = temp_log.name
 
@@ -51,12 +54,16 @@ def test_mistral_popup():
 
         print("✅ La popup devrait être ouverte avec :")
         print("   • Zone de question modifiable en haut")
-        print("   • Question par défaut : 'Proposes moi des solutions pour les erreurs dans le fichier log'")
+        print(
+            "   • Question par défaut : 'Proposes moi des solutions pour les erreurs dans le fichier log'"
+        )
         print("   • Zone d'analyse en bas")
         print("   • Bouton 'Lancer l'analyse' utilisant la question modifiée")
 
         # Lancer la boucle principale pour voir la popup
-        print("\n🖱️  Vous pouvez maintenant tester la popup. Fermez-la pour continuer...")
+        print(
+            "\n🖱️  Vous pouvez maintenant tester la popup. Fermez-la pour continuer..."
+        )
         root.mainloop()
 
         # Nettoyer les fichiers temporaires
@@ -72,7 +79,9 @@ def test_mistral_popup():
     except Exception as e:
         print(f"❌ Erreur pendant le test : {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_mistral_popup()

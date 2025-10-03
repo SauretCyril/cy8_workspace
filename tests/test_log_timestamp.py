@@ -28,7 +28,7 @@ def test_timestamp_extraction():
         "2025-09-28 14:30:28 CUSTOM NODE: ExtraPathReader loaded",
         "14:30:29.123 ERROR: Import failed",
         "14:30:30 WARNING: Deprecated function",
-        "Une ligne sans timestamp ERROR: Test"
+        "Une ligne sans timestamp ERROR: Test",
     ]
 
     print("📋 Test d'extraction sur différents formats:")
@@ -61,7 +61,7 @@ def test_log_analysis_with_timestamps():
 
     try:
         # Écrire le fichier de test
-        with open(test_log_file, 'w', encoding='utf-8') as f:
+        with open(test_log_file, "w", encoding="utf-8") as f:
             f.write(test_log_content)
 
         # Analyser le fichier
@@ -76,11 +76,15 @@ def test_log_analysis_with_timestamps():
 
             print(f"📋 {len(entries)} entrées trouvées:")
             for entry in entries:
-                print(f"   🕐 {entry.get('timestamp', 'N/A')} - {entry['type']} - {entry['message'][:50]}...")
+                print(
+                    f"   🕐 {entry.get('timestamp', 'N/A')} - {entry['type']} - {entry['message'][:50]}..."
+                )
 
             # Vérifier que toutes les entrées ont un timestamp
-            entries_with_timestamp = [e for e in entries if e.get('timestamp') != 'N/A']
-            print(f"✅ {len(entries_with_timestamp)}/{len(entries)} entrées avec timestamp")
+            entries_with_timestamp = [e for e in entries if e.get("timestamp") != "N/A"]
+            print(
+                f"✅ {len(entries_with_timestamp)}/{len(entries)} entrées avec timestamp"
+            )
 
             return True
         else:
@@ -111,11 +115,11 @@ def test_interface_integration():
         app = cy8_prompts_manager()
 
         # Vérifier la configuration des colonnes du log
-        if hasattr(app, 'log_results_tree'):
-            columns = app.log_results_tree['columns']
+        if hasattr(app, "log_results_tree"):
+            columns = app.log_results_tree["columns"]
             print(f"📋 Colonnes du tableau: {columns}")
 
-            if 'timestamp' in columns:
+            if "timestamp" in columns:
                 print("✅ Colonne timestamp présente")
                 return True
             else:

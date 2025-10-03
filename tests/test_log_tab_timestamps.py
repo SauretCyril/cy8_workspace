@@ -40,7 +40,7 @@ Une ligne sans timestamp ERROR: Unexpected error occurred
         test_log_file = "test_log_with_timestamps.txt"
 
         # Écrire le fichier de test
-        with open(test_log_file, 'w', encoding='utf-8') as f:
+        with open(test_log_file, "w", encoding="utf-8") as f:
             f.write(test_log_content)
 
         print(f"📄 Fichier de log créé: {test_log_file}")
@@ -53,30 +53,34 @@ Une ligne sans timestamp ERROR: Unexpected error occurred
         app.analyze_comfyui_log()
 
         # Vérifier les résultats dans le TreeView
-        if hasattr(app, 'log_results_tree'):
+        if hasattr(app, "log_results_tree"):
             items = app.log_results_tree.get_children()
             print(f"📊 {len(items)} éléments dans le tableau")
 
             if items:
                 print("📋 Aperçu des premières entrées avec timestamps:")
                 for i, item in enumerate(items[:5]):  # Afficher les 5 premiers
-                    values = app.log_results_tree.item(item)['values']
+                    values = app.log_results_tree.item(item)["values"]
                     if values:
                         timestamp = values[0] if len(values) > 0 else "N/A"
                         type_entry = values[1] if len(values) > 1 else "N/A"
                         message = values[4] if len(values) > 4 else "N/A"
-                        print(f"   {i+1}. 🕐 {timestamp} - {type_entry} - {message[:50]}...")
+                        print(
+                            f"   {i+1}. 🕐 {timestamp} - {type_entry} - {message[:50]}..."
+                        )
 
                 # Vérifier que tous les éléments ont un timestamp valide
                 timestamps_with_data = 0
                 for item in items:
-                    values = app.log_results_tree.item(item)['values']
+                    values = app.log_results_tree.item(item)["values"]
                     if values and len(values) > 0:
                         timestamp = values[0]
                         if timestamp != "N/A" and timestamp:
                             timestamps_with_data += 1
 
-                print(f"✅ {timestamps_with_data}/{len(items)} éléments avec timestamp valide")
+                print(
+                    f"✅ {timestamps_with_data}/{len(items)} éléments avec timestamp valide"
+                )
 
                 if timestamps_with_data >= len(items) * 0.8:  # Au moins 80%
                     print("🎉 Timestamps correctement intégrés !")
@@ -94,6 +98,7 @@ Une ligne sans timestamp ERROR: Unexpected error occurred
     except Exception as e:
         print(f"❌ Erreur pendant le test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -129,7 +134,9 @@ def test_timestamp_formatting():
 
         for i, case in enumerate(test_cases, 1):
             timestamp = analyzer._extract_timestamp(case)
-            is_valid = timestamp != "N/A" and len(timestamp) >= 19  # Format minimal: YYYY-MM-DD HH:MM:SS
+            is_valid = (
+                timestamp != "N/A" and len(timestamp) >= 19
+            )  # Format minimal: YYYY-MM-DD HH:MM:SS
 
             print(f"   {i}. {case[:40]}...")
             print(f"      → {timestamp} {'✅' if is_valid else '⚠️'}")

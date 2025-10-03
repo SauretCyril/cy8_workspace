@@ -193,24 +193,24 @@ class cy8_log_analyzer:
             if match:
                 timestamp_str = match.group(1)
                 # Si c'est juste l'heure, ajouter la date actuelle
-                if not timestamp_str.startswith('20'):
-                    current_date = datetime.now().strftime('%Y-%m-%d')
+                if not timestamp_str.startswith("20"):
+                    current_date = datetime.now().strftime("%Y-%m-%d")
                     timestamp_str = f"{current_date} {timestamp_str}"
 
                 # S'assurer que le timestamp a des centièmes
-                if '.' not in timestamp_str:
+                if "." not in timestamp_str:
                     timestamp_str += ".00"
-                elif len(timestamp_str.split('.')[-1]) == 1:
+                elif len(timestamp_str.split(".")[-1]) == 1:
                     timestamp_str += "0"
-                elif len(timestamp_str.split('.')[-1]) > 3:
+                elif len(timestamp_str.split(".")[-1]) > 3:
                     # Tronquer à 2 décimales pour les centièmes
-                    parts = timestamp_str.split('.')
+                    parts = timestamp_str.split(".")
                     timestamp_str = f"{parts[0]}.{parts[1][:2]}"
 
                 return timestamp_str
 
         # Si aucun timestamp trouvé, générer un timestamp par défaut
-        return datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-4]
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
 
     def _extract_config_id(self, line: str) -> Optional[str]:
         """

@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 # Import conditionnel de safetensors (optionnel)
 try:
     from safetensors.torch import safe_open
+
     SAFETENSORS_AVAILABLE = True
 except ImportError:
     SAFETENSORS_AVAILABLE = False
@@ -60,7 +61,9 @@ class cy8_prompts_manager:
         # Gestionnaire d'index d'images optimisé
         self.image_index = ImageIndexManager()
         self.fast_processor = get_image_processor()
-        print(f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}")
+        print(
+            f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}"
+        )
 
         # Connecter le callback de sauvegarde
         self.table_manager.set_save_callback(self.save_current_info)
@@ -1725,7 +1728,7 @@ class cy8_prompts_manager:
             self.gallery_context_frame,
             text="",
             font=("TkDefaultFont", 10, "bold"),
-            foreground="blue"
+            foreground="blue",
         )
         self.gallery_selected_label.pack(side="left")
 
@@ -1797,7 +1800,9 @@ class cy8_prompts_manager:
         # Bind scroll de la souris
         self.gallery_canvas.bind_all(
             "<MouseWheel>",
-            lambda e: self.gallery_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+            lambda e: self.gallery_canvas.yview_scroll(
+                int(-1 * (e.delta / 120)), "units"
+            ),
         )
 
         # Variables pour la galerie
@@ -1812,7 +1817,7 @@ class cy8_prompts_manager:
             self.gallery_scrollable_frame,
             text="🖼️ Cliquez sur 'Actualiser' pour charger la galerie d'images",
             font=("TkDefaultFont", 10),
-            foreground="blue"
+            foreground="blue",
         )
         info_label.grid(row=0, column=0, columnspan=5, pady=20)
 
@@ -1840,20 +1845,22 @@ class cy8_prompts_manager:
                 error_label = ttk.Label(
                     self.gallery_scrollable_frame,
                     text="❌ Répertoire IMAGES_COLLECTE non trouvé ou invalide",
-                    foreground="red"
+                    foreground="red",
                 )
                 error_label.grid(row=0, column=0, columnspan=5, pady=20)
                 return
 
             # Utiliser l'index optimisé au lieu du scan de fichiers
             print("🔄 Chargement depuis l'index...")
-            indexed_images = self.image_index.get_images(images_dir, include_deleted=True)
+            indexed_images = self.image_index.get_images(
+                images_dir, include_deleted=True
+            )
 
             if not indexed_images:
                 info_label = ttk.Label(
                     self.gallery_scrollable_frame,
                     text="📁 Aucune image dans l'index. Cliquez sur 'Actualiser' pour scanner.",
-                    foreground="orange"
+                    foreground="orange",
                 )
                 info_label.grid(row=0, column=0, columnspan=5, pady=20)
                 return
@@ -1862,8 +1869,8 @@ class cy8_prompts_manager:
             self.create_gallery_grid_from_index(indexed_images)
 
             # Mettre à jour le statut
-            active_count = sum(1 for img in indexed_images if not img['is_deleted'])
-            deleted_count = sum(1 for img in indexed_images if img['is_deleted'])
+            active_count = sum(1 for img in indexed_images if not img["is_deleted"])
+            deleted_count = sum(1 for img in indexed_images if img["is_deleted"])
 
             status_text = f"Galerie: {active_count} images"
             if deleted_count > 0:
@@ -1876,7 +1883,7 @@ class cy8_prompts_manager:
             error_label = ttk.Label(
                 self.gallery_scrollable_frame,
                 text=f"❌ Erreur: {str(e)}",
-                foreground="red"
+                foreground="red",
             )
             error_label.grid(row=0, column=0, columnspan=5, pady=20)
 
@@ -1892,7 +1899,7 @@ class cy8_prompts_manager:
             progress_label = ttk.Label(
                 self.gallery_scrollable_frame,
                 text="⏳ Scan en cours... Veuillez patienter",
-                foreground="blue"
+                foreground="blue",
             )
             progress_label.grid(row=0, column=0, columnspan=5, pady=20)
             self.root.update()
@@ -1931,7 +1938,7 @@ class cy8_prompts_manager:
                 "Confirmation",
                 "Régénérer complètement l'index ?\n\n"
                 "Cela peut prendre du temps selon le nombre d'images.",
-                icon="question"
+                icon="question",
             )
 
             if result:
@@ -1942,7 +1949,7 @@ class cy8_prompts_manager:
                 progress_label = ttk.Label(
                     self.gallery_scrollable_frame,
                     text="⚡ Régénération de l'index... Veuillez patienter",
-                    foreground="blue"
+                    foreground="blue",
                 )
                 progress_label.grid(row=0, column=0, columnspan=5, pady=20)
                 self.root.update()
@@ -1969,8 +1976,8 @@ class cy8_prompts_manager:
 
             for i, image_data in enumerate(indexed_images):
                 try:
-                    file_path = image_data['file_path']
-                    is_deleted = image_data['is_deleted']
+                    file_path = image_data["file_path"]
+                    is_deleted = image_data["is_deleted"]
 
                     # Créer le frame pour chaque image
                     image_frame = ttk.Frame(self.gallery_scrollable_frame, padding="5")
@@ -1992,7 +1999,7 @@ class cy8_prompts_manager:
                         image=photo,
                         border=2,
                         relief="raised",
-                        bg="white" if not is_deleted else "#f0f0f0"
+                        bg="white" if not is_deleted else "#f0f0f0",
                     )
                     image_button.pack()
 
@@ -2001,13 +2008,19 @@ class cy8_prompts_manager:
                         image_button.configure(bg="#ffe6e6", activebackground="#ffcccc")
 
                     # Bindings pour sélection et agrandissement
-                    image_button.bind("<Button-1>",
-                        lambda e, path=file_path, btn=image_button: self.select_gallery_image(path, btn))
-                    image_button.bind("<Double-Button-1>",
-                        lambda e, path=file_path: self.enlarge_gallery_image(path))
+                    image_button.bind(
+                        "<Button-1>",
+                        lambda e, path=file_path, btn=image_button: self.select_gallery_image(
+                            path, btn
+                        ),
+                    )
+                    image_button.bind(
+                        "<Double-Button-1>",
+                        lambda e, path=file_path: self.enlarge_gallery_image(path),
+                    )
 
                     # Ajouter le nom du fichier avec indicateur de statut
-                    filename = image_data['file_name']
+                    filename = image_data["file_name"]
                     if len(filename) > 20:
                         filename = filename[:17] + "..."
 
@@ -2019,7 +2032,7 @@ class cy8_prompts_manager:
                         text=filename,
                         font=("TkDefaultFont", 8),
                         justify="center",
-                        foreground="gray" if is_deleted else "black"
+                        foreground="gray" if is_deleted else "black",
                     ).pack(pady=(2, 0))
 
                     # Passer à la colonne suivante
@@ -2029,7 +2042,9 @@ class cy8_prompts_manager:
                         row += 1
 
                 except Exception as e:
-                    print(f"Erreur lors du traitement de l'image {image_data.get('file_path', 'unknown')}: {e}")
+                    print(
+                        f"Erreur lors du traitement de l'image {image_data.get('file_path', 'unknown')}: {e}"
+                    )
                     continue
 
         except Exception as e:
@@ -2042,8 +2057,9 @@ class cy8_prompts_manager:
                 return self.image_index._create_trash_icon()
             else:
                 # Image par défaut pour erreur de chargement
-                img = Image.new('RGB', (150, 150), (200, 200, 200))
+                img = Image.new("RGB", (150, 150), (200, 200, 200))
                 from PIL import ImageDraw
+
                 draw = ImageDraw.Draw(img)
                 draw.text((50, 70), "❌\nErreur", fill=(100, 100, 100))
                 return ImageTk.PhotoImage(img)
@@ -2073,19 +2089,21 @@ class cy8_prompts_manager:
 
                     # Créer le bouton image cliquable
                     image_button = tk.Button(
-                        image_frame,
-                        image=photo,
-                        border=2,
-                        relief="raised",
-                        bg="white"
+                        image_frame, image=photo, border=2, relief="raised", bg="white"
                     )
                     image_button.pack()
 
                     # Bindings pour sélection et agrandissement
-                    image_button.bind("<Button-1>",
-                        lambda e, path=image_path, btn=image_button: self.select_gallery_image(path, btn))
-                    image_button.bind("<Double-Button-1>",
-                        lambda e, path=image_path: self.enlarge_gallery_image(path))
+                    image_button.bind(
+                        "<Button-1>",
+                        lambda e, path=image_path, btn=image_button: self.select_gallery_image(
+                            path, btn
+                        ),
+                    )
+                    image_button.bind(
+                        "<Double-Button-1>",
+                        lambda e, path=image_path: self.enlarge_gallery_image(path),
+                    )
 
                     # Ajouter le nom du fichier
                     filename = os.path.basename(image_path)
@@ -2096,7 +2114,7 @@ class cy8_prompts_manager:
                         image_frame,
                         text=filename,
                         font=("TkDefaultFont", 8),
-                        justify="center"
+                        justify="center",
                     ).pack(pady=(2, 0))
 
                     # Passer à la colonne suivante
@@ -2130,8 +2148,12 @@ class cy8_prompts_manager:
 
             # Canvas pour l'image avec scrollbars
             canvas = tk.Canvas(main_frame, bg="white")
-            v_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-            h_scrollbar = ttk.Scrollbar(main_frame, orient="horizontal", command=canvas.xview)
+            v_scrollbar = ttk.Scrollbar(
+                main_frame, orient="vertical", command=canvas.yview
+            )
+            h_scrollbar = ttk.Scrollbar(
+                main_frame, orient="horizontal", command=canvas.xview
+            )
 
             # Frame pour l'image
             image_frame = ttk.Frame(canvas)
@@ -2152,7 +2174,9 @@ class cy8_prompts_manager:
 
             # Configuration du canvas
             canvas.create_window((0, 0), window=image_frame, anchor="nw")
-            canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+            canvas.configure(
+                yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set
+            )
 
             # Pack des éléments
             canvas.pack(side="left", fill="both", expand=True)
@@ -2167,19 +2191,17 @@ class cy8_prompts_manager:
             ttk.Button(
                 buttons_frame,
                 text="📁 Ouvrir avec...",
-                command=lambda: self.open_image_with_default(image_path)
+                command=lambda: self.open_image_with_default(image_path),
             ).pack(side="left", padx=(0, 5))
 
             ttk.Button(
                 buttons_frame,
                 text="📋 Copier chemin",
-                command=lambda: self.copy_path_to_clipboard(image_path)
+                command=lambda: self.copy_path_to_clipboard(image_path),
             ).pack(side="left", padx=(0, 5))
 
             ttk.Button(
-                buttons_frame,
-                text="❌ Fermer",
-                command=enlarge_window.destroy
+                buttons_frame, text="❌ Fermer", command=enlarge_window.destroy
             ).pack(side="right")
 
             # Informations sur l'image
@@ -2191,7 +2213,9 @@ class cy8_prompts_manager:
             except:
                 pass
 
-            ttk.Label(buttons_frame, text=info_text, font=("TkDefaultFont", 8)).pack(side="left", padx=20)
+            ttk.Label(buttons_frame, text=info_text, font=("TkDefaultFont", 8)).pack(
+                side="left", padx=20
+            )
 
             # Mise à jour de la region de scroll
             image_frame.update_idletasks()
@@ -2203,10 +2227,10 @@ class cy8_prompts_manager:
     def open_image_with_default(self, image_path):
         """Ouvrir une image avec l'application par défaut"""
         try:
-            if os.name == 'nt':  # Windows
+            if os.name == "nt":  # Windows
                 os.startfile(image_path)
             else:  # Linux/Mac
-                subprocess.run(['xdg-open', image_path])
+                subprocess.run(["xdg-open", image_path])
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
 
@@ -2220,7 +2244,7 @@ class cy8_prompts_manager:
                     bg="white",
                     highlightbackground="white",
                     highlightcolor="white",
-                    highlightthickness=0
+                    highlightthickness=0,
                 )
 
             # Sélectionner la nouvelle image
@@ -2233,7 +2257,7 @@ class cy8_prompts_manager:
                 bg="#e6f3ff",
                 highlightbackground="#0078d4",
                 highlightcolor="#0078d4",
-                highlightthickness=3
+                highlightthickness=3,
             )
 
             # Afficher la barre de boutons contextuels
@@ -2241,7 +2265,11 @@ class cy8_prompts_manager:
             if len(filename) > 50:
                 filename = filename[:47] + "..."
             self.gallery_selected_label.config(text=f"📸 Sélectionnée: {filename}")
-            self.gallery_context_frame.pack(fill="x", pady=(0, 10), after=self.gallery_context_frame.master.winfo_children()[0])
+            self.gallery_context_frame.pack(
+                fill="x",
+                pady=(0, 10),
+                after=self.gallery_context_frame.master.winfo_children()[0],
+            )
 
         except Exception as e:
             print(f"Erreur lors de la sélection d'image: {e}")
@@ -2257,7 +2285,7 @@ class cy8_prompts_manager:
             result = messagebox.askyesno(
                 "Confirmer la suppression",
                 f"Êtes-vous sûr de vouloir supprimer définitivement l'image ?\n\n{filename}\n\n⚠️ Cette action est irréversible !",
-                icon="warning"
+                icon="warning",
             )
 
             if result:
@@ -2274,10 +2302,14 @@ class cy8_prompts_manager:
                 self.selected_gallery_image = None
                 self.selected_gallery_button = None
 
-                messagebox.showinfo("Succès", f"L'image '{filename}' a été supprimée avec succès.")
+                messagebox.showinfo(
+                    "Succès", f"L'image '{filename}' a été supprimée avec succès."
+                )
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible de supprimer l'image:\n{str(e)}")
+            messagebox.showerror(
+                "Erreur", f"Impossible de supprimer l'image:\n{str(e)}"
+            )
 
     def open_selected_gallery_image(self):
         """Ouvrir l'image sélectionnée avec l'application par défaut"""
@@ -2305,7 +2337,7 @@ class cy8_prompts_manager:
                 "Marquer comme supprimée",
                 f"Marquer l'image comme supprimée ?\n\n{filename}\n\n"
                 "L'image sera cachée mais le fichier restera sur le disque.",
-                icon="question"
+                icon="question",
             )
 
             if result:
@@ -2315,7 +2347,9 @@ class cy8_prompts_manager:
                 # Actualiser l'affichage
                 self.refresh_gallery()
 
-                messagebox.showinfo("Succès", f"L'image '{filename}' a été marquée comme supprimée.")
+                messagebox.showinfo(
+                    "Succès", f"L'image '{filename}' a été marquée comme supprimée."
+                )
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de marquer l'image: {str(e)}")
@@ -2331,24 +2365,29 @@ class cy8_prompts_manager:
 
             # Vérifier si l'image est marquée comme supprimée
             images = self.image_index.get_images(
-                os.path.dirname(self.selected_gallery_image),
-                include_deleted=True
+                os.path.dirname(self.selected_gallery_image), include_deleted=True
             )
 
             selected_image = next(
-                (img for img in images if img['file_path'] == self.selected_gallery_image),
-                None
+                (
+                    img
+                    for img in images
+                    if img["file_path"] == self.selected_gallery_image
+                ),
+                None,
             )
 
-            if not selected_image or not selected_image['is_deleted']:
-                messagebox.showinfo("Information", "Cette image n'est pas marquée comme supprimée.")
+            if not selected_image or not selected_image["is_deleted"]:
+                messagebox.showinfo(
+                    "Information", "Cette image n'est pas marquée comme supprimée."
+                )
                 return
 
             result = messagebox.askyesno(
                 "Restaurer l'image",
                 f"Restaurer l'image ?\n\n{filename}\n\n"
                 "L'image redeviendra visible dans la galerie.",
-                icon="question"
+                icon="question",
             )
 
             if result:
@@ -2376,14 +2415,16 @@ class cy8_prompts_manager:
             stats_text += f"✅ Images actives: {stats.get('active_images', 0)}\n"
             stats_text += f"🗑️ Images supprimées: {stats.get('deleted_images', 0)}\n"
             stats_text += f"💾 Taille totale: {stats.get('total_size_mb', 0)} MB\n"
-            stats_text += f"🧠 Cache mémoire: {stats.get('cache_size', 0)} miniatures\n\n"
+            stats_text += (
+                f"🧠 Cache mémoire: {stats.get('cache_size', 0)} miniatures\n\n"
+            )
 
             stats_text += "⚡ PERFORMANCE\n"
             stats_text += "-" * 20 + "\n"
             stats_text += f"Backend: {perf_info['backend']}\n"
             stats_text += f"Vitesse: {perf_info['estimated_speed']}\n"
 
-            if perf_info['recommended_action'] != "Aucune":
+            if perf_info["recommended_action"] != "Aucune":
                 stats_text += f"Recommandation: {perf_info['recommended_action']}\n"
 
             # Afficher dans une fenêtre popup
@@ -2404,7 +2445,9 @@ class cy8_prompts_manager:
             text_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
             text_widget = tk.Text(text_frame, wrap="word", font=("Consolas", 10))
-            scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+            scrollbar = ttk.Scrollbar(
+                text_frame, orient="vertical", command=text_widget.yview
+            )
             text_widget.configure(yscrollcommand=scrollbar.set)
 
             text_widget.pack(side="left", fill="both", expand=True)
@@ -2420,17 +2463,17 @@ class cy8_prompts_manager:
             ttk.Button(
                 buttons_frame,
                 text="🧹 Vider le cache",
-                command=lambda: self._clear_cache_and_refresh(stats_window)
+                command=lambda: self._clear_cache_and_refresh(stats_window),
             ).pack(side="left", padx=(0, 5))
 
             ttk.Button(
-                buttons_frame,
-                text="❌ Fermer",
-                command=stats_window.destroy
+                buttons_frame, text="❌ Fermer", command=stats_window.destroy
             ).pack(side="right")
 
         except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible d'afficher les statistiques: {str(e)}")
+            messagebox.showerror(
+                "Erreur", f"Impossible d'afficher les statistiques: {str(e)}"
+            )
 
     def _clear_cache_and_refresh(self, parent_window):
         """Vider le cache et actualiser"""
@@ -2446,7 +2489,7 @@ class cy8_prompts_manager:
         """Callback appelé quand un sous-onglet des images est sélectionné"""
         try:
             # Ne rien faire si la galerie n'est pas encore configurée
-            if not hasattr(self, 'gallery_scrollable_frame'):
+            if not hasattr(self, "gallery_scrollable_frame"):
                 return
 
             notebook = event.widget
@@ -2455,7 +2498,9 @@ class cy8_prompts_manager:
 
             # Afficher un message informatif mais ne pas charger automatiquement
             if "Galerie complète" in tab_text and not self.gallery_loaded:
-                print("🖼️ Onglet galerie sélectionné - Cliquez sur 'Actualiser' pour charger")
+                print(
+                    "🖼️ Onglet galerie sélectionné - Cliquez sur 'Actualiser' pour charger"
+                )
                 # Ne pas charger automatiquement pour laisser l'utilisateur choisir
                 # self.refresh_gallery()
                 # self.gallery_loaded = True
@@ -3696,7 +3741,7 @@ WORKFLOW:
     def update_status(self, message):
         """Mettre à jour la barre de statut"""
         try:
-            if hasattr(self, 'status_text') and self.status_text:
+            if hasattr(self, "status_text") and self.status_text:
                 self.status_text.set(message)
                 self.root.update_idletasks()
             else:
@@ -3921,29 +3966,27 @@ WORKFLOW:
             # Dialogue de sélection de fichier
             file_path = filedialog.askopenfilename(
                 title="Sélectionner un fichier workflow JSON",
-                filetypes=[
-                    ("Fichiers JSON", "*.json"),
-                    ("Tous les fichiers", "*.*")
-                ],
-                defaultextension=".json"
+                filetypes=[("Fichiers JSON", "*.json"), ("Tous les fichiers", "*.*")],
+                defaultextension=".json",
             )
 
             if not file_path:
                 return  # Utilisateur a annulé
 
             # Lire le contenu du fichier
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 workflow_content = json.load(f)
 
             # Extraire le nom du fichier (sans extension)
             import os
+
             prompt_name = os.path.splitext(os.path.basename(file_path))[0]
 
             # Vérifier si un prompt avec ce nom existe déjà
             if self.db_manager.prompt_name_exists(prompt_name):
                 response = messagebox.askyesno(
                     "Nom existant",
-                    f"Un prompt nommé '{prompt_name}' existe déjà.\nVoulez-vous utiliser un nom différent ?"
+                    f"Un prompt nommé '{prompt_name}' existe déjà.\nVoulez-vous utiliser un nom différent ?",
                 )
                 if response:
                     # Ajouter un suffixe numérique
@@ -3979,7 +4022,7 @@ WORKFLOW:
                 model=model,
                 status="new",
                 comment=f"Importé depuis {os.path.basename(file_path)}",
-                parent=None
+                parent=None,
             )
 
             # Rafraîchir l'affichage
@@ -3987,9 +4030,9 @@ WORKFLOW:
 
             # Sélectionner le nouveau prompt dans la liste (si possible)
             try:
-                if hasattr(self, 'prompts_tree') and self.prompts_tree:
+                if hasattr(self, "prompts_tree") and self.prompts_tree:
                     for item in self.prompts_tree.get_children():
-                        values = self.prompts_tree.item(item)['values']
+                        values = self.prompts_tree.item(item)["values"]
                         if values and int(values[0]) == prompt_id:  # ID du prompt
                             self.prompts_tree.selection_set(item)
                             self.prompts_tree.focus(item)
@@ -4002,23 +4045,23 @@ WORKFLOW:
 
             messagebox.showinfo(
                 "Import réussi",
-                f"Workflow importé avec succès !\n\nNom du prompt : {prompt_name}\nModèle détecté : {model or 'Aucun'}\nFichier : {os.path.basename(file_path)}"
+                f"Workflow importé avec succès !\n\nNom du prompt : {prompt_name}\nModèle détecté : {model or 'Aucun'}\nFichier : {os.path.basename(file_path)}",
             )
 
         except json.JSONDecodeError as e:
             messagebox.showerror(
                 "Erreur JSON",
-                f"Le fichier sélectionné n'est pas un JSON valide :\n{str(e)}"
+                f"Le fichier sélectionné n'est pas un JSON valide :\n{str(e)}",
             )
         except FileNotFoundError:
             messagebox.showerror(
                 "Fichier introuvable",
-                "Le fichier sélectionné n'existe pas ou n'est pas accessible."
+                "Le fichier sélectionné n'existe pas ou n'est pas accessible.",
             )
         except Exception as e:
             messagebox.showerror(
                 "Erreur d'import",
-                f"Une erreur est survenue lors de l'import :\n{str(e)}"
+                f"Une erreur est survenue lors de l'import :\n{str(e)}",
             )
             print(f"Erreur lors de l'import JSON: {e}")  # Pour le debug
 
@@ -4705,7 +4748,9 @@ WORKFLOW:
             raise FileNotFoundError(f"Fichier introuvable : {model_path}")
 
         if not SAFETENSORS_AVAILABLE:
-            raise RuntimeError("safetensors n'est pas disponible. Installez torch et safetensors pour cette fonctionnalité.")
+            raise RuntimeError(
+                "safetensors n'est pas disponible. Installez torch et safetensors pour cette fonctionnalité."
+            )
 
         try:
             with safe_open(model_path, framework="pt") as f:
@@ -4779,13 +4824,21 @@ WORKFLOW:
                 if diagnostic_result.get("error", True):
                     print("❌ Test direct échoué, tentative avec méthode standard...")
                     try:
-                        result = caller.call_custom_node(node_type="ExtraPathReader", inputs={})
+                        result = caller.call_custom_node(
+                            node_type="ExtraPathReader", inputs={}
+                        )
                     except Exception as e:
                         print(f"❌ Méthode standard également échouée: {e}")
                         print("🔍 Diagnostic détaillé:")
-                        print(f"   - Workflow utilisé: {diagnostic_result.get('workflow_used', 'N/A')}")
-                        print(f"   - Statut HTTP: {diagnostic_result.get('status_code', 'N/A')}")
-                        print(f"   - Erreur: {diagnostic_result.get('exception', 'N/A')}")
+                        print(
+                            f"   - Workflow utilisé: {diagnostic_result.get('workflow_used', 'N/A')}"
+                        )
+                        print(
+                            f"   - Statut HTTP: {diagnostic_result.get('status_code', 'N/A')}"
+                        )
+                        print(
+                            f"   - Erreur: {diagnostic_result.get('exception', 'N/A')}"
+                        )
                         raise e
                 else:
                     result = diagnostic_result["result"]
@@ -5561,13 +5614,24 @@ WORKFLOW:
             environments = self.db_manager.get_all_environments()
 
             for env in environments:
-                env_id, name, path, description, last_analysis, created_at, updated_at = env
+                (
+                    env_id,
+                    name,
+                    path,
+                    description,
+                    last_analysis,
+                    created_at,
+                    updated_at,
+                ) = env
 
                 # Formater la date de dernière analyse
                 if last_analysis:
                     from datetime import datetime
+
                     try:
-                        analysis_date = datetime.fromisoformat(last_analysis.replace('Z', '+00:00'))
+                        analysis_date = datetime.fromisoformat(
+                            last_analysis.replace("Z", "+00:00")
+                        )
                         last_analysis_str = analysis_date.strftime("%d/%m/%Y %H:%M")
                     except:
                         last_analysis_str = last_analysis
@@ -5578,15 +5642,19 @@ WORKFLOW:
                 status = "🟢 Actif" if os.path.exists(path) else "🔴 Indisponible"
 
                 # Ajouter l'environnement au tableau
-                self.environments_tree.insert("", "end", values=(
-                    env_id, name, path, last_analysis_str, status
-                ))
+                self.environments_tree.insert(
+                    "", "end", values=(env_id, name, path, last_analysis_str, status)
+                )
 
-            print(f"Tableau des environnements actualisé : {len(environments)} environnements")
+            print(
+                f"Tableau des environnements actualisé : {len(environments)} environnements"
+            )
 
         except Exception as e:
             print(f"Erreur lors de l'actualisation des environnements : {e}")
-            messagebox.showerror("Erreur", f"Impossible d'actualiser les environnements :\n{e}")
+            messagebox.showerror(
+                "Erreur", f"Impossible d'actualiser les environnements :\n{e}"
+            )
 
     def on_environment_select(self, event):
         """Gérer la sélection d'un environnement"""
@@ -5596,7 +5664,7 @@ WORKFLOW:
 
         # Récupérer l'ID de l'environnement sélectionné
         item = selection[0]
-        values = self.environments_tree.item(item)['values']
+        values = self.environments_tree.item(item)["values"]
         environment_id = values[0]
 
         print(f"Environnement sélectionné : {environment_id}")
@@ -5615,26 +5683,51 @@ WORKFLOW:
             results = self.db_manager.get_analysis_results(environment_id)
 
             for result in results:
-                result_id, env_id, fichier, type_result, niveau, message, details, timestamp = result
+                (
+                    result_id,
+                    env_id,
+                    fichier,
+                    type_result,
+                    niveau,
+                    message,
+                    details,
+                    timestamp,
+                ) = result
 
                 # Formater le timestamp
                 try:
                     from datetime import datetime
-                    analysis_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+
+                    analysis_time = datetime.fromisoformat(
+                        timestamp.replace("Z", "+00:00")
+                    )
                     timestamp_str = analysis_time.strftime("%d/%m/%Y %H:%M:%S")
                 except:
                     timestamp_str = timestamp
 
                 # Ajouter le résultat au tableau
-                self.log_results_tree.insert("", "end", values=(
-                    timestamp_str, type_result, niveau or "", fichier or "", message or "", ""
-                ))
+                self.log_results_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        timestamp_str,
+                        type_result,
+                        niveau or "",
+                        fichier or "",
+                        message or "",
+                        "",
+                    ),
+                )
 
             # Mettre à jour le compteur
             count = len(results)
-            self.log_results_count_label.config(text=f"{count} résultat{'s' if count > 1 else ''}")
+            self.log_results_count_label.config(
+                text=f"{count} résultat{'s' if count > 1 else ''}"
+            )
 
-            print(f"Résultats d'analyse chargés pour {environment_id} : {count} résultats")
+            print(
+                f"Résultats d'analyse chargés pour {environment_id} : {count} résultats"
+            )
 
         except Exception as e:
             print(f"Erreur lors du chargement des résultats : {e}")
@@ -5643,12 +5736,14 @@ WORKFLOW:
         """Analyser l'environnement sélectionné"""
         selection = self.environments_tree.selection()
         if not selection:
-            messagebox.showwarning("Aucune sélection", "Veuillez sélectionner un environnement à analyser.")
+            messagebox.showwarning(
+                "Aucune sélection", "Veuillez sélectionner un environnement à analyser."
+            )
             return
 
         # Récupérer l'ID de l'environnement sélectionné
         item = selection[0]
-        values = self.environments_tree.item(item)['values']
+        values = self.environments_tree.item(item)["values"]
         environment_id = values[0]
 
         print(f"Analyse de l'environnement : {environment_id}")
@@ -5659,7 +5754,9 @@ WORKFLOW:
         # 2. Mettre à jour la table environnements avec la date d'analyse
         success = self.db_manager.update_environment_analysis(environment_id)
         if not success:
-            messagebox.showerror("Erreur", "Impossible de mettre à jour l'environnement.")
+            messagebox.showerror(
+                "Erreur", "Impossible de mettre à jour l'environnement."
+            )
             return
 
         # 3. Effacer les anciens résultats d'analyse pour cet environnement
@@ -5673,15 +5770,29 @@ WORKFLOW:
         self.refresh_environments()
         self.load_environment_analysis_results(environment_id)
 
-        messagebox.showinfo("Analyse terminée", f"Analyse de l'environnement {environment_id} terminée.")
+        messagebox.showinfo(
+            "Analyse terminée", f"Analyse de l'environnement {environment_id} terminée."
+        )
 
     def simulate_log_analysis(self, environment_id):
         """Simulation de l'analyse de log pour tester le système"""
         # Ajouter quelques résultats d'exemple
         test_results = [
             ("comfyui.log", "INFO", "Normal", "Environnement détecté avec succès", ""),
-            ("comfyui.log", "WARNING", "Attention", "Fichier manquant : model.safetensors", "Vérifier le chemin des modèles"),
-            ("comfyui.log", "ERROR", "Erreur", "Module non trouvé : custom_nodes", "Installer les nodes manquants"),
+            (
+                "comfyui.log",
+                "WARNING",
+                "Attention",
+                "Fichier manquant : model.safetensors",
+                "Vérifier le chemin des modèles",
+            ),
+            (
+                "comfyui.log",
+                "ERROR",
+                "Erreur",
+                "Module non trouvé : custom_nodes",
+                "Installer les nodes manquants",
+            ),
         ]
 
         for fichier, type_result, niveau, message, details in test_results:
@@ -5982,25 +6093,35 @@ L'analyse sera sauvegardée automatiquement pour consultation ultérieure.
         question_header = ttk.Frame(question_frame)
         question_header.pack(fill="x")
 
-        ttk.Label(question_header, text="❓ Question pour Mistral AI:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        ttk.Label(
+            question_header,
+            text="❓ Question pour Mistral AI:",
+            font=("TkDefaultFont", 9, "bold"),
+        ).pack(side="left")
 
         ttk.Button(
             question_header,
             text="📋 Exemples",
             command=lambda: self.show_question_examples(question_text),
-            width=12
+            width=12,
         ).pack(side="right")
 
-        question_text = tk.Text(question_frame, height=4, wrap="word", font=("TkDefaultFont", 10))
-        question_scrollbar = ttk.Scrollbar(question_frame, orient="vertical", command=question_text.yview)
+        question_text = tk.Text(
+            question_frame, height=4, wrap="word", font=("TkDefaultFont", 10)
+        )
+        question_scrollbar = ttk.Scrollbar(
+            question_frame, orient="vertical", command=question_text.yview
+        )
         question_text.configure(yscrollcommand=question_scrollbar.set)
 
         question_text.pack(side="left", fill="x", expand=True, pady=(5, 0))
         question_scrollbar.pack(side="right", fill="y", pady=(5, 0))
 
         # Question par défaut
-        default_question = "Proposes moi des solutions pour les erreurs dans le fichier log"
-        question_text.insert("1.0", default_question)        # Séparateur
+        default_question = (
+            "Proposes moi des solutions pour les erreurs dans le fichier log"
+        )
+        question_text.insert("1.0", default_question)  # Séparateur
         ttk.Separator(analysis_frame, orient="horizontal").pack(fill="x", pady=10)
 
         # Zone de texte pour l'analyse
@@ -6080,7 +6201,9 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
             buttons_frame, text="❌ Fermer", command=analysis_window.destroy
         ).pack(side="right")
 
-    def start_global_log_analysis(self, log_path, analysis_text, status_label, window, question_text):
+    def start_global_log_analysis(
+        self, log_path, analysis_text, status_label, window, question_text
+    ):
         """Démarre l'analyse globale du log avec Mistral AI"""
         import threading
         from datetime import datetime
@@ -6121,7 +6244,9 @@ L'analyse sera automatiquement sauvegardée dans le répertoire configuré.
                     # Lancer l'analyse complète avec la question personnalisée
                     role = "Tu es un expert assistant Python et ComfyUI"
 
-                    result = analyze_comfyui_log_complete(log_content, custom_question, role)
+                    result = analyze_comfyui_log_complete(
+                        log_content, custom_question, role
+                    )
 
                     # Afficher le résultat
                     analysis_text.config(state="normal")
@@ -6195,7 +6320,9 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
 
         # Zone de texte avec exemples
         examples_text = tk.Text(main_frame, wrap="word", font=("TkDefaultFont", 10))
-        examples_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=examples_text.yview)
+        examples_scrollbar = ttk.Scrollbar(
+            main_frame, orient="vertical", command=examples_text.yview
+        )
         examples_text.configure(yscrollcommand=examples_scrollbar.set)
 
         examples_text.pack(side="left", fill="both", expand=True)
@@ -6263,9 +6390,14 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                     question_text_widget.insert("1.0", clean_question)
                     examples_window.destroy()
                 else:
-                    tk.messagebox.showinfo("Info", "Sélectionnez une ligne commençant par • dans la liste")
+                    tk.messagebox.showinfo(
+                        "Info", "Sélectionnez une ligne commençant par • dans la liste"
+                    )
             except tk.TclError:
-                tk.messagebox.showinfo("Info", "Sélectionnez une question dans la liste puis cliquez sur 'Utiliser'")
+                tk.messagebox.showinfo(
+                    "Info",
+                    "Sélectionnez une question dans la liste puis cliquez sur 'Utiliser'",
+                )
 
         ttk.Button(
             buttons_frame,

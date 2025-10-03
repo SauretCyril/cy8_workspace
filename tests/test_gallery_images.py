@@ -19,7 +19,9 @@ def create_test_images(temp_dir, count=10):
         img_path = os.path.join(temp_dir, f"test_image_{i:03d}.png")
 
         # Créer une image de test colorée
-        image = Image.new("RGB", (200, 150), color=(i * 25 % 255, (i * 50) % 255, (i * 75) % 255))
+        image = Image.new(
+            "RGB", (200, 150), color=(i * 25 % 255, (i * 50) % 255, (i * 75) % 255)
+        )
         image.save(img_path)
         test_images.append(img_path)
 
@@ -50,6 +52,7 @@ def test_gallery_images_functionality():
 
         # Créer l'application (sans affichage)
         import tkinter as tk
+
         root = tk.Tk()
         root.withdraw()  # Masquer la fenêtre principale
 
@@ -57,25 +60,31 @@ def test_gallery_images_functionality():
         print("✅ Application créée")
 
         # Vérifier que les méthodes de galerie existent
-        assert hasattr(app, 'refresh_gallery'), "Méthode refresh_gallery manquante"
-        assert hasattr(app, 'create_gallery_grid'), "Méthode create_gallery_grid manquante"
-        assert hasattr(app, 'enlarge_gallery_image'), "Méthode enlarge_gallery_image manquante"
+        assert hasattr(app, "refresh_gallery"), "Méthode refresh_gallery manquante"
+        assert hasattr(
+            app, "create_gallery_grid"
+        ), "Méthode create_gallery_grid manquante"
+        assert hasattr(
+            app, "enlarge_gallery_image"
+        ), "Méthode enlarge_gallery_image manquante"
         print("✅ Toutes les méthodes de galerie présentes")
 
         # Tester la configuration de la galerie
-        if hasattr(app, 'gallery_canvas'):
+        if hasattr(app, "gallery_canvas"):
             print("✅ Canvas de galerie configuré")
 
-        if hasattr(app, 'gallery_thumbnails'):
+        if hasattr(app, "gallery_thumbnails"):
             print("✅ Dictionnaire des miniatures initialisé")
 
         # Vérifier les variables d'environnement
         images_collecte = os.getenv("IMAGES_COLLECTE")
-        assert images_collecte == temp_dir, f"IMAGES_COLLECTE incorrect: {images_collecte}"
+        assert (
+            images_collecte == temp_dir
+        ), f"IMAGES_COLLECTE incorrect: {images_collecte}"
         print(f"✅ IMAGES_COLLECTE configuré: {images_collecte}")
 
         # Test de la détection d'images
-        image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff'}
+        image_extensions = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff"}
         found_images = []
 
         for root_dir, dirs, files in os.walk(temp_dir):
@@ -83,7 +92,9 @@ def test_gallery_images_functionality():
                 if os.path.splitext(file.lower())[1] in image_extensions:
                     found_images.append(os.path.join(root_dir, file))
 
-        assert len(found_images) == 12, f"Nombre d'images incorrect: {len(found_images)}"
+        assert (
+            len(found_images) == 12
+        ), f"Nombre d'images incorrect: {len(found_images)}"
         print(f"✅ {len(found_images)} images détectées dans le répertoire")
 
         # Test des sous-onglets
@@ -100,6 +111,7 @@ def test_gallery_images_functionality():
 
         # Supprimer les images de test
         import shutil
+
         shutil.rmtree(temp_dir)
         print(f"🧹 Répertoire temporaire supprimé")
 
@@ -108,6 +120,7 @@ def test_gallery_images_functionality():
     except Exception as e:
         print(f"❌ Erreur lors du test: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -125,6 +138,7 @@ def test_gallery_empty_directory():
         print("✅ Gestion du répertoire vide prévue dans le code")
 
         import shutil
+
         shutil.rmtree(temp_dir)
 
         return True

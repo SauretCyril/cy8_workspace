@@ -12,7 +12,8 @@ from PIL import Image
 import time
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def create_test_images(temp_dir, count=3):
     """Créer des images de test"""
@@ -21,12 +22,13 @@ def create_test_images(temp_dir, count=3):
 
     for i in range(count):
         # Créer une image colorée simple
-        img = Image.new('RGB', (200, 200), color=colors[i])
-        image_path = os.path.join(temp_dir, f'test_image_{i+1}.png')
+        img = Image.new("RGB", (200, 200), color=colors[i])
+        image_path = os.path.join(temp_dir, f"test_image_{i+1}.png")
         img.save(image_path)
         image_paths.append(image_path)
 
     return image_paths
+
 
 def test_gallery_selection_functionality():
     """Tester les fonctionnalités de sélection dans la galerie"""
@@ -42,7 +44,7 @@ def test_gallery_selection_functionality():
             print(f"✅ {len(image_paths)} images créées")
 
             # Configurer la variable d'environnement
-            os.environ['IMAGES_COLLECTE'] = temp_dir
+            os.environ["IMAGES_COLLECTE"] = temp_dir
 
             # Importer et créer l'application
             from cy8_prompts_manager_main import cy8_prompts_manager
@@ -53,30 +55,46 @@ def test_gallery_selection_functionality():
             app = cy8_prompts_manager(root)
 
             # Vérifier que les nouvelles variables de sélection existent
-            assert hasattr(app, 'selected_gallery_image'), "Variable selected_gallery_image manquante"
-            assert hasattr(app, 'selected_gallery_button'), "Variable selected_gallery_button manquante"
+            assert hasattr(
+                app, "selected_gallery_image"
+            ), "Variable selected_gallery_image manquante"
+            assert hasattr(
+                app, "selected_gallery_button"
+            ), "Variable selected_gallery_button manquante"
             print("✅ Variables de sélection présentes")
 
             # Vérifier que la barre contextuelle existe
-            assert hasattr(app, 'gallery_context_frame'), "Barre contextuelle manquante"
-            assert hasattr(app, 'gallery_selected_label'), "Label de sélection manquant"
+            assert hasattr(app, "gallery_context_frame"), "Barre contextuelle manquante"
+            assert hasattr(app, "gallery_selected_label"), "Label de sélection manquant"
             print("✅ Interface de sélection présente")
 
             # Vérifier que les méthodes de sélection existent
-            assert hasattr(app, 'select_gallery_image'), "Méthode select_gallery_image manquante"
-            assert hasattr(app, 'delete_selected_gallery_image'), "Méthode de suppression manquante"
-            assert hasattr(app, 'open_selected_gallery_image'), "Méthode d'ouverture manquante"
-            assert hasattr(app, 'copy_selected_gallery_path'), "Méthode de copie manquante"
+            assert hasattr(
+                app, "select_gallery_image"
+            ), "Méthode select_gallery_image manquante"
+            assert hasattr(
+                app, "delete_selected_gallery_image"
+            ), "Méthode de suppression manquante"
+            assert hasattr(
+                app, "open_selected_gallery_image"
+            ), "Méthode d'ouverture manquante"
+            assert hasattr(
+                app, "copy_selected_gallery_path"
+            ), "Méthode de copie manquante"
             print("✅ Méthodes de sélection présentes")
 
             # Tester le rafraîchissement de la galerie
-            if hasattr(app, 'refresh_gallery'):
+            if hasattr(app, "refresh_gallery"):
                 app.refresh_gallery()
                 print("✅ Rafraîchissement de la galerie testé")
 
             # Vérifier l'initialisation des variables de sélection
-            assert app.selected_gallery_image is None, "selected_gallery_image devrait être None au départ"
-            assert app.selected_gallery_button is None, "selected_gallery_button devrait être None au départ"
+            assert (
+                app.selected_gallery_image is None
+            ), "selected_gallery_image devrait être None au départ"
+            assert (
+                app.selected_gallery_button is None
+            ), "selected_gallery_button devrait être None au départ"
             print("✅ Initialisation des variables validée")
 
             root.destroy()
@@ -87,8 +105,10 @@ def test_gallery_selection_functionality():
     except Exception as e:
         print(f"❌ Erreur lors du test: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """Fonction principale de test"""
@@ -121,6 +141,7 @@ def main():
     else:
         print("⚠️ Certains tests ont échoué")
         return False
+
 
 if __name__ == "__main__":
     success = main()

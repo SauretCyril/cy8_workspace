@@ -13,7 +13,8 @@ import time
 import sqlite3
 
 # Ajouter le répertoire src au path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def create_test_images(temp_dir, count=5):
     """Créer des images de test"""
@@ -22,12 +23,13 @@ def create_test_images(temp_dir, count=5):
 
     for i in range(count):
         # Créer une image colorée simple
-        img = Image.new('RGB', (300, 300), color=colors[i % len(colors)])
-        image_path = os.path.join(temp_dir, f'test_image_{i+1}.png')
+        img = Image.new("RGB", (300, 300), color=colors[i % len(colors)])
+        image_path = os.path.join(temp_dir, f"test_image_{i+1}.png")
         img.save(image_path)
         image_paths.append(image_path)
 
     return image_paths
+
 
 def test_image_index_manager():
     """Tester le gestionnaire d'index d'images"""
@@ -51,8 +53,12 @@ def test_image_index_manager():
             # Tester le scan
             print("🔄 Test du scan...")
             stats = index_manager.scan_directory(temp_dir)
-            assert stats['total_files'] == 5, f"Attendu 5 fichiers, trouvé {stats['total_files']}"
-            assert stats['new_files'] == 5, f"Attendu 5 nouveaux, trouvé {stats['new_files']}"
+            assert (
+                stats["total_files"] == 5
+            ), f"Attendu 5 fichiers, trouvé {stats['total_files']}"
+            assert (
+                stats["new_files"] == 5
+            ), f"Attendu 5 nouveaux, trouvé {stats['new_files']}"
             print("✅ Scan réussi")
 
             # Tester la récupération des images
@@ -64,19 +70,23 @@ def test_image_index_manager():
             # Tester les miniatures
             print("🖼️ Test des miniatures...")
             for image_data in images:
-                thumbnail = index_manager.get_thumbnail(image_data['file_path'])
-                assert thumbnail is not None, f"Miniature manquante pour {image_data['file_name']}"
+                thumbnail = index_manager.get_thumbnail(image_data["file_path"])
+                assert (
+                    thumbnail is not None
+                ), f"Miniature manquante pour {image_data['file_name']}"
             print("✅ Miniatures générées")
 
             # Tester la suppression soft
             print("🗑️ Test de suppression soft...")
-            test_image = images[0]['file_path']
+            test_image = images[0]["file_path"]
             index_manager.mark_deleted(test_image)
 
             # Vérifier que l'image est marquée comme supprimée
             updated_images = index_manager.get_images(temp_dir, include_deleted=True)
-            deleted_image = next(img for img in updated_images if img['file_path'] == test_image)
-            assert deleted_image['is_deleted'], "Image pas marquée comme supprimée"
+            deleted_image = next(
+                img for img in updated_images if img["file_path"] == test_image
+            )
+            assert deleted_image["is_deleted"], "Image pas marquée comme supprimée"
             print("✅ Suppression soft réussie")
 
             # Tester la restauration
@@ -89,7 +99,7 @@ def test_image_index_manager():
             # Tester les statistiques
             print("📊 Test des statistiques...")
             stats = index_manager.get_stats()
-            assert stats['total_images'] == 5, f"Stats incorrectes: {stats}"
+            assert stats["total_images"] == 5, f"Stats incorrectes: {stats}"
             print("✅ Statistiques correctes")
 
             index_manager.close()
@@ -100,8 +110,10 @@ def test_image_index_manager():
     except Exception as e:
         print(f"❌ Erreur lors du test de l'index: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_fast_image_processor():
     """Tester le processeur d'images rapide"""
@@ -113,7 +125,7 @@ def test_fast_image_processor():
         # Créer une image de test
         with tempfile.TemporaryDirectory() as temp_dir:
             test_image = os.path.join(temp_dir, "test.png")
-            img = Image.new('RGB', (500, 500), (128, 128, 128))
+            img = Image.new("RGB", (500, 500), (128, 128, 128))
             img.save(test_image)
 
             processor = get_image_processor()
@@ -140,8 +152,10 @@ def test_fast_image_processor():
     except Exception as e:
         print(f"❌ Erreur lors du test du processeur: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def test_gallery_integration():
     """Tester l'intégration avec la galerie principale"""
@@ -157,7 +171,7 @@ def test_gallery_integration():
             print(f"✅ {len(image_paths)} images créées")
 
             # Configurer la variable d'environnement
-            os.environ['IMAGES_COLLECTE'] = temp_dir
+            os.environ["IMAGES_COLLECTE"] = temp_dir
 
             # Importer et créer l'application
             from cy8_prompts_manager_main import cy8_prompts_manager
@@ -168,21 +182,27 @@ def test_gallery_integration():
             app = cy8_prompts_manager(root)
 
             # Vérifier que l'index est initialisé
-            assert hasattr(app, 'image_index'), "Index d'images manquant"
-            assert hasattr(app, 'fast_processor'), "Processeur rapide manquant"
+            assert hasattr(app, "image_index"), "Index d'images manquant"
+            assert hasattr(app, "fast_processor"), "Processeur rapide manquant"
             print("✅ Gestionnaires initialisés")
 
             # Vérifier les nouvelles méthodes
-            assert hasattr(app, 'refresh_gallery_with_scan'), "Méthode scan manquante"
-            assert hasattr(app, 'force_refresh_gallery'), "Méthode force refresh manquante"
-            assert hasattr(app, 'mark_gallery_image_deleted'), "Méthode suppression soft manquante"
-            assert hasattr(app, 'restore_gallery_image'), "Méthode restauration manquante"
-            assert hasattr(app, 'show_gallery_stats'), "Méthode statistiques manquante"
+            assert hasattr(app, "refresh_gallery_with_scan"), "Méthode scan manquante"
+            assert hasattr(
+                app, "force_refresh_gallery"
+            ), "Méthode force refresh manquante"
+            assert hasattr(
+                app, "mark_gallery_image_deleted"
+            ), "Méthode suppression soft manquante"
+            assert hasattr(
+                app, "restore_gallery_image"
+            ), "Méthode restauration manquante"
+            assert hasattr(app, "show_gallery_stats"), "Méthode statistiques manquante"
             print("✅ Nouvelles méthodes présentes")
 
             # Tester un scan rapide
             stats = app.image_index.scan_directory(temp_dir)
-            assert stats['total_files'] == 3, "Scan incorrect"
+            assert stats["total_files"] == 3, "Scan incorrect"
             print("✅ Scan fonctionnel")
 
             # Tester la création de grille depuis l'index
@@ -198,8 +218,10 @@ def test_gallery_integration():
     except Exception as e:
         print(f"❌ Erreur lors du test d'intégration: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 def main():
     """Fonction principale de test"""
@@ -240,6 +262,7 @@ def main():
     else:
         print("⚠️ Certains tests ont échoué")
         return False
+
 
 if __name__ == "__main__":
     success = main()
