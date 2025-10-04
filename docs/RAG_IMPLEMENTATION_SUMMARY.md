@@ -17,7 +17,7 @@ Système RAG (Retrieval-Augmented Generation) complet pour surveiller, optimiser
   - Indexation automatique des analyses
 
 - **✅ Stockage par environnement**
-  - `H:\comfyui\G11_01\analyses\vector_db\` 
+  - `H:\comfyui\G11_01\analyses\vector_db\`
   - `H:\comfyui\G11_02\analyses\vector_db\`
   - Isolation complète des données par environnement
 
@@ -66,7 +66,7 @@ Système RAG (Retrieval-Augmented Generation) complet pour surveiller, optimiser
 - Détecte les patterns d'erreurs et de succès
 - Propose des optimisations basées sur l'historique
 
-### ✅ Mémoire des contraintes  
+### ✅ Mémoire des contraintes
 - Se souvient des limitations matérielles (VRAM, CPU)
 - Garde en mémoire les incompatibilités de versions
 - Prévient les erreurs connues avant qu'elles se reproduisent
@@ -88,7 +88,7 @@ Système RAG (Retrieval-Augmented Generation) complet pour surveiller, optimiser
 ### Nouveaux fichiers
 ```
 src/cy8_rag_manager.py              # Classe RAG principale
-tests/test_rag_integration.py       # Tests d'intégration  
+tests/test_rag_integration.py       # Tests d'intégration
 demo_rag_system.py                  # Démonstration complète
 docs/RAG_GUIDE_UTILISATION.md       # Guide utilisateur
 ```
@@ -131,7 +131,7 @@ numpy_version: 1.24.4
 vram_limit: 12GB
 → "RTX 3060 - limitation pour gros modèles SDXL"
 
-custom_node_conflict: controlnet_vs_ipadapter  
+custom_node_conflict: controlnet_vs_ipadapter
 → "Conflit entre ControlNet et IP-Adapter sur certaines versions"
 ```
 
@@ -145,7 +145,7 @@ custom_node_conflict: controlnet_vs_ipadapter
 ### Réponses intelligentes
 Le RAG combine :
 - Historique des erreurs similaires
-- Contraintes système connues  
+- Contraintes système connues
 - Solutions qui ont déjà fonctionné
 - État actuel de l'environnement
 
@@ -185,7 +185,7 @@ H:\comfyui\{env_id}\analyses\vector_db\
 CREATE TABLE system_constraints (
     id INTEGER PRIMARY KEY,
     constraint_type TEXT,
-    constraint_value TEXT, 
+    constraint_value TEXT,
     description TEXT,
     created_at TIMESTAMP
 );
@@ -256,12 +256,12 @@ Architecture extensible pour futures améliorations :
 
 Le système RAG ComfyUI est **opérationnel** et répond parfaitement aux exigences :
 
-✅ **Analyse intelligente** des résultats Mistral AI  
-✅ **Base vectorielle par environnement** avec indexation automatique  
-✅ **Surveillance active** des logs pour optimisation serveur  
-✅ **Mémoire des contraintes** système et matériel  
-✅ **Interface chat** conversationnelle dans nouvel onglet  
-✅ **Premier message automatique** avec état du serveur  
-✅ **Gestion des incompatibilités** custom nodes et versions  
+✅ **Analyse intelligente** des résultats Mistral AI
+✅ **Base vectorielle par environnement** avec indexation automatique
+✅ **Surveillance active** des logs pour optimisation serveur
+✅ **Mémoire des contraintes** système et matériel
+✅ **Interface chat** conversationnelle dans nouvel onglet
+✅ **Premier message automatique** avec état du serveur
+✅ **Gestion des incompatibilités** custom nodes et versions
 
 Le RAG est maintenant votre **assistant intelligent** pour ComfyUI ! 🚀🧠

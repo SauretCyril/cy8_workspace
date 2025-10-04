@@ -649,26 +649,26 @@ class cy8_prompts_manager:
 
     def setup_chat_tab(self, parent):
         """Configurer l'onglet Chat RAG pour l'assistance ComfyUI"""
-        
+
         # Frame principal
         main_frame = ttk.Frame(parent)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
+
         # Header avec informations sur l'environnement
         header_frame = ttk.LabelFrame(main_frame, text="🧠 Assistant RAG ComfyUI", padding="10")
         header_frame.pack(fill="x", pady=(0, 10))
-        
+
         # Informations de statut
         self.chat_status_frame = ttk.Frame(header_frame)
         self.chat_status_frame.pack(fill="x", pady=(0, 5))
-        
+
         self.chat_status_label = ttk.Label(
-            self.chat_status_frame, 
+            self.chat_status_frame,
             text="🔄 Initialisation du RAG...",
             font=("TkDefaultFont", 9)
         )
         self.chat_status_label.pack(side="left")
-        
+
         # Bouton de rafraîchissement du contexte
         ttk.Button(
             self.chat_status_frame,
@@ -676,15 +676,15 @@ class cy8_prompts_manager:
             command=self.refresh_chat_context,
             width=20
         ).pack(side="right")
-        
+
         # Zone de conversation
         conversation_frame = ttk.LabelFrame(main_frame, text="💬 Conversation", padding="5")
         conversation_frame.pack(fill="both", expand=True, pady=(0, 10))
-        
+
         # Text widget pour l'historique de conversation avec scrollbar
         chat_scroll_frame = ttk.Frame(conversation_frame)
         chat_scroll_frame.pack(fill="both", expand=True)
-        
+
         self.chat_history = tk.Text(
             chat_scroll_frame,
             wrap=tk.WORD,
@@ -694,28 +694,28 @@ class cy8_prompts_manager:
             bg="#f8f9fa",
             fg="#212529"
         )
-        
+
         chat_scrollbar = ttk.Scrollbar(chat_scroll_frame, orient="vertical", command=self.chat_history.yview)
         self.chat_history.configure(yscrollcommand=chat_scrollbar.set)
-        
+
         self.chat_history.pack(side="left", fill="both", expand=True)
         chat_scrollbar.pack(side="right", fill="y")
-        
+
         # Configuration des tags pour le formatage
         self.chat_history.tag_configure("user", foreground="#0066cc", font=("Consolas", 10, "bold"))
         self.chat_history.tag_configure("assistant", foreground="#006600")
         self.chat_history.tag_configure("system", foreground="#666666", font=("Consolas", 9, "italic"))
         self.chat_history.tag_configure("error", foreground="#cc0000")
         self.chat_history.tag_configure("timestamp", foreground="#999999", font=("Consolas", 8))
-        
+
         # Zone de saisie
         input_frame = ttk.LabelFrame(main_frame, text="✍️ Votre message", padding="5")
         input_frame.pack(fill="x")
-        
+
         # Frame pour l'entrée et les boutons
         input_controls_frame = ttk.Frame(input_frame)
         input_controls_frame.pack(fill="x")
-        
+
         # Zone de texte pour la saisie
         self.chat_input = tk.Text(
             input_controls_frame,
@@ -724,11 +724,11 @@ class cy8_prompts_manager:
             font=("Consolas", 10)
         )
         self.chat_input.pack(side="left", fill="both", expand=True, padx=(0, 5))
-        
+
         # Frame pour les boutons
         buttons_frame = ttk.Frame(input_controls_frame)
         buttons_frame.pack(side="right", fill="y")
-        
+
         # Bouton d'envoi
         self.send_button = ttk.Button(
             buttons_frame,
@@ -737,7 +737,7 @@ class cy8_prompts_manager:
             width=12
         )
         self.send_button.pack(pady=(0, 5))
-        
+
         # Bouton d'effacement
         ttk.Button(
             buttons_frame,
@@ -745,18 +745,18 @@ class cy8_prompts_manager:
             command=self.clear_chat_input,
             width=12
         ).pack()
-        
+
         # Bind Enter pour envoyer (Ctrl+Enter pour nouvelle ligne)
         self.chat_input.bind("<Return>", self.on_enter_pressed)
         self.chat_input.bind("<Control-Return>", lambda e: self.chat_input.insert(tk.INSERT, "\n"))
-        
+
         # Frame d'actions rapides
         quick_actions_frame = ttk.LabelFrame(main_frame, text="⚡ Actions rapides", padding="5")
         quick_actions_frame.pack(fill="x", pady=(5, 0))
-        
+
         quick_buttons_frame = ttk.Frame(quick_actions_frame)
         quick_buttons_frame.pack()
-        
+
         # Boutons d'actions rapides
         ttk.Button(
             quick_buttons_frame,
@@ -764,42 +764,42 @@ class cy8_prompts_manager:
             command=lambda: self.send_quick_message("Quel est l'état actuel du serveur ComfyUI ?"),
             width=18
         ).grid(row=0, column=0, padx=2, pady=2)
-        
+
         ttk.Button(
             quick_buttons_frame,
             text="⚠️ Erreurs récurrentes",
             command=lambda: self.send_quick_message("Quelles sont les erreurs les plus fréquentes ?"),
             width=18
         ).grid(row=0, column=1, padx=2, pady=2)
-        
+
         ttk.Button(
             quick_buttons_frame,
             text="🎯 Optimisations",
             command=lambda: self.send_quick_message("Quelles optimisations recommandes-tu ?"),
             width=18
         ).grid(row=0, column=2, padx=2, pady=2)
-        
+
         ttk.Button(
             quick_buttons_frame,
             text="🔧 Contraintes",
             command=lambda: self.send_quick_message("Rappelle-moi mes contraintes système."),
             width=18
         ).grid(row=1, column=0, padx=2, pady=2)
-        
+
         ttk.Button(
             quick_buttons_frame,
             text="📝 Ajouter contrainte",
             command=self.add_system_constraint,
             width=18
         ).grid(row=1, column=1, padx=2, pady=2)
-        
+
         ttk.Button(
             quick_buttons_frame,
             text="🔍 Rechercher erreur",
             command=self.search_error_history,
             width=18
         ).grid(row=1, column=2, padx=2, pady=2)
-        
+
         # Initialiser la conversation avec le message de bienvenue
         self.root.after(1000, self.initialize_chat_welcome)
 
@@ -6843,14 +6843,14 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                         "environment_id": self.current_environment_id,
                         "filepath": filepath
                     }
-                    
+
                     # Indexer dans la base vectorielle
                     success = self.rag_manager.index_analysis_result(analysis_data)
                     if success:
                         print(f"🧠 Analyse indexée dans le RAG: {popup_id}")
                     else:
                         print(f"⚠️ Erreur indexation RAG: {popup_id}")
-                        
+
                 except Exception as rag_error:
                     print(f"❌ Erreur indexation RAG: {rag_error}")
 
@@ -6861,7 +6861,7 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
             )
 
     # ===== MÉTHODES DE GESTION DU CHAT RAG =====
-    
+
     def initialize_chat_welcome(self):
         """Initialiser la conversation avec le message de bienvenue du RAG"""
         try:
@@ -6874,15 +6874,15 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 )
                 self.chat_status_label.config(text="❌ RAG non disponible")
                 return
-            
+
             # Mettre à jour le gestionnaire RAG avec l'environnement actuel
             if self.current_environment_id and self.rag_manager.environment_id != self.current_environment_id:
                 self.rag_manager.environment_id = self.current_environment_id
                 self.rag_manager._initialize_components()
-            
+
             # Générer le message de bienvenue avec le contexte actuel
             welcome_context = self.rag_manager.generate_chat_context()
-            
+
             welcome_message = f"""🧠 **Assistant RAG ComfyUI activé !**
 
 Je suis votre assistant intelligent pour optimiser votre serveur ComfyUI. Je me base sur l'analyse de vos logs et je garde en mémoire vos contraintes système.
@@ -6899,21 +6899,21 @@ N'hésitez pas à me poser vos questions !"""
 
             self.add_chat_message("assistant", welcome_message)
             self.chat_status_label.config(text=f"✅ RAG actif - Env: {self.current_environment_id or 'Aucun'}")
-            
+
         except Exception as e:
             self.add_chat_message("error", f"❌ Erreur initialisation chat: {e}")
             self.chat_status_label.config(text="❌ Erreur RAG")
-    
+
     def add_chat_message(self, sender_type: str, message: str):
         """Ajouter un message à l'historique du chat"""
         try:
             # Activer l'édition temporairement
             self.chat_history.config(state=tk.NORMAL)
-            
+
             # Ajouter le timestamp
             timestamp = datetime.now().strftime("%H:%M:%S")
             self.chat_history.insert(tk.END, f"[{timestamp}] ", "timestamp")
-            
+
             # Ajouter le message selon le type
             if sender_type == "user":
                 self.chat_history.insert(tk.END, "Vous: ", "user")
@@ -6927,16 +6927,16 @@ N'hésitez pas à me poser vos questions !"""
             elif sender_type == "error":
                 self.chat_history.insert(tk.END, "❌ Erreur: ", "error")
                 self.chat_history.insert(tk.END, f"{message}\n\n", "error")
-            
+
             # Désactiver l'édition
             self.chat_history.config(state=tk.DISABLED)
-            
+
             # Faire défiler vers le bas
             self.chat_history.see(tk.END)
-            
+
         except Exception as e:
             print(f"❌ Erreur ajout message chat: {e}")
-    
+
     def send_chat_message(self):
         """Envoyer un message dans le chat"""
         try:
@@ -6944,65 +6944,65 @@ N'hésitez pas à me poser vos questions !"""
             user_message = self.chat_input.get("1.0", tk.END).strip()
             if not user_message:
                 return
-            
+
             # Ajouter le message de l'utilisateur
             self.add_chat_message("user", user_message)
-            
+
             # Effacer la zone de saisie
             self.clear_chat_input()
-            
+
             # Traiter le message avec le RAG
             self.process_chat_message(user_message)
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur envoi message: {e}")
-    
+
     def process_chat_message(self, user_message: str):
         """Traiter un message utilisateur avec le RAG"""
         try:
             if not self.rag_manager or not self.rag_manager.is_available():
                 self.add_chat_message("system", "Le système RAG n'est pas disponible.")
                 return
-            
+
             # Détecter le type de demande
             message_lower = user_message.lower()
-            
+
             # Commandes spéciales
             if "contrainte" in message_lower and ("ajouter" in message_lower or "nouveau" in message_lower):
                 self.handle_add_constraint_request(user_message)
                 return
-            
+
             if "état" in message_lower and "serveur" in message_lower:
                 self.handle_server_status_request()
                 return
-            
+
             if "erreur" in message_lower and ("récurrent" in message_lower or "fréquent" in message_lower):
                 self.handle_recurring_errors_request()
                 return
-            
+
             # Recherche générale avec contexte RAG
             self.handle_general_query(user_message)
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur traitement message: {e}")
-    
+
     def handle_add_constraint_request(self, user_message: str):
         """Gérer une demande d'ajout de contrainte"""
         # Ouvrir le dialogue d'ajout de contrainte
         self.add_system_constraint()
-    
+
     def handle_server_status_request(self):
         """Gérer une demande de statut du serveur"""
         try:
             status = self.rag_manager.get_server_status_summary()
-            
+
             response = f"""📊 **État actuel du serveur ComfyUI**
 
 🖥️ **Environnement:** {status.get('environment_id', 'Non défini')}
 📈 **État:** {status['current_state']['value']}
 
 """
-            
+
             if status.get('recurring_errors'):
                 response += "⚠️ **Erreurs récurrentes:**\n"
                 for error in status['recurring_errors'][:3]:
@@ -7010,24 +7010,24 @@ N'hésitez pas à me poser vos questions !"""
                     if error.get('solution'):
                         response += f"  💡 Solution: {error['solution']}\n"
                 response += "\n"
-            
+
             if status.get('constraints'):
                 response += "🚫 **Contraintes système:**\n"
                 for constraint in status['constraints'][:3]:
                     response += f"• {constraint['type']}: {constraint['value']}\n"
                     if constraint.get('description'):
                         response += f"  📝 {constraint['description']}\n"
-            
+
             self.add_chat_message("assistant", response)
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur récupération statut: {e}")
-    
+
     def handle_recurring_errors_request(self):
         """Gérer une demande sur les erreurs récurrentes"""
         try:
             status = self.rag_manager.get_server_status_summary()
-            
+
             if not status.get('recurring_errors'):
                 response = "✅ Aucune erreur récurrente détectée dans l'environnement actuel."
             else:
@@ -7038,58 +7038,58 @@ N'hésitez pas à me poser vos questions !"""
                     if error.get('solution'):
                         response += f"💡 Solution: {error['solution']}\n"
                     response += "\n"
-            
+
             self.add_chat_message("assistant", response)
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur récupération erreurs: {e}")
-    
+
     def handle_general_query(self, user_message: str):
         """Gérer une requête générale avec recherche RAG"""
         try:
             # Rechercher des problèmes similaires
             similar_issues = self.rag_manager.search_similar_issues(user_message, limit=3)
-            
+
             if similar_issues:
                 response = f"🔍 **Recherche pour:** {user_message}\n\n"
                 response += "📋 **Problèmes similaires trouvés:**\n\n"
-                
+
                 for i, issue in enumerate(similar_issues, 1):
                     similarity = int(issue['similarity'] * 100)
                     response += f"**{i}. Similarité: {similarity}%**\n"
                     response += f"{issue['content'][:300]}...\n"
-                    
+
                     metadata = issue['metadata']
                     response += f"🕒 Date: {metadata.get('timestamp', 'Inconnue')}\n"
                     if metadata.get('error_count', 0) > 0:
                         response += f"❌ Erreurs: {metadata['error_count']}\n"
                     response += "\n"
-                
+
                 # Générer le contexte pour une réponse intelligente
                 context = self.rag_manager.generate_chat_context(user_message)
                 response += f"\n📊 **Contexte actuel:**\n{context}"
-                
+
             else:
                 response = f"🔍 Aucun problème similaire trouvé pour '{user_message}'.\n\n"
                 response += "💡 Quelques suggestions :\n"
                 response += "• Utilisez les actions rapides ci-dessous\n"
                 response += "• Décrivez plus précisément votre problème\n"
                 response += "• Vérifiez que l'environnement est bien sélectionné"
-            
+
             self.add_chat_message("assistant", response)
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur recherche: {e}")
-    
+
     def send_quick_message(self, message: str):
         """Envoyer un message rapide prédéfini"""
         self.add_chat_message("user", message)
         self.process_chat_message(message)
-    
+
     def clear_chat_input(self):
         """Effacer la zone de saisie"""
         self.chat_input.delete("1.0", tk.END)
-    
+
     def on_enter_pressed(self, event):
         """Gérer la touche Entrée dans le chat"""
         if event.state & 0x4:  # Ctrl+Enter
@@ -7097,91 +7097,91 @@ N'hésitez pas à me poser vos questions !"""
         else:
             self.send_chat_message()
             return "break"  # Empêcher le saut de ligne
-    
+
     def refresh_chat_context(self):
         """Rafraîchir le contexte du chat"""
         try:
             if not self.rag_manager or not self.rag_manager.is_available():
                 self.add_chat_message("system", "RAG non disponible pour actualiser le contexte.")
                 return
-            
+
             # Mettre à jour l'environnement
             if self.current_environment_id:
                 self.rag_manager.environment_id = self.current_environment_id
                 self.rag_manager._initialize_components()
-            
+
             # Générer un nouveau contexte
             context = self.rag_manager.generate_chat_context()
             self.add_chat_message("system", f"🔄 **Contexte actualisé:**\n\n{context}")
-            
+
             # Mettre à jour le statut
             self.chat_status_label.config(text=f"✅ RAG actif - Env: {self.current_environment_id or 'Aucun'}")
-            
+
         except Exception as e:
             self.add_chat_message("error", f"Erreur actualisation contexte: {e}")
-    
+
     def add_system_constraint(self):
         """Ajouter une contrainte système via dialogue"""
         try:
             if not self.rag_manager or not self.rag_manager.is_available():
                 messagebox.showwarning("RAG non disponible", "Le système RAG n'est pas disponible.")
                 return
-            
+
             # Dialogue pour saisir la contrainte
             dialog = tk.Toplevel(self.root)
             dialog.title("Ajouter une contrainte système")
             dialog.geometry("500x300")
             dialog.transient(self.root)
             dialog.grab_set()
-            
+
             # Variables
             constraint_type = tk.StringVar(value="package_version")
             constraint_value = tk.StringVar()
             constraint_description = tk.StringVar()
-            
+
             # Interface
             ttk.Label(dialog, text="Type de contrainte:").pack(pady=5)
             type_combo = ttk.Combobox(dialog, textvariable=constraint_type, values=[
-                "package_version", "hardware_limitation", "memory_limit", 
+                "package_version", "hardware_limitation", "memory_limit",
                 "gpu_compatibility", "python_version", "custom_node_conflict"
             ])
             type_combo.pack(pady=5, padx=20, fill="x")
-            
+
             ttk.Label(dialog, text="Valeur de la contrainte:").pack(pady=(10,5))
             ttk.Entry(dialog, textvariable=constraint_value).pack(pady=5, padx=20, fill="x")
-            
+
             ttk.Label(dialog, text="Description (optionnel):").pack(pady=(10,5))
             description_text = tk.Text(dialog, height=4)
             description_text.pack(pady=5, padx=20, fill="both", expand=True)
-            
+
             # Boutons
             button_frame = ttk.Frame(dialog)
             button_frame.pack(pady=10)
-            
+
             def save_constraint():
                 if not constraint_value.get():
                     messagebox.showwarning("Champ requis", "Veuillez saisir une valeur.")
                     return
-                
+
                 description = description_text.get("1.0", tk.END).strip()
                 self.rag_manager.add_constraint(
                     constraint_type.get(),
                     constraint_value.get(),
                     description
                 )
-                
+
                 # Ajouter un message de confirmation dans le chat
-                self.add_chat_message("system", 
+                self.add_chat_message("system",
                     f"✅ Contrainte ajoutée: {constraint_type.get()} = {constraint_value.get()}")
-                
+
                 dialog.destroy()
-            
+
             ttk.Button(button_frame, text="Sauvegarder", command=save_constraint).pack(side="left", padx=5)
             ttk.Button(button_frame, text="Annuler", command=dialog.destroy).pack(side="left", padx=5)
-            
+
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur ajout contrainte: {e}")
-    
+
     def search_error_history(self):
         """Rechercher dans l'historique des erreurs"""
         try:
@@ -7191,34 +7191,34 @@ N'hésitez pas à me poser vos questions !"""
             search_dialog.geometry("400x150")
             search_dialog.transient(self.root)
             search_dialog.grab_set()
-            
+
             search_var = tk.StringVar()
-            
+
             ttk.Label(search_dialog, text="Rechercher une erreur:").pack(pady=10)
             search_entry = ttk.Entry(search_dialog, textvariable=search_var, width=50)
             search_entry.pack(pady=5, padx=20)
             search_entry.focus()
-            
+
             def perform_search():
                 query = search_var.get().strip()
                 if not query:
                     return
-                
+
                 search_dialog.destroy()
-                
+
                 # Effectuer la recherche
                 self.add_chat_message("user", f"Recherche: {query}")
                 self.handle_general_query(query)
-            
+
             button_frame = ttk.Frame(search_dialog)
             button_frame.pack(pady=10)
-            
+
             ttk.Button(button_frame, text="Rechercher", command=perform_search).pack(side="left", padx=5)
             ttk.Button(button_frame, text="Annuler", command=search_dialog.destroy).pack(side="left", padx=5)
-            
+
             # Bind Enter
             search_entry.bind("<Return>", lambda e: perform_search())
-            
+
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur recherche: {e}")
 

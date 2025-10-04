@@ -7,7 +7,7 @@ Le système RAG (Retrieval-Augmented Generation) vous permet de surveiller et op
 ## 🎯 Objectifs du RAG
 
 - **Mémoriser vos erreurs** et leurs solutions pour éviter de répéter les mêmes problèmes
-- **Surveiller l'état du serveur** ComfyUI et détecter les patterns problématiques  
+- **Surveiller l'état du serveur** ComfyUI et détecter les patterns problématiques
 - **Gérer vos contraintes** matérielles et logicielles (VRAM, versions, compatibilités)
 - **Optimiser les performances** en se basant sur l'historique des succès/échecs
 - **Faciliter l'installation** de custom nodes en prévenant les conflits
@@ -88,7 +88,7 @@ Au premier lancement, le RAG analyse votre environnement et affiche :
 numpy_version: 1.24.4
 → "Ne peut pas passer à numpy 2.x - incompatibilité avec custom nodes existants"
 
-vram_limit: 12GB  
+vram_limit: 12GB
 → "RTX 3060 Ti - limitation pour les gros modèles SDXL"
 
 batch_size_limit: 2
@@ -111,7 +111,7 @@ Chaque fois que vous sauvegardez une analyse Mistral AI depuis l'onglet Log, le 
 ```json
 {
   "timestamp": "2025-10-04T19:30:00",
-  "type": "log_analysis", 
+  "type": "log_analysis",
   "summary": "Résumé de l'analyse",
   "errors": [
     {
@@ -139,7 +139,7 @@ Le RAG utilise des embeddings pour comprendre le sens de vos questions :
 
 Les résultats incluent un score de similiarité :
 - **80%+** : Très pertinent, solution probable
-- **50-79%** : Pertinent, contexte utile  
+- **50-79%** : Pertinent, contexte utile
 - **30-49%** : Peu pertinent, à considérer
 - **<30%** : Non pertinent
 
@@ -201,7 +201,7 @@ Avant installation :
 
 Avant mise à jour :
 1. Consultez les contraintes : Action **🔧 Contraintes**
-2. Documentez l'état actuel : Action **📊 État du serveur**  
+2. Documentez l'état actuel : Action **📊 État du serveur**
 3. Créez un point de restauration de configuration
 
 ## 🚨 Dépannage
@@ -262,7 +262,7 @@ status = rag.get_server_status_summary()
 ## 💡 Conseils d'utilisation
 
 1. **Documentez vos contraintes** dès l'installation
-2. **Analysez régulièrement** vos logs avec Mistral AI  
+2. **Analysez régulièrement** vos logs avec Mistral AI
 3. **Consultez le RAG** avant toute modification importante
 4. **Partagez vos solutions** en documentant les résolutions
 5. **Maintenez à jour** vos contraintes système

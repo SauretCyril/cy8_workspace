@@ -350,6 +350,32 @@ class ComfyUICustomNodeCaller:
                 "message": f"Erreur générale lors du test: {e}",
             }
 
+    def get_python_path_from_comfyui(server_url="http://127.0.0.1:8188"):
+        # Construction du payload pour exécuter le nœud
+        payload = {
+            "prompt": {
+                "nodes": {
+                    "python_path_node": {
+                        "class_type": "PythonPathNode",
+                        "inputs": {}
+                    }
+                }
+            }
+        }
+
+        # Envoi de la requête POST à ComfyUI
+        response = requests.post(f"{server_url}/prompt", json=payload)
+
+        if response.status_code == 200:
+            result = response.json()
+            # Extraction du chemin Python depuis les résultats
+            output = result.get("outputs", {}).get("python_path_node", {}).get("STRING", None)
+            return output
+        else:
+            raise Exception(f"Erreur lors de la requête: {response.status_code} - {response.text}")
+
+
+
     def get_extra_paths(self) -> Dict[str, Any]:
         """
         Récupérer les chemins extra de ComfyUI via ExtraPathReader
@@ -416,6 +442,9 @@ class ComfyUICustomNodeCaller:
 
         except Exception as e:
             return {"error": True, "message": f"Exception lors de la récupération: {e}"}
+
+
+
 
     def get_custom_node_schema(self, node_type: str) -> Optional[Dict[str, Any]]:
         """
