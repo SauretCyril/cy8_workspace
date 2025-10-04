@@ -92,7 +92,7 @@ def open_solutions_folder(self):
 ### Scénario 1: Analyse avec Environnement Sélectionné
 
 1. **Utilisateur** sélectionne l'environnement **G11_01**
-2. **Utilisateur** analyse un log ComfyUI 
+2. **Utilisateur** analyse un log ComfyUI
 3. **Utilisateur** clique sur "🤖 Analyse IA complète"
 4. **Système** génère l'analyse avec Mistral AI
 5. **Système** sauvegarde automatiquement dans `H:\comfyui\G11_01\analyses\`

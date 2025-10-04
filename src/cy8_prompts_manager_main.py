@@ -5922,7 +5922,7 @@ WORKFLOW:
                             if len(parts) > 1:
                                 display_message = parts[0]
                                 details_info = parts[1]
-                        
+
                         # Debug uniquement si les détails ne sont pas vides
                         if details and details.strip():
                             print(f"⚠️ Données legacy détectées pour résultat {result_id} (format JSON attendu)")
