@@ -5888,7 +5888,7 @@ WORKFLOW:
                 line_number = "N/A"
 
                 # Extraire les informations des détails enrichis si disponibles
-                if details:
+                if details and details.strip():  # Vérifier que details n'est pas vide
                     try:
                         import json
                         details_dict = json.loads(details)
@@ -5915,8 +5915,24 @@ WORKFLOW:
                             details_info = details_dict["error_details"]
 
                     except (json.JSONDecodeError, Exception) as e:
-                        # Si on ne peut pas parser les détails, utiliser les valeurs par défaut
-                        print(f"Erreur de parsing des détails pour le résultat {result_id}: {e}")
+                        # Gestion silencieuse des données legacy ou corrompues
+                        # Essayer d'extraire quelques informations du message direct
+                        if " | " in message:
+                            parts = message.split(" | ", 1)
+                            if len(parts) > 1:
+                                display_message = parts[0]
+                                details_info = parts[1]
+                        
+                        # Debug uniquement si les détails ne sont pas vides
+                        if details and details.strip():
+                            print(f"⚠️ Données legacy détectées pour résultat {result_id} (format JSON attendu)")
+                else:
+                    # Pas de détails JSON, essayer de traiter le message directement
+                    if " | " in message:
+                        parts = message.split(" | ", 1)
+                        if len(parts) > 1:
+                            display_message = parts[0]
+                            details_info = parts[1]
 
                 # Reconstruire l'entrée au format _original_log_results
                 entry = {
@@ -6211,10 +6227,15 @@ Message: {message}
     def open_solutions_folder(self):
         """Ouvrir le dossier des solutions"""
         try:
-            solutions_dir = self.error_solutions_dir.get()
-
-            # Créer le dossier s'il n'existe pas
-            os.makedirs(solutions_dir, exist_ok=True)
+            # Utiliser le répertoire spécifique à l'environnement s'il y en a un de sélectionné
+            if self.current_environment_id:
+                solutions_dir = self.db_manager.get_environment_analyses_directory(self.current_environment_id)
+                print(f"📁 Ouverture du répertoire d'analyses pour l'environnement {self.current_environment_id}: {solutions_dir}")
+            else:
+                solutions_dir = self.error_solutions_dir.get()
+                # Créer le dossier s'il n'existe pas
+                os.makedirs(solutions_dir, exist_ok=True)
+                print(f"📁 Ouverture du répertoire global: {solutions_dir}")
 
             # Ouvrir le dossier
             if os.name == "nt":  # Windows
@@ -6642,10 +6663,14 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 messagebox.showwarning("Attention", "Aucune analyse à sauvegarder.")
                 return
 
-            # Obtenir le répertoire de sauvegarde
-            solutions_dir = self.user_prefs.get_error_solutions_directory()
-            if not os.path.exists(solutions_dir):
-                os.makedirs(solutions_dir, exist_ok=True)
+            # Obtenir le répertoire de sauvegarde spécifique à l'environnement
+            if self.current_environment_id:
+                solutions_dir = self.db_manager.get_environment_analyses_directory(self.current_environment_id)
+            else:
+                # Répertoire par défaut si aucun environnement sélectionné
+                solutions_dir = self.user_prefs.get_error_solutions_directory()
+                if not os.path.exists(solutions_dir):
+                    os.makedirs(solutions_dir, exist_ok=True)
 
             # Créer le nom de fichier avec timestamp et ID popup
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

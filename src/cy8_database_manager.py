@@ -873,6 +873,32 @@ class cy8_database_manager:
             print(f"Erreur lors de l'effacement des résultats d'analyse : {e}")
             return False
 
+    def get_environment_analyses_directory(self, environment_id):
+        """Récupérer le répertoire d'analyses pour un environnement"""
+        try:
+            self.cursor.execute(
+                "SELECT path FROM environnements WHERE id = ?",
+                (environment_id,),
+            )
+            result = self.cursor.fetchone()
+            if result and result[0]:
+                # Créer le chemin du répertoire analyses
+                analyses_dir = os.path.join(result[0], "analyses")
+                # Créer le répertoire s'il n'existe pas
+                os.makedirs(analyses_dir, exist_ok=True)
+                return analyses_dir
+            else:
+                # Répertoire par défaut si l'environnement n'est pas trouvé
+                default_dir = f"g:/temp/analyses/{environment_id}"
+                os.makedirs(default_dir, exist_ok=True)
+                return default_dir
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération du répertoire analyses : {e}")
+            # Répertoire par défaut en cas d'erreur
+            default_dir = f"g:/temp/analyses/{environment_id}"
+            os.makedirs(default_dir, exist_ok=True)
+            return default_dir
+
     def add_analysis_result(
         self, environment_id, fichier, type_result, niveau, message, details=""
     ):
