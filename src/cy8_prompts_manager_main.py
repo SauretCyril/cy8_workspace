@@ -1022,47 +1022,6 @@ class cy8_prompts_manager:
         )
         self.log_file_info_label.pack(anchor="w")
 
-        # === SECTION 1.5: CONFIGURATION DES SOLUTIONS D'ERREURS ===
-        solutions_config_frame = ttk.LabelFrame(
-            log_frame, text="🤖 Configuration des solutions IA", padding="10"
-        )
-        solutions_config_frame.pack(fill="x", pady=(0, 15))
-
-        # Ligne de configuration du répertoire
-        solutions_dir_frame = ttk.Frame(solutions_config_frame)
-        solutions_dir_frame.pack(fill="x", pady=(0, 5))
-
-        ttk.Label(solutions_dir_frame, text="Répertoire des solutions:", width=20).pack(
-            side="left"
-        )
-
-        # Variable pour le répertoire des solutions
-        self.error_solutions_dir = tk.StringVar()
-        self.error_solutions_dir.set(self.user_prefs.get_error_solutions_directory())
-
-        solutions_dir_entry = ttk.Entry(
-            solutions_dir_frame, textvariable=self.error_solutions_dir, width=50
-        )
-        solutions_dir_entry.pack(side="left", padx=(10, 5), fill="x", expand=True)
-
-        ttk.Button(
-            solutions_dir_frame,
-            text="📁 Parcourir",
-            command=self.browse_solutions_directory,
-            width=12,
-        ).pack(side="right")
-
-        # Info sur les solutions
-        solutions_info_frame = ttk.Frame(solutions_config_frame)
-        solutions_info_frame.pack(fill="x")
-
-        ttk.Label(
-            solutions_info_frame,
-            text="💡 Double-cliquez sur une erreur pour obtenir une solution IA. Les solutions sont sauvegardées.",
-            font=("TkDefaultFont", 8),
-            foreground="gray",
-        ).pack(anchor="w")
-
         # === SECTION 2: ACTIONS D'ANALYSE ===
         actions_frame = ttk.LabelFrame(
             log_frame, text="🔍 Actions d'analyse", padding="10"
@@ -5420,25 +5379,6 @@ WORKFLOW:
         if filename:
             self.comfyui_log_path.set(filename)
 
-    def browse_solutions_directory(self):
-        """Ouvrir un dialogue pour sélectionner le répertoire des solutions"""
-        from tkinter import filedialog
-
-        initial_dir = self.error_solutions_dir.get() or "g:/temp"
-
-        directory = filedialog.askdirectory(
-            title="Sélectionner le répertoire pour les solutions d'erreurs",
-            initialdir=initial_dir,
-        )
-
-        if directory:
-            self.error_solutions_dir.set(directory)
-            # Sauvegarder dans les préférences
-            self.user_prefs.set_error_solutions_directory(directory)
-            messagebox.showinfo(
-                "Configuration", f"Répertoire des solutions mis à jour :\n{directory}"
-            )
-
     def analyze_comfyui_log(self):
         """Analyser le fichier de log ComfyUI"""
         # Vérifier qu'un environnement est identifié
@@ -6232,10 +6172,11 @@ Message: {message}
                 solutions_dir = self.db_manager.get_environment_analyses_directory(self.current_environment_id)
                 print(f"📁 Ouverture du répertoire d'analyses pour l'environnement {self.current_environment_id}: {solutions_dir}")
             else:
-                solutions_dir = self.error_solutions_dir.get()
+                # Si aucun environnement sélectionné, utiliser un répertoire par défaut
+                solutions_dir = self.user_prefs.get_error_solutions_directory()
                 # Créer le dossier s'il n'existe pas
                 os.makedirs(solutions_dir, exist_ok=True)
-                print(f"📁 Ouverture du répertoire global: {solutions_dir}")
+                print(f"📁 Ouverture du répertoire par défaut: {solutions_dir}")
 
             # Ouvrir le dossier
             if os.name == "nt":  # Windows
