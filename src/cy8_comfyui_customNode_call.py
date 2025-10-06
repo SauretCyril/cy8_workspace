@@ -350,29 +350,46 @@ class ComfyUICustomNodeCaller:
                 "message": f"Erreur générale lors du test: {e}",
             }
 
-    def get_python_path_from_comfyui(server_url="http://127.0.0.1:8188"):
-        # Construction du payload pour exécuter le nœud
-        payload = {
-            "prompt": {
-                "nodes": {
-                    "python_path_node": {
-                        "class_type": "PythonPathNode",
-                        "inputs": {}
-                    }
-                }
-            }
-        }
+    def get_python_path_from_comfyui(self, server_url="http://127.0.0.1:8188"):
+        """Récupérer le chemin Python (sys.executable) via le custom node PythonPathNode"""
+        print("🐍 Appel du custom node PythonPathNode...")
 
-        # Envoi de la requête POST à ComfyUI
-        response = requests.post(f"{server_url}/prompt", json=payload)
+        try:
+            # Utiliser notre méthode standard call_custom_node
+            result = self.call_custom_node("PythonPathNode", {})
 
-        if response.status_code == 200:
-            result = response.json()
-            # Extraction du chemin Python depuis les résultats
-            output = result.get("outputs", {}).get("python_path_node", {}).get("STRING", None)
-            return output
-        else:
-            raise Exception(f"Erreur lors de la requête: {response.status_code} - {response.text}")
+            if "prompt_id" in result:
+                prompt_id = result["prompt_id"]
+                print(f"🆔 Prompt ID PythonPathNode: {prompt_id}")
+
+                # Attendre l'exécution
+                import time
+                time.sleep(1)
+
+                # Récupérer l'historique pour obtenir le résultat
+                url = urljoin(self.server_url, f"/history/{prompt_id}")
+                response = self.session.get(url, timeout=10)
+
+                if response.status_code == 200:
+                    history = response.json()
+                    if prompt_id in history:
+                        outputs = history[prompt_id].get("outputs", {})
+                        # Chercher la sortie du nœud PythonPathNode
+                        for node_id, node_output in outputs.items():
+                            if "text" in node_output:
+                                python_path = node_output["text"][0]
+                                print(f"✅ Python path détecté: {python_path}")
+                                return python_path
+
+                print("❌ Impossible de récupérer le résultat depuis l'historique")
+                return None
+            else:
+                print("❌ Pas de prompt_id dans la réponse")
+                return None
+
+        except Exception as e:
+            print(f"❌ Erreur lors de l'appel du custom node PythonPathNode: {e}")
+            return None
 
 
 

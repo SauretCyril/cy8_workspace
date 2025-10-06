@@ -1,5 +1,6 @@
 """
-Gestionnaire RAG pour l'analyse et l'indexation des résultats d'analyse IA Mistral
+Gestionnaire RAG Hybride pour l'analyse et l'indexation des résultats d'analyse IA Mistral
+Supporte deux modes : Rapide (templates) et Expert (RAG + Mistral AI)
 Permet de surveiller et optimiser le serveur ComfyUI avec mémoire des erreurs et contraintes
 """
 
@@ -11,6 +12,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import logging
 from pathlib import Path
 import hashlib
+import time
 
 try:
     import chromadb
@@ -79,61 +81,102 @@ class RAGManager:
             self.vector_db_path = os.path.join(analyses_dir, "vector_db")
             self.constraints_db_path = os.path.join(analyses_dir, "constraints.db")
 
-            # Initialiser ChromaDB
+            # Initialiser ChromaDB (optionnel)
             self._initialize_chromadb()
 
-            # Initialiser le modèle d'embeddings
+            # Initialiser le modèle d'embeddings (optionnel)
             self._initialize_embeddings_model()
 
             # Initialiser la base de contraintes
             self._initialize_constraints_db()
 
-            self.logger.info(f"✅ RAG initialisé pour l'environnement {self.environment_id}")
+            # Vérifier si au moins une fonctionnalité fonctionne
+            if self.chroma_client is None and self.embeddings_model is None:
+                self.logger.warning("⚠️ RAG initialisé en mode dégradé (ChromaDB et embeddings indisponibles)")
+                print("⚠️ RAG en mode dégradé - fonctionnalités limitées")
+            else:
+                self.logger.info(f"✅ RAG initialisé pour l'environnement {self.environment_id}")
+                print(f"✅ RAG fonctionnel pour {self.environment_id}")
+
             return True
 
         except Exception as e:
             self.logger.error(f"❌ Erreur lors de l'initialisation RAG: {e}")
+            print(f"❌ Erreur RAG: {e}")
             return False
 
     def _initialize_chromadb(self):
-        """Initialiser ChromaDB"""
+        """Initialiser ChromaDB avec gestion d'erreurs robuste"""
         try:
+            if not CHROMADB_AVAILABLE:
+                print("⚠️ ChromaDB non disponible")
+                self.chroma_client = None
+                self.collection = None
+                return
+
+            print(f"🔧 Initialisation ChromaDB: {self.vector_db_path}")
+
             # Créer le répertoire de la base vectorielle
             os.makedirs(self.vector_db_path, exist_ok=True)
 
-            # Initialiser ChromaDB avec persistance
-            self.chroma_client = chromadb.PersistentClient(
-                path=self.vector_db_path,
-                settings=Settings(anonymized_telemetry=False)
-            )
+            # Essayer d'initialiser ChromaDB avec configuration simple
+            try:
+                self.chroma_client = chromadb.PersistentClient(path=self.vector_db_path)
+                print("✅ ChromaDB PersistentClient initialisé")
+            except Exception as e:
+                print(f"⚠️ Erreur ChromaDB PersistentClient: {e}")
+                # Désactiver ChromaDB en cas d'erreur
+                self.chroma_client = None
+                self.collection = None
+                return
 
             # Créer ou récupérer la collection
             collection_name = f"comfyui_analyses_{self.environment_id or 'default'}"
             try:
                 self.collection = self.chroma_client.get_collection(collection_name)
+                print(f"📚 Collection existante récupérée: {collection_name}")
                 self.logger.info(f"📚 Collection existante récupérée: {collection_name}")
             except:
                 self.collection = self.chroma_client.create_collection(
                     name=collection_name,
                     metadata={"description": f"Analyses ComfyUI pour environnement {self.environment_id}"}
                 )
+                print(f"📚 Nouvelle collection créée: {collection_name}")
                 self.logger.info(f"📚 Nouvelle collection créée: {collection_name}")
 
         except Exception as e:
             self.logger.error(f"❌ Erreur ChromaDB: {e}")
+            print(f"❌ Erreur ChromaDB globale: {e}")
             self.chroma_client = None
             self.collection = None
 
     def _initialize_embeddings_model(self):
-        """Initialiser le modèle d'embeddings"""
+        """Initialiser le modèle d'embeddings avec fallback"""
         try:
-            # Utiliser un modèle français/multilingue optimisé
-            model_name = "sentence-transformers/all-MiniLM-L6-v2"  # Léger et efficace
-            self.embeddings_model = SentenceTransformer(model_name)
-            self.logger.info(f"🤖 Modèle d'embeddings chargé: {model_name}")
+            # Essayer d'abord un modèle très léger
+            model_names = [
+                "sentence-transformers/all-MiniLM-L6-v2",  # Très léger et rapide
+                "all-MiniLM-L6-v2",  # Même modèle, nom court
+                "paraphrase-MiniLM-L3-v2"  # Encore plus léger
+            ]
+
+            for model_name in model_names:
+                try:
+                    print(f"🔍 Tentative de chargement: {model_name}")
+                    self.embeddings_model = SentenceTransformer(model_name)
+                    self.logger.info(f"🤖 Modèle d'embeddings chargé: {model_name}")
+                    print(f"✅ Modèle chargé avec succès: {model_name}")
+                    return
+                except Exception as e:
+                    print(f"⚠️ Échec {model_name}: {e}")
+                    continue
+
+            # Si tous les modèles échouent, désactiver les embeddings
+            raise Exception("Aucun modèle d'embeddings disponible")
 
         except Exception as e:
-            self.logger.error(f"❌ Erreur chargement modèle embeddings: {e}")
+            self.logger.warning(f"⚠️ Impossible de charger un modèle d'embeddings: {e}")
+            print(f"⚠️ RAG fonctionnera en mode dégradé (sans embeddings)")
             self.embeddings_model = None
 
     def _initialize_constraints_db(self):
@@ -266,14 +309,15 @@ class RAGManager:
             # Créer un ID unique pour le document
             doc_id = self._generate_document_id(analysis_result)
 
-            # Métadonnées du document
+            # Métadonnées du document (s'assurer qu'aucune valeur n'est None)
             metadata = {
                 "timestamp": analysis_result.get("timestamp", datetime.now().isoformat()),
-                "environment_id": self.environment_id,
-                "analysis_type": analysis_result.get("type", "general"),
-                "has_errors": len(analysis_result.get("errors", [])) > 0,
-                "error_count": len(analysis_result.get("errors", [])),
-                "success_count": len(analysis_result.get("successes", [])),
+                "environment_id": str(self.environment_id or "default"),
+                "analysis_type": str(analysis_result.get("type", "general")),
+                "has_errors": bool(len(analysis_result.get("errors", [])) > 0),
+                "error_count": int(len(analysis_result.get("errors", []))),
+                "success_count": int(len(analysis_result.get("successes", []))),
+                "filename": str(analysis_result.get("filename", "")),
             }
 
             # Ajouter à la collection
@@ -559,6 +603,340 @@ class RAGManager:
             self.logger.error(f"❌ Erreur génération contexte chat: {e}")
             return f"❌ Erreur lors de la génération du contexte: {e}"
 
+    # === NOUVELLES MÉTHODES RAG HYBRIDE ===
+
+    def query_with_mode(self, query: str, mode: str = "rapide", max_results: int = 5) -> Dict[str, Any]:
+        """
+        Interroger le RAG avec le mode spécifié
+
+        Args:
+            query: Question de l'utilisateur
+            mode: "rapide" (templates) ou "expert" (RAG + Mistral AI)
+            max_results: Nombre maximum de résultats
+
+        Returns:
+            Dict avec la réponse, le mode utilisé, et les métadonnées
+        """
+        start_time = time.time()
+
+        try:
+            if mode == "rapide":
+                result = self._query_rapid_mode(query, max_results)
+            elif mode == "expert":
+                result = self._query_expert_mode(query, max_results)
+            else:
+                raise ValueError(f"Mode invalide: {mode}. Utilisez 'rapide' ou 'expert'")
+
+            # Ajouter les métadonnées de performance
+            result["metadata"] = {
+                "mode": mode,
+                "response_time": round(time.time() - start_time, 2),
+                "timestamp": datetime.now().isoformat()
+            }
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"❌ Erreur lors de la requête {mode}: {e}")
+            return {
+                "success": False,
+                "response": f"Erreur lors de la requête: {str(e)}",
+                "sources": [],
+                "metadata": {
+                    "mode": mode,
+                    "response_time": round(time.time() - start_time, 2),
+                    "error": str(e)
+                }
+            }
+
+    def _query_rapid_mode(self, query: str, max_results: int) -> Dict[str, Any]:
+        """Mode rapide : Recherche vectorielle + Templates pré-programmés"""
+        try:
+            # Rechercher les documents similaires
+            similar_docs = self.search_similar_issues(query, max_results)
+
+            if not similar_docs:
+                return {
+                    "success": True,
+                    "response": "❌ Aucune analyse similaire trouvée dans l'historique.\n\n"
+                              "💡 Essayez le mode Expert pour une analyse plus approfondie, ou "
+                              "analysez d'abord quelques logs pour enrichir la base de connaissances.",
+                    "sources": [],
+                    "mode": "rapide"
+                }
+
+            # Générer une réponse basée sur les templates
+            response = self._generate_template_response(query, similar_docs)
+
+            return {
+                "success": True,
+                "response": response,
+                "sources": [doc.get("source", "Analyse ComfyUI") for doc in similar_docs],
+                "mode": "rapide",
+                "documents_found": len(similar_docs)
+            }
+
+        except Exception as e:
+            self.logger.error(f"❌ Erreur mode rapide: {e}")
+            raise e
+
+    def _query_expert_mode(self, query: str, max_results: int) -> Dict[str, Any]:
+        """Mode expert : Recherche vectorielle + Analyse Mistral AI"""
+        try:
+            # Rechercher les documents similaires
+            similar_docs = self.search_similar_issues(query, max_results)
+
+            if not similar_docs:
+                return {
+                    "success": True,
+                    "response": "❌ Aucune analyse similaire trouvée dans l'historique.\n\n"
+                              "📝 Pour enrichir la base de connaissances, analysez quelques logs ComfyUI "
+                              "dans l'onglet Analyses. Le RAG Expert sera plus efficace avec plus de données.",
+                    "sources": [],
+                    "mode": "expert"
+                }
+
+            # Préparer le contexte pour Mistral AI
+            context = self._prepare_context_for_mistral(similar_docs, query)
+
+            # Appeler Mistral AI pour la synthèse
+            mistral_response = self._call_mistral_for_analysis(query, context)
+
+            if mistral_response["success"]:
+                return {
+                    "success": True,
+                    "response": mistral_response["response"],
+                    "sources": [doc.get("source", "Analyse ComfyUI") for doc in similar_docs],
+                    "mode": "expert",
+                    "documents_found": len(similar_docs),
+                    "mistral_tokens": mistral_response.get("tokens_used", "N/A")
+                }
+            else:
+                # Fallback vers le mode rapide en cas d'erreur Mistral
+                self.logger.warning("Fallback vers mode rapide après erreur Mistral")
+                return self._query_rapid_mode(query, max_results)
+
+        except Exception as e:
+            self.logger.error(f"❌ Erreur mode expert: {e}")
+            # Fallback vers le mode rapide
+            try:
+                return self._query_rapid_mode(query, max_results)
+            except:
+                raise e
+
+    def _generate_template_response(self, query: str, similar_docs: List[Dict]) -> str:
+        """Générer une réponse basée sur des templates pré-programmés"""
+
+        # Analyser les types d'erreurs trouvées
+        error_types = set()
+        solutions = []
+        environments = set()
+
+        for doc in similar_docs:
+            doc_content = doc.get("content", {})
+
+            # Extraire les types d'erreurs
+            if "errors" in doc_content:
+                for error in doc_content["errors"]:
+                    if isinstance(error, dict):
+                        error_types.add(error.get("type", "unknown"))
+                        if "solution" in error:
+                            solutions.append(error["solution"])
+
+            # Extraire l'environnement
+            if "environment_id" in doc_content:
+                environments.add(doc_content["environment_id"])
+
+        # Construire la réponse template
+        response = "🔍 **Analyse Rapide RAG** - Résultats similaires trouvés\n\n"
+
+        # Résumé des documents
+        response += f"📊 **{len(similar_docs)} analyses similaires** trouvées dans l'historique\n"
+        if environments:
+            response += f"🌍 **Environnements concernés** : {', '.join(environments)}\n\n"
+
+        # Types d'erreurs fréquents
+        if error_types:
+            response += "⚠️ **Types d'erreurs fréquents** :\n"
+            for error_type in sorted(error_types):
+                response += f"  • {error_type.replace('_', ' ').title()}\n"
+            response += "\n"
+
+        # Solutions recommandées
+        if solutions:
+            response += "💡 **Solutions recommandées** :\n"
+            unique_solutions = list(set(solutions))[:3]  # Top 3 solutions uniques
+            for i, solution in enumerate(unique_solutions, 1):
+                response += f"  {i}. {solution}\n"
+            response += "\n"
+
+        # Conseils généraux selon le type de query
+        query_lower = query.lower()
+        if any(word in query_lower for word in ["cuda", "gpu", "memory", "vram"]):
+            response += "🎯 **Conseils CUDA/GPU** :\n"
+            response += "  • Vérifiez la version CUDA compatible avec PyTorch\n"
+            response += "  • Surveillez l'utilisation VRAM (nvidia-smi)\n"
+            response += "  • Redémarrez ComfyUI si problème persistant\n\n"
+
+        elif any(word in query_lower for word in ["custom", "node", "missing"]):
+            response += "🎯 **Conseils Custom Nodes** :\n"
+            response += "  • Vérifiez l'installation des custom nodes\n"
+            response += "  • Redémarrez ComfyUI après installation\n"
+            response += "  • Consultez les logs de démarrage\n\n"
+
+        elif any(word in query_lower for word in ["model", "checkpoint", "load"]):
+            response += "🎯 **Conseils Modèles** :\n"
+            response += "  • Vérifiez les chemins dans extra_model_paths.yaml\n"
+            response += "  • Contrôlez la disponibilité des modèles\n"
+            response += "  • Validez les permissions de fichiers\n\n"
+
+        response += "💡 **Astuce** : Utilisez le mode **Expert** pour une analyse plus approfondie avec IA !"
+
+        return response
+
+    def _prepare_context_for_mistral(self, similar_docs: List[Dict], query: str) -> str:
+        """Préparer le contexte pour l'analyse Mistral AI"""
+
+        context = f"REQUÊTE UTILISATEUR: {query}\n\n"
+        context += f"HISTORIQUE D'ANALYSES SIMILAIRES ({len(similar_docs)} documents):\n\n"
+
+        for i, doc in enumerate(similar_docs, 1):
+            context += f"--- ANALYSE {i} ---\n"
+
+            doc_content = doc.get("content", {})
+
+            # Métadonnées de base
+            if "timestamp" in doc_content:
+                context += f"Date: {doc_content['timestamp']}\n"
+            if "environment_id" in doc_content:
+                context += f"Environnement: {doc_content['environment_id']}\n"
+
+            # Résumé
+            if "summary" in doc_content:
+                context += f"Résumé: {doc_content['summary']}\n"
+
+            # Erreurs
+            if "errors" in doc_content and doc_content["errors"]:
+                context += "Erreurs trouvées:\n"
+                for error in doc_content["errors"][:3]:  # Limiter à 3 erreurs par doc
+                    if isinstance(error, dict):
+                        context += f"  - Type: {error.get('type', 'N/A')}\n"
+                        context += f"    Message: {error.get('message', 'N/A')}\n"
+                        if "solution" in error:
+                            context += f"    Solution: {error['solution']}\n"
+                    else:
+                        context += f"  - {error}\n"
+
+            # Succès
+            if "successes" in doc_content and doc_content["successes"]:
+                context += f"Éléments fonctionnels: {', '.join(doc_content['successes'][:3])}\n"
+
+            context += "\n"
+
+        return context
+
+    def _call_mistral_for_analysis(self, query: str, context: str) -> Dict[str, Any]:
+        """Appeler Mistral AI pour analyser le contexte et répondre à la requête"""
+
+        try:
+            # Importer le module Mistral
+            from cy8_mistral import get_mistral_answer
+
+            # Préparer le rôle système pour Mistral
+            system_role = """Tu es un expert technique ComfyUI spécialisé dans l'analyse des logs et la résolution de problèmes.
+
+            Ton rôle est d'analyser l'historique d'erreurs similaires et de fournir une réponse experte, contextualisée et actionnable.
+
+            INSTRUCTIONS:
+            1. Analyse les documents d'historique fournis
+            2. Identifie les patterns et corrélations
+            3. Fournis une réponse structurée avec:
+               - Diagnostic précis du problème
+               - Solutions spécifiques et priorisées
+               - Conseils préventifs
+            4. Sois concis mais complet
+            5. Utilise des emojis pour la lisibilité
+            6. Référence les analyses similaires quand pertinent
+
+            FORMAT DE RÉPONSE:
+            🔍 **Diagnostic Expert**
+            [Analyse du problème basée sur l'historique]
+
+            ⚡ **Solutions Recommandées**
+            1. [Solution prioritaire]
+            2. [Solution alternative]
+
+            🛡️ **Prévention**
+            [Conseils pour éviter le problème]
+            """
+
+            # Construire la question complète
+            full_question = f"""Basé sur l'historique d'analyses ComfyUI ci-dessous, réponds à cette requête utilisateur:
+
+{query}
+
+{context}
+
+Fournis une analyse experte en te basant sur les patterns observés dans l'historique."""
+
+            # Appeler Mistral
+            print(f"🧠 Appel Mistral AI pour analyse experte...")
+            start_time = time.time()
+
+            mistral_result = get_mistral_answer(
+                question=full_question,
+                role=system_role,
+                texte=""  # Le contexte est déjà dans la question
+            )
+
+            response_time = round(time.time() - start_time, 2)
+
+            if mistral_result and len(mistral_result.strip()) > 50:
+                # Ajouter un en-tête pour distinguer la réponse experte
+                expert_response = f"🧠 **ANALYSE EXPERTE RAG + MISTRAL AI**\n"
+                expert_response += f"⏱️ *Temps de traitement: {response_time}s*\n\n"
+                expert_response += mistral_result
+                expert_response += f"\n\n---\n📚 *Basé sur {context.count('--- ANALYSE')} analyses similaires de l'historique ComfyUI*"
+
+                return {
+                    "success": True,
+                    "response": expert_response,
+                    "tokens_used": len(full_question.split()) + len(mistral_result.split()),
+                    "response_time": response_time
+                }
+            else:
+                self.logger.warning("Réponse Mistral vide ou trop courte")
+                return {"success": False, "error": "Réponse Mistral invalide"}
+
+        except ImportError:
+            self.logger.error("Module cy8_mistral non disponible")
+            return {"success": False, "error": "Module Mistral non disponible"}
+
+        except Exception as e:
+            self.logger.error(f"Erreur lors de l'appel Mistral: {e}")
+            return {"success": False, "error": str(e)}
+
+    def get_mode_info(self) -> Dict[str, Dict[str, Any]]:
+        """Retourner les informations sur les modes disponibles"""
+        return {
+            "rapide": {
+                "name": "RAG Rapide ⚡",
+                "description": "Recherche vectorielle + Templates pré-programmés",
+                "speed": "< 1 seconde",
+                "cost": "Gratuit",
+                "accuracy": "Bonne pour problèmes connus",
+                "best_for": ["Erreurs communes", "Diagnostics rapides", "Premiers secours"]
+            },
+            "expert": {
+                "name": "RAG Expert 🧠",
+                "description": "Recherche vectorielle + Analyse Mistral AI",
+                "speed": "2-5 secondes",
+                "cost": "Tokens Mistral",
+                "accuracy": "Excellente avec contextualisation",
+                "best_for": ["Problèmes complexes", "Analyse approfondie", "Solutions personnalisées"]
+            }
+        }
+
     def is_available(self) -> bool:
         """Vérifier si le RAG est disponible et fonctionnel"""
         return (
@@ -617,5 +995,76 @@ def main():
         print("❌ RAG non disponible - vérifiez les dépendances")
 
 
+class RAGManagerStats:
+    """Extension pour les statistiques du RAG Manager"""
+
+    def get_collection_stats(self):
+        """Obtenir les statistiques de la collection ChromaDB"""
+        try:
+            if not self.collection:
+                return {
+                    'total_documents': 0,
+                    'last_indexed': 'Jamais',
+                    'collection_name': None,
+                    'available': False
+                }
+
+            # Compter les documents
+            count = self.collection.count()
+
+            # Obtenir des métadonnées pour la dernière indexation
+            last_indexed = 'Inconnu'
+            if count > 0:
+                try:
+                    results = self.collection.get(
+                        limit=1,
+                        include=["metadatas"],
+                        order_by=["timestamp"]  # Essayer de trier par timestamp si possible
+                    )
+                    if results and results.get('metadatas'):
+                        last_timestamp = results['metadatas'][0].get('timestamp', 'Inconnu')
+                        if last_timestamp != 'Inconnu':
+                            try:
+                                from datetime import datetime
+                                if isinstance(last_timestamp, str):
+                                    dt = datetime.fromisoformat(last_timestamp.replace('Z', '+00:00'))
+                                    last_indexed = dt.strftime("%Y-%m-%d %H:%M:%S")
+                                else:
+                                    last_indexed = str(last_timestamp)
+                            except:
+                                last_indexed = str(last_timestamp)
+                except Exception:
+                    # Si l'ordre n'est pas supporté, utiliser une recherche simple
+                    results = self.collection.get(limit=5, include=["metadatas"])
+                    if results and results.get('metadatas'):
+                        # Prendre le timestamp le plus récent disponible
+                        timestamps = []
+                        for metadata in results['metadatas']:
+                            ts = metadata.get('timestamp')
+                            if ts:
+                                timestamps.append(ts)
+                        if timestamps:
+                            last_indexed = max(timestamps)
+
+            return {
+                'total_documents': count,
+                'last_indexed': last_indexed,
+                'collection_name': getattr(self.collection, 'name', 'default'),
+                'available': True,
+                'environment_id': self.environment_id
+            }
+
+        except Exception as e:
+            self.logger.error(f"Erreur statistiques collection: {e}")
+            return {
+                'total_documents': 0,
+                'last_indexed': f'Erreur: {e}',
+                'collection_name': None,
+                'available': False
+            }
+
+
+# Ajouter la méthode à RAGManager
+RAGManager.get_collection_stats = RAGManagerStats.get_collection_stats
 if __name__ == "__main__":
     main()

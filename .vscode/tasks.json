@@ -22,7 +22,7 @@
         {
             "label": "Lancer cy8_prompts_manager",
             "type": "shell",
-            "command": "python",
+            "command": "G:\\G_WCS\\cy8_workspace\\venv\\Scripts\\python.exe",
             "args": [
                 "src/cy8_prompts_manager_main.py"
             ],

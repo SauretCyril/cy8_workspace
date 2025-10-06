@@ -11,6 +11,7 @@ from PIL import Image, ImageTk
 # Import du gestionnaire RAG
 try:
     from cy8_rag_manager import RAGManager
+    from cy8_temporal_rag import TemporalRAGManager
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -77,26 +78,6 @@ class cy8_prompts_manager:
         self.popup_manager = cy8_popup_manager(self.root, self.db_manager)
         self.table_manager = cy8_editable_tables(self.root, self.popup_manager)
 
-        # Gestionnaire RAG pour l'analyse intelligente
-        self.rag_manager = None
-        if RAG_AVAILABLE:
-            try:
-                self.rag_manager = RAGManager(self.db_manager, self.current_environment_id)
-                print("🧠 Gestionnaire RAG initialisé")
-            except Exception as e:
-                print(f"⚠️ Erreur initialisation RAG: {e}")
-                self.rag_manager = None
-
-        # Gestionnaire d'index d'images optimisé
-        self.image_index = ImageIndexManager()
-        self.fast_processor = get_image_processor()
-        print(
-            f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}"
-        )
-
-        # Connecter le callback de sauvegarde
-        self.table_manager.set_save_callback(self.save_current_info)
-
         # Variables d'état
         self.selected_prompt_id = None
         self.execution_stack = []
@@ -108,6 +89,30 @@ class cy8_prompts_manager:
 
         # Variable pour l'environnement identifié
         self.current_environment_id = None
+
+        # Gestionnaire RAG pour l'analyse intelligente (après définition de current_environment_id)
+        self.rag_manager = None
+        self.temporal_rag = None
+        if RAG_AVAILABLE:
+            try:
+                self.rag_manager = RAGManager(self.db_manager, self.current_environment_id)
+                self.temporal_rag = TemporalRAGManager(self.rag_manager)
+                print("🧠 Gestionnaire RAG initialisé")
+                print("🕒 Extension RAG temporelle activée")
+            except Exception as e:
+                print(f"⚠️ Erreur initialisation RAG: {e}")
+                self.rag_manager = None
+                self.temporal_rag = None
+
+        # Gestionnaire d'index d'images optimisé
+        self.image_index = ImageIndexManager()
+        self.fast_processor = get_image_processor()
+        print(
+            f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}"
+        )
+
+        # Connecter le callback de sauvegarde
+        self.table_manager.set_save_callback(self.save_current_info)
 
         # Variables pour la gestion des répertoires d'images
         self.init_images_paths()
@@ -579,6 +584,12 @@ class cy8_prompts_manager:
 
         self.setup_chat_tab(chat_tab)
 
+        # Onglet Terminal - Terminal intégré avec indexation RAG
+        self.terminal_tab = ttk.Frame(notebook)
+        notebook.add(self.terminal_tab, text="⚡ Terminal")
+
+        self.setup_terminal_tab(self.terminal_tab)
+
     def setup_filters_tab(self, parent):
         """Configurer l'onglet des filtres avancés"""
 
@@ -658,7 +669,91 @@ class cy8_prompts_manager:
         header_frame = ttk.LabelFrame(main_frame, text="🧠 Assistant RAG ComfyUI", padding="10")
         header_frame.pack(fill="x", pady=(0, 10))
 
-        # Informations de statut
+        # === INDICATEURS RAG ===
+        # Frame pour les indicateurs RAG
+        self.rag_status_frame = ttk.Frame(header_frame)
+        self.rag_status_frame.pack(fill="x", pady=(0, 10))
+
+        # Ligne 1: Statut global et environnement
+        status_row1 = ttk.Frame(self.rag_status_frame)
+        status_row1.pack(fill="x", pady=(0, 5))
+
+        ttk.Label(status_row1, text="Statut:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.rag_status_indicator = ttk.Label(status_row1, text="🔴", font=("TkDefaultFont", 12))
+        self.rag_status_indicator.pack(side="left", padx=(5, 15))
+
+        ttk.Label(status_row1, text="Environnement:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.rag_env_label = ttk.Label(status_row1, text="Aucun", foreground="gray")
+        self.rag_env_label.pack(side="left", padx=(5, 0))
+
+        # Ligne 2: Nombre de documents et actions
+        status_row2 = ttk.Frame(self.rag_status_frame)
+        status_row2.pack(fill="x")
+
+        ttk.Label(status_row2, text="Documents indexés:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.rag_docs_count_label = ttk.Label(status_row2, text="0", foreground="blue", font=("TkDefaultFont", 9, "bold"))
+        self.rag_docs_count_label.pack(side="left", padx=(5, 15))
+
+        # Bouton pour scanner manuellement
+        ttk.Button(
+            status_row2,
+            text="🔍 Scanner analyses",
+            command=self.manual_rag_scan,
+            width=15
+        ).pack(side="left", padx=(0, 10))
+
+        # Séparateur
+        ttk.Separator(header_frame, orient="horizontal").pack(fill="x", pady=(10, 5))
+
+        # === SÉLECTEUR DE MODE RAG ===
+        mode_frame = ttk.Frame(header_frame)
+        mode_frame.pack(fill="x", pady=(5, 10))
+
+        ttk.Label(mode_frame, text="Mode RAG:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+
+        # Variable pour le mode sélectionné
+        self.rag_mode_var = tk.StringVar(value="rapide")
+
+        # Boutons radio pour les modes
+        mode_buttons_frame = ttk.Frame(mode_frame)
+        mode_buttons_frame.pack(side="left", padx=(10, 0))
+
+        self.rapid_mode_radio = ttk.Radiobutton(
+            mode_buttons_frame,
+            text="⚡ Rapide (Templates)",
+            variable=self.rag_mode_var,
+            value="rapide",
+            command=self.on_rag_mode_changed
+        )
+        self.rapid_mode_radio.pack(side="left", padx=(0, 15))
+
+        self.expert_mode_radio = ttk.Radiobutton(
+            mode_buttons_frame,
+            text="🧠 Expert (RAG + Mistral AI)",
+            variable=self.rag_mode_var,
+            value="expert",
+            command=self.on_rag_mode_changed
+        )
+        self.expert_mode_radio.pack(side="left")
+
+        # Indicateur de coût/performance
+        self.mode_info_label = ttk.Label(
+            mode_frame,
+            text="< 1s - Gratuit",
+            font=("TkDefaultFont", 8),
+            foreground="green"
+        )
+        self.mode_info_label.pack(side="right")
+
+        # Bouton info sur les modes
+        ttk.Button(
+            mode_frame,
+            text="ℹ️",
+            command=self.show_rag_modes_info,
+            width=3
+        ).pack(side="right", padx=(5, 10))
+
+        # Informations de statut (existant)
         self.chat_status_frame = ttk.Frame(header_frame)
         self.chat_status_frame.pack(fill="x", pady=(0, 5))
 
@@ -800,8 +895,252 @@ class cy8_prompts_manager:
             width=18
         ).grid(row=1, column=2, padx=2, pady=2)
 
+        # Ligne 3: Gestion RAG
+        ttk.Button(
+            quick_buttons_frame,
+            text="🧠 Examiner RAG",
+            command=self.examine_rag_index,
+            width=18
+        ).grid(row=2, column=0, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="🔄 Ré-indexer",
+            command=self.reindex_rag_analyses,
+            width=18
+        ).grid(row=2, column=1, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="📊 Stats RAG",
+            command=self.show_rag_statistics,
+            width=18
+        ).grid(row=2, column=2, padx=2, pady=2)
+
+        # Ligne 4: Fonctions RAG temporelles
+        ttk.Button(
+            quick_buttons_frame,
+            text="🔥 État actuel",
+            command=self.show_current_server_state,
+            width=18
+        ).grid(row=3, column=0, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="🕒 Analyse temporelle",
+            command=self.show_temporal_analysis,
+            width=18
+        ).grid(row=3, column=1, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="📈 Évolution",
+            command=self.show_temporal_evolution,
+            width=18
+        ).grid(row=3, column=2, padx=2, pady=2)
+
+        # Ligne 5: Réinitialisation et maintenance
+        ttk.Button(
+            quick_buttons_frame,
+            text="🗑️ RAG Reset",
+            command=self.reset_rag_completely,
+            width=18
+        ).grid(row=4, column=0, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="🧹 Nettoyer Custom",
+            command=self.clean_custom_environments,
+            width=18
+        ).grid(row=4, column=1, padx=2, pady=2)
+
+        ttk.Button(
+            quick_buttons_frame,
+            text="🔬 Test Efficacité",
+            command=self.test_rag_efficiency,
+            width=18
+        ).grid(row=4, column=2, padx=2, pady=2)
+
         # Initialiser la conversation avec le message de bienvenue
         self.root.after(1000, self.initialize_chat_welcome)
+
+    def setup_terminal_tab(self, parent):
+        """Configurer l'onglet Terminal intégré avec indexation RAG"""
+
+        # Frame principal
+        main_frame = ttk.Frame(parent)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Header avec informations et contrôles
+        header_frame = ttk.LabelFrame(main_frame, text="⚡ Terminal intégré avec indexation RAG", padding="10")
+        header_frame.pack(fill="x", pady=(0, 10))
+
+        # === CONTRÔLES TERMINAL ===
+        controls_frame = ttk.Frame(header_frame)
+        controls_frame.pack(fill="x", pady=(0, 10))
+
+        # Ligne 1: Répertoire de travail et boutons de navigation
+        work_dir_frame = ttk.Frame(controls_frame)
+        work_dir_frame.pack(fill="x", pady=(0, 5))
+
+        ttk.Label(work_dir_frame, text="Répertoire:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+
+        # Variable pour le répertoire de travail
+        self.terminal_cwd_var = tk.StringVar(value=os.getcwd())
+        self.terminal_cwd = os.getcwd()  # String version pour les opérations
+
+        # Entry pour afficher/modifier le répertoire
+        self.cwd_entry = ttk.Entry(work_dir_frame, textvariable=self.terminal_cwd_var, width=60)
+        self.cwd_entry.pack(side="left", fill="x", expand=True, padx=(5, 5))
+
+        # Boutons de navigation
+        ttk.Button(
+            work_dir_frame,
+            text="📁 Parcourir",
+            command=self.browse_terminal_directory,
+            width=12
+        ).pack(side="right", padx=(5, 0))
+
+        # Ligne 2: Statut et options
+        status_frame = ttk.Frame(controls_frame)
+        status_frame.pack(fill="x")
+
+        ttk.Label(status_frame, text="Statut:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.terminal_status_label = ttk.Label(status_frame, text="Prêt", foreground="green")
+        self.terminal_status_label.pack(side="left", padx=(5, 15))
+
+        # Options d'indexation RAG
+        ttk.Label(status_frame, text="Indexation RAG:", font=("TkDefaultFont", 9, "bold")).pack(side="left")
+        self.terminal_rag_enabled = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            status_frame,
+            text="Auto",
+            variable=self.terminal_rag_enabled,
+            command=lambda: self.toggle_rag_indexing()
+        ).pack(side="left", padx=(5, 15))
+
+        # Boutons de contrôle
+        ttk.Button(
+            status_frame,
+            text="🗑️ Effacer",
+            command=self.clear_terminal_output,
+            width=10
+        ).pack(side="right", padx=(5, 0))
+
+        ttk.Button(
+            status_frame,
+            text="💾 Sauver session",
+            command=self.save_terminal_session,
+            width=15
+        ).pack(side="right", padx=(5, 5))
+
+        # === ZONE D'AFFICHAGE TERMINAL ===
+        terminal_frame = ttk.LabelFrame(main_frame, text="🖥️ Sortie Terminal", padding="5")
+        terminal_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        # Terminal avec scrollbar
+        terminal_scroll_frame = ttk.Frame(terminal_frame)
+        terminal_scroll_frame.pack(fill="both", expand=True)
+
+        self.terminal_output = tk.Text(
+            terminal_scroll_frame,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            height=25,
+            font=("Consolas", 10),
+            bg="#1e1e1e",  # Fond sombre comme un terminal
+            fg="#ffffff",  # Texte blanc
+            insertbackground="#ffffff"  # Curseur blanc
+        )
+
+        terminal_scrollbar = ttk.Scrollbar(terminal_scroll_frame, orient="vertical", command=self.terminal_output.yview)
+        self.terminal_output.configure(yscrollcommand=terminal_scrollbar.set)
+
+        self.terminal_output.pack(side="left", fill="both", expand=True)
+        terminal_scrollbar.pack(side="right", fill="y")
+
+        # Configuration des tags pour le formatage
+        self.terminal_output.tag_configure("command", foreground="#87CEEB")  # Bleu clair pour les commandes
+        self.terminal_output.tag_configure("output", foreground="#ffffff")   # Blanc pour la sortie
+        self.terminal_output.tag_configure("error", foreground="#ff6b6b")    # Rouge pour les erreurs
+        self.terminal_output.tag_configure("success", foreground="#51cf66")  # Vert pour les succès
+        self.terminal_output.tag_configure("info", foreground="#74c0fc")     # Bleu info au lieu de jaune
+        self.terminal_output.tag_configure("warning", foreground="#ffa726")  # Orange pour warnings
+        self.terminal_output.tag_configure("timestamp", foreground="#868e96", font=("Consolas", 8))
+        self.terminal_output.tag_configure("prompt", foreground="#40c057", font=("Consolas", 10, "bold"))  # Vert clair pour prompt
+
+        # === ZONE DE SAISIE COMMANDE ===
+        input_frame = ttk.LabelFrame(main_frame, text="✍️ Saisie commande", padding="5")
+        input_frame.pack(fill="x")
+
+        # Frame pour l'entrée et les boutons
+        input_controls_frame = ttk.Frame(input_frame)
+        input_controls_frame.pack(fill="x")
+
+        # Prompt du terminal
+        self.terminal_prompt_label = ttk.Label(
+            input_controls_frame,
+            text=f"{os.path.basename(self.terminal_cwd)}> ",
+            font=("Consolas", 10, "bold"),
+            foreground="#40c057"
+        )
+        self.terminal_prompt_label.pack(side="left")
+
+        # Zone de saisie de commande
+        self.terminal_input = tk.Entry(
+            input_controls_frame,
+            font=("Consolas", 10),
+            bg="#2e2e2e",
+            fg="#ffffff",
+            insertbackground="#ffffff"
+        )
+        self.terminal_input.pack(side="left", fill="x", expand=True, padx=(5, 5))
+
+        # Boutons d'action
+        button_frame = ttk.Frame(input_controls_frame)
+        button_frame.pack(side="right")
+
+        # Bouton d'exécution
+        self.execute_button = ttk.Button(
+            button_frame,
+            text="▶️ Exécuter",
+            command=self.execute_terminal_command,
+            width=12
+        )
+        self.execute_button.pack(side="left", padx=(0, 5))
+
+        # Bouton d'interruption
+        self.interrupt_button = ttk.Button(
+            button_frame,
+            text="⏹️ Interrompre",
+            command=self.interrupt_terminal_command,
+            width=12,
+            state="disabled"
+        )
+        self.interrupt_button.pack(side="left")
+
+        # Bind Enter pour exécuter la commande
+        self.terminal_input.bind("<Return>", self.on_terminal_key_press)
+        self.terminal_input.bind("<Up>", self.on_terminal_key_press)
+        self.terminal_input.bind("<Down>", self.on_terminal_key_press)
+
+        # Historique des commandes
+        self.terminal_command_history = []
+        self.terminal_history = self.terminal_command_history  # Alias pour compatibilité
+        self.terminal_history_index = -1
+
+        # Session actuelle
+        self.current_terminal_session = {
+            "commands": [],
+            "start_time": time.time(),
+            "working_directory": self.terminal_cwd
+        }
+
+        # Processus en cours
+        self.current_process = None
+
+        # Initialiser le terminal avec un message de bienvenue
+        self.root.after(500, self.initialize_terminal_welcome)
 
     def setup_info_tab(self, parent):
         """Configuration de l'onglet informations générales"""
@@ -1101,6 +1440,67 @@ class cy8_prompts_manager:
 
         # Chargement initial des données environnement
         self.refresh_env_data()
+
+        # === SECTION PYTHON EMBEDDED ===
+        python_frame = ttk.LabelFrame(
+            comfyui_frame, text="🐍 Environnement Python ComfyUI", padding="10"
+        )
+        python_frame.pack(fill="x", pady=(10, 0))
+
+        # Ligne de statut Python
+        python_status_frame = ttk.Frame(python_frame)
+        python_status_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(
+            python_status_frame, text="Statut:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left")
+
+        self.python_status_label = ttk.Label(
+            python_status_frame, text="⏳ Non détecté", foreground="gray"
+        )
+        self.python_status_label.pack(side="left", padx=(5, 0))
+
+        # Bouton de détection manuelle (optionnel)
+        ttk.Button(
+            python_status_frame,
+            text="🔍 Détecter manuellement",
+            command=self.detect_python_manually,
+            width=20
+        ).pack(side="right")
+
+        # Ligne préfixe de commande
+        prefix_frame = ttk.Frame(python_frame)
+        prefix_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(
+            prefix_frame, text="Préfixe:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left")
+
+        self.python_prefix_entry = ttk.Entry(
+            prefix_frame, state="readonly", font=("Consolas", 8)
+        )
+        self.python_prefix_entry.pack(side="left", fill="x", expand=True, padx=(5, 10))
+
+        # Ligne d'exécution de commandes
+        command_frame = ttk.Frame(python_frame)
+        command_frame.pack(fill="x")
+
+        ttk.Label(
+            command_frame, text="Commande:", font=("TkDefaultFont", 9, "bold")
+        ).pack(side="left")
+
+        self.python_command_entry = ttk.Entry(
+            command_frame, font=("Consolas", 8), width=30
+        )
+        self.python_command_entry.pack(side="left", fill="x", expand=True, padx=(5, 10))
+
+        self.execute_python_btn = ttk.Button(
+            command_frame,
+            text="▶️ Exécuter",
+            command=self.execute_python_command,
+            state="disabled"
+        )
+        self.execute_python_btn.pack(side="right")
 
     def setup_log_tab(self, parent):
         """Configuration de l'onglet d'analyse des logs ComfyUI"""
@@ -5145,6 +5545,75 @@ WORKFLOW:
                             # Définir l'environnement actuel pour l'onglet Log
                             self.set_current_environment(config_id)
 
+                            # *** NOUVEAU: Détecter automatiquement le Python embedded ***
+                            print("🐍 Détection automatique du Python embedded...")
+                            logger.info("Début de la détection automatique du Python embedded")
+
+                            try:
+                                python_path = caller.get_python_path_from_comfyui()
+                                if python_path:
+                                    print(f"✅ Python path détecté: {python_path}")
+                                    logger.info(f"Python path détecté: {python_path}")
+
+                                    # Stocker le chemin Python détecté
+                                    self.detected_python_path = python_path
+
+                                    # Mettre à jour l'interface Python si elle existe
+                                    if hasattr(self, 'python_status_label'):
+                                        self.python_status_label.config(
+                                            text=f"✅ Python embedded: {python_path.split('/')[-1] if '/' in python_path else python_path}",
+                                            foreground="green"
+                                        )
+
+                                    # Mettre à jour le préfixe de commande si l'interface existe
+                                    if hasattr(self, 'python_prefix_entry'):
+                                        self.python_prefix_entry.config(state="normal")
+                                        self.python_prefix_entry.delete(0, tk.END)
+                                        self.python_prefix_entry.insert(0, f'"{python_path}" -m ')
+                                        self.python_prefix_entry.config(state="readonly")
+
+                                        # Activer le bouton d'exécution
+                                        if hasattr(self, 'execute_python_btn'):
+                                            self.execute_python_btn.config(state="normal")
+
+                                    print(f"🎯 Python embedded configuré automatiquement")
+                                else:
+                                    print("⚠️ Aucun Python path détecté par le custom node")
+                                    logger.warning("Aucun Python path détecté par le custom node")
+
+                            except Exception as python_error:
+                                print(f"⚠️ Erreur détection Python embedded: {python_error}")
+                                logger.warning(f"Erreur détection Python embedded: {python_error}")
+                                # Ne pas faire échouer l'identification pour une erreur Python
+
+                            # *** NOUVEAU: Scanner et indexer automatiquement les analyses existantes ***
+                            print("🧠 Scan automatique du référentiel RAG...")
+                            logger.info("Début du scan automatique du référentiel RAG")
+
+                            try:
+                                self.scan_and_index_existing_analyses(config_id, logger)
+                            except Exception as rag_error:
+                                print(f"⚠️ Erreur scan RAG: {rag_error}")
+                                logger.warning(f"Erreur scan RAG: {rag_error}")
+                                # Ne pas faire échouer l'identification pour une erreur RAG
+
+                            # *** NOUVEAU: Envoyer le contexte complet de l'environnement au RAG ***
+                            print("🧠 Envoi du contexte environnement au RAG...")
+                            logger.info("Début de l'envoi du contexte environnement au RAG")
+
+                            try:
+                                self.send_environment_context_to_rag(
+                                    environment_id=config_id,
+                                    extra_paths_data=extra_paths_data,
+                                    server_status=status
+                                )
+                                print("✅ Contexte environnement envoyé au RAG avec succès")
+                                logger.info("Contexte environnement envoyé au RAG avec succès")
+                            except Exception as context_error:
+                                print(f"⚠️ Erreur envoi contexte RAG: {context_error}")
+                                logger.warning(f"Erreur envoi contexte RAG: {context_error}")
+                                # Ne pas faire échouer l'identification pour une erreur de contexte
+
                             print("🎉 SUCCÈS - Identification terminée avec succès")
                             logger.info(
                                 "Identification de l'environnement terminée avec succès"
@@ -5955,6 +6424,9 @@ WORKFLOW:
 
         print(f"Environnement sélectionné : {environment_id}")
 
+        # CORRECTION: Mettre à jour l'environnement actuel
+        self.current_environment_id = environment_id
+
         # Charger les résultats d'analyse pour cet environnement
         self.load_environment_analysis_results(environment_id)
 
@@ -6035,8 +6507,21 @@ WORKFLOW:
                             details_info = details_dict["error_details"]
 
                     except (json.JSONDecodeError, Exception) as e:
-                        # Gestion silencieuse des données legacy ou corrompues
-                        # Essayer d'extraire quelques informations du message direct
+                        # CORRECTION: Traiter le format legacy avec extraction d'Element
+                        # Format: "Element: nom | Line: X | Timestamp: Y | ..."
+                        if "Element:" in details:
+                            import re
+                            element_match = re.search(r'Element:\s*([^|]+)', details)
+                            if element_match:
+                                element_name = element_match.group(1).strip()
+
+                        if "Line:" in details:
+                            import re
+                            line_match = re.search(r'Line:\s*(\d+)', details)
+                            if line_match:
+                                line_number = line_match.group(1).strip()
+
+                        # Essayer d'extraire quelques informations du message direct pour l'affichage
                         if " | " in message:
                             parts = message.split(" | ", 1)
                             if len(parts) > 1:
@@ -6045,7 +6530,7 @@ WORKFLOW:
 
                         # Debug uniquement si les détails ne sont pas vides
                         if details and details.strip():
-                            print(f"⚠️ Données legacy détectées pour résultat {result_id} (format JSON attendu)")
+                            print(f"⚠️ Format legacy traité pour résultat {result_id} - Element: {element_name}")
                 else:
                     # Pas de détails JSON, essayer de traiter le message directement
                     if " | " in message:
@@ -6053,6 +6538,8 @@ WORKFLOW:
                         if len(parts) > 1:
                             display_message = parts[0]
                             details_info = parts[1]
+
+
 
                 # Reconstruire l'entrée au format _original_log_results
                 entry = {
@@ -6863,7 +7350,7 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
     # ===== MÉTHODES DE GESTION DU CHAT RAG =====
 
     def initialize_chat_welcome(self):
-        """Initialiser la conversation avec le message de bienvenue du RAG"""
+        """Initialiser la conversation avec le message de bienvenue du RAG Hybride"""
         try:
             # Vérifier si le RAG est disponible
             if not self.rag_manager or not self.rag_manager.is_available():
@@ -6879,26 +7366,41 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
             if self.current_environment_id and self.rag_manager.environment_id != self.current_environment_id:
                 self.rag_manager.environment_id = self.current_environment_id
                 self.rag_manager._initialize_components()
+                # Mettre à jour aussi le RAG temporel
+                if self.temporal_rag:
+                    self.temporal_rag.rag_manager = self.rag_manager
 
-            # Générer le message de bienvenue avec le contexte actuel
-            welcome_context = self.rag_manager.generate_chat_context()
+            # Générer le message de bienvenue avec les nouveaux modes
+            current_mode = self.get_current_rag_mode()
+            mode_names = {"rapide": "⚡ RAG Rapide", "expert": "🧠 RAG Expert"}
 
-            welcome_message = f"""🧠 **Assistant RAG ComfyUI activé !**
+            welcome_message = f"""🧠 **Assistant RAG Hybride ComfyUI activé !**
 
-Je suis votre assistant intelligent pour optimiser votre serveur ComfyUI. Je me base sur l'analyse de vos logs et je garde en mémoire vos contraintes système.
+Je suis votre assistant intelligent avec **deux modes** d'analyse :
 
-{welcome_context}
+🔄 **Modes disponibles :**
+• **⚡ RAG Rapide** : Recherche vectorielle + Templates (< 1s, gratuit)
+• **🧠 RAG Expert** : Recherche vectorielle + Mistral AI (2-5s, tokens)
 
-💡 **Comment puis-je vous aider ?**
-- Analyser les erreurs récurrentes
-- Optimiser les performances
-- Gérer les conflits de dépendances
-- Mémoriser vos contraintes système
+📊 **Mode actuel :** {mode_names.get(current_mode, current_mode)}
 
-N'hésitez pas à me poser vos questions !"""
+💡 **Je peux vous aider avec :**
+- Diagnostics d'erreurs ComfyUI (CUDA, custom nodes, modèles)
+- Analyses de performance et optimisations
+- Solutions basées sur votre historique
+- Conseils préventifs personnalisés
+
+🎯 **Conseils d'utilisation :**
+- Mode **Rapide** pour les problèmes courants et diagnostics express
+- Mode **Expert** pour les analyses complexes et solutions sur mesure
+
+N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos sur les modes."""
 
             self.add_chat_message("assistant", welcome_message)
-            self.chat_status_label.config(text=f"✅ RAG actif - Env: {self.current_environment_id or 'Aucun'}")
+            self.chat_status_label.config(text=f"✅ RAG Hybride actif - Env: {self.current_environment_id or 'Aucun'}")
+
+            # Mettre à jour les indicateurs RAG
+            self.update_chat_rag_indicators()
 
         except Exception as e:
             self.add_chat_message("error", f"❌ Erreur initialisation chat: {e}")
@@ -7045,41 +7547,667 @@ N'hésitez pas à me poser vos questions !"""
             self.add_chat_message("error", f"Erreur récupération erreurs: {e}")
 
     def handle_general_query(self, user_message: str):
-        """Gérer une requête générale avec recherche RAG"""
+        """Gérer une requête générale avec le système RAG hybride"""
         try:
-            # Rechercher des problèmes similaires
-            similar_issues = self.rag_manager.search_similar_issues(user_message, limit=3)
+            # Vérifier si le RAG est disponible
+            if not hasattr(self, 'rag_manager') or not self.rag_manager:
+                self.add_chat_message("error",
+                    "❌ **RAG non disponible**\n\n"
+                    "Le système RAG n'est pas initialisé. Veuillez d'abord identifier un environnement ComfyUI.")
+                return
 
-            if similar_issues:
-                response = f"🔍 **Recherche pour:** {user_message}\n\n"
-                response += "📋 **Problèmes similaires trouvés:**\n\n"
+            # Récupérer le mode sélectionné
+            mode = getattr(self, 'rag_mode_var', tk.StringVar(value="rapide")).get()
 
-                for i, issue in enumerate(similar_issues, 1):
-                    similarity = int(issue['similarity'] * 100)
-                    response += f"**{i}. Similarité: {similarity}%**\n"
-                    response += f"{issue['content'][:300]}...\n"
+            # Ajouter un message de traitement selon le mode
+            if mode == "expert":
+                self.add_chat_message("system", "🧠 Mode Expert activé - Analyse avec Mistral AI...")
+            else:
+                self.add_chat_message("system", "⚡ Mode Rapide activé - Recherche vectorielle...")
 
-                    metadata = issue['metadata']
-                    response += f"🕒 Date: {metadata.get('timestamp', 'Inconnue')}\n"
-                    if metadata.get('error_count', 0) > 0:
-                        response += f"❌ Erreurs: {metadata['error_count']}\n"
-                    response += "\n"
+            # Appeler le RAG avec le mode sélectionné
+            response = self.rag_manager.query_with_mode(user_message, mode=mode, max_results=5)
 
-                # Générer le contexte pour une réponse intelligente
-                context = self.rag_manager.generate_chat_context(user_message)
-                response += f"\n📊 **Contexte actuel:**\n{context}"
+            if response["success"]:
+                # Ajouter la réponse principale
+                self.add_chat_message("assistant", response["response"])
+
+                # Ajouter les métadonnées de performance
+                metadata = response.get("metadata", {})
+                response_time = metadata.get("response_time", 0)
+
+                meta_info = f"⏱️ Temps de réponse: {response_time}s | Mode: {mode.title()}"
+
+                if mode == "expert" and "mistral_tokens" in response:
+                    meta_info += f" | Tokens: ~{response['mistral_tokens']}"
+
+                if "documents_found" in response:
+                    meta_info += f" | {response['documents_found']} analyses consultées"
+
+                self.add_chat_message("system", meta_info)
+
+                # Afficher les sources si disponibles
+                if response.get("sources"):
+                    sources_text = "📚 Sources consultées: " + ", ".join(response["sources"][:3])
+                    if len(response["sources"]) > 3:
+                        sources_text += f" (+{len(response['sources']) - 3} autres)"
+                    self.add_chat_message("system", sources_text)
 
             else:
-                response = f"🔍 Aucun problème similaire trouvé pour '{user_message}'.\n\n"
-                response += "💡 Quelques suggestions :\n"
-                response += "• Utilisez les actions rapides ci-dessous\n"
-                response += "• Décrivez plus précisément votre problème\n"
-                response += "• Vérifiez que l'environnement est bien sélectionné"
-
-            self.add_chat_message("assistant", response)
+                self.add_chat_message("error",
+                    f"❌ Erreur lors de la requête RAG:\n{response.get('response', 'Erreur inconnue')}")
 
         except Exception as e:
-            self.add_chat_message("error", f"Erreur recherche: {e}")
+            self.add_chat_message("error", f"Erreur traitement requête: {e}")
+            print(f"Erreur handle_general_query: {e}")  # Pour debug
+
+    # === NOUVELLES MÉTHODES RAG HYBRIDE ===
+
+    def on_rag_mode_changed(self):
+        """Callback when RAG mode is changed"""
+        try:
+            mode = self.rag_mode_var.get()
+
+            # Mettre à jour l'indicateur de performance/coût
+            if mode == "rapide":
+                self.mode_info_label.config(text="< 1s - Gratuit", foreground="green")
+            elif mode == "expert":
+                self.mode_info_label.config(text="2-5s - Tokens Mistral", foreground="orange")
+
+            # Ajouter un message dans le chat pour informer du changement
+            mode_names = {"rapide": "⚡ RAG Rapide", "expert": "🧠 RAG Expert"}
+            self.add_chat_message("system", f"Mode changé vers: {mode_names.get(mode, mode)}")
+
+        except Exception as e:
+            print(f"Erreur changement mode RAG: {e}")
+
+    def show_rag_modes_info(self):
+        """Afficher les informations détaillées sur les modes RAG"""
+        try:
+            if hasattr(self, 'rag_manager') and self.rag_manager:
+                mode_info = self.rag_manager.get_mode_info()
+            else:
+                # Informations par défaut si RAG pas disponible
+                mode_info = {
+                    "rapide": {
+                        "name": "RAG Rapide ⚡",
+                        "description": "Recherche vectorielle + Templates pré-programmés",
+                        "speed": "< 1 seconde",
+                        "cost": "Gratuit",
+                        "accuracy": "Bonne pour problèmes connus",
+                        "best_for": ["Erreurs communes", "Diagnostics rapides", "Premiers secours"]
+                    },
+                    "expert": {
+                        "name": "RAG Expert 🧠",
+                        "description": "Recherche vectorielle + Analyse Mistral AI",
+                        "speed": "2-5 secondes",
+                        "cost": "Tokens Mistral",
+                        "accuracy": "Excellente avec contextualisation",
+                        "best_for": ["Problèmes complexes", "Analyse approfondie", "Solutions personnalisées"]
+                    }
+                }
+
+            # Créer la popup d'information
+            popup = tk.Toplevel(self.root)
+            popup.title("ℹ️ Modes RAG - Guide d'utilisation")
+            popup.transient(self.root)
+            popup.grab_set()
+
+            # Centrer la popup
+            popup.geometry("600x450")
+            popup.resizable(True, True)
+
+            main_frame = ttk.Frame(popup, padding="15")
+            main_frame.pack(fill="both", expand=True)
+
+            # Titre
+            title_label = ttk.Label(
+                main_frame,
+                text="🔄 Modes RAG Hybride - Guide d'utilisation",
+                font=("TkDefaultFont", 14, "bold")
+            )
+            title_label.pack(pady=(0, 15))
+
+            # Créer un notebook pour les deux modes
+            notebook = ttk.Notebook(main_frame)
+            notebook.pack(fill="both", expand=True, pady=(0, 15))
+
+            # Onglet Mode Rapide
+            rapid_frame = ttk.Frame(notebook, padding="10")
+            notebook.add(rapid_frame, text="⚡ Mode Rapide")
+
+            self._create_mode_info_tab(rapid_frame, mode_info["rapide"])
+
+            # Onglet Mode Expert
+            expert_frame = ttk.Frame(notebook, padding="10")
+            notebook.add(expert_frame, text="🧠 Mode Expert")
+
+            self._create_mode_info_tab(expert_frame, mode_info["expert"])
+
+            # Bouton fermer
+            ttk.Button(main_frame, text="Fermer", command=popup.destroy).pack()
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'afficher les informations: {e}")
+
+    def _create_mode_info_tab(self, parent, mode_data):
+        """Créer le contenu d'un onglet d'information de mode"""
+
+        # Nom du mode
+        name_label = ttk.Label(parent, text=mode_data["name"], font=("TkDefaultFont", 12, "bold"))
+        name_label.pack(pady=(0, 10))
+
+        # Description
+        desc_frame = ttk.LabelFrame(parent, text="Description", padding="10")
+        desc_frame.pack(fill="x", pady=(0, 10))
+        ttk.Label(desc_frame, text=mode_data["description"], wraplength=500).pack()
+
+        # Caractéristiques
+        char_frame = ttk.LabelFrame(parent, text="Caractéristiques", padding="10")
+        char_frame.pack(fill="x", pady=(0, 10))
+
+        char_text = f"⏱️ Vitesse: {mode_data['speed']}\n"
+        char_text += f"💰 Coût: {mode_data['cost']}\n"
+        char_text += f"🎯 Précision: {mode_data['accuracy']}"
+
+        ttk.Label(char_frame, text=char_text, justify="left").pack(anchor="w")
+
+        # Idéal pour
+        best_frame = ttk.LabelFrame(parent, text="Idéal pour", padding="10")
+        best_frame.pack(fill="x")
+
+        for item in mode_data["best_for"]:
+            ttk.Label(best_frame, text=f"• {item}").pack(anchor="w")
+
+    def get_current_rag_mode(self) -> str:
+        """Retourner le mode RAG actuellement sélectionné"""
+        return getattr(self, 'rag_mode_var', tk.StringVar(value="rapide")).get()
+
+    def set_rag_mode(self, mode: str):
+        """Définir le mode RAG"""
+        if hasattr(self, 'rag_mode_var'):
+            self.rag_mode_var.set(mode)
+            self.on_rag_mode_changed()
+
+    def generate_expert_server_report(self, user_message: str):
+        """Générer un rapport d'expert sur l'état du serveur ComfyUI"""
+        try:
+            if not self.current_environment_id:
+                self.add_chat_message("assistant",
+                    "⚠️ **Environnement non identifié**\n\n"
+                    "Pour générer un rapport exhaustif, je dois d'abord identifier l'environnement ComfyUI.\n"
+                    "📋 Allez dans l'onglet ComfyUI et cliquez sur '🔍 Identifier l'environnement'.")
+                return
+
+            # Récupérer les données d'environnement
+            server_status = self.get_current_server_status()
+            recent_analyses = self.get_recent_log_analyses(self.current_environment_id, limit=20)
+            rag_stats = self.get_rag_statistics()
+
+            # Générer le rapport d'expert
+            report = self.create_expert_server_report(server_status, recent_analyses, rag_stats)
+
+            self.add_chat_message("assistant", report)
+
+        except Exception as e:
+            self.add_chat_message("error", f"Erreur génération rapport serveur: {e}")
+
+    def create_expert_server_report(self, server_status, recent_analyses, rag_stats):
+        """Créer un rapport d'expert détaillé sur le serveur"""
+
+        lines = []
+        lines.append("🔍 **RAPPORT EXPERT - ÉTAT SERVEUR COMFYUI**")
+        lines.append("=" * 60)
+        lines.append("")
+
+        # Informations d'environnement
+        lines.append(f"🆔 **Environnement identifié:** `{self.current_environment_id}`")
+        lines.append(f"⏰ **Rapport généré le:** {time.strftime('%d/%m/%Y à %H:%M:%S')}")
+        lines.append("")
+
+        # État du serveur
+        lines.append("🖥️ **ÉTAT DU SERVEUR**")
+        if server_status and server_status.get('status') == 'online':
+            lines.append("✅ **Statut:** Serveur en ligne et accessible")
+            if 'system_stats' in server_status:
+                stats = server_status['system_stats']
+                lines.append(f"🧠 **RAM:** {stats.get('ram', 'Non détecté')}")
+                lines.append(f"🎮 **VRAM:** {stats.get('vram', 'Non détecté')}")
+        else:
+            lines.append("❌ **Statut:** Serveur inaccessible ou hors ligne")
+        lines.append("")
+
+        # Analyse des logs récents
+        lines.append("📊 **ANALYSE DES LOGS RÉCENTS**")
+        if recent_analyses:
+            # Catégoriser les analyses
+            errors = [a for a in recent_analyses if 'error' in a.get('log_type', '').lower() or 'failed' in a.get('message', '').lower()]
+            warnings = [a for a in recent_analyses if 'warning' in a.get('log_type', '').lower()]
+            custom_nodes_issues = [a for a in recent_analyses if 'custom' in a.get('message', '').lower() and 'node' in a.get('message', '').lower()]
+
+            lines.append(f"📈 **Total d'événements analysés:** {len(recent_analyses)}")
+            lines.append(f"❌ **Erreurs critiques:** {len(errors)}")
+            lines.append(f"⚠️ **Avertissements:** {len(warnings)}")
+            lines.append(f"🔌 **Problèmes custom nodes:** {len(custom_nodes_issues)}")
+            lines.append("")
+
+            # Top 3 des erreurs les plus récentes
+            if errors:
+                lines.append("🚨 **TOP 3 ERREURS RÉCENTES:**")
+                for i, error in enumerate(errors[:3], 1):
+                    lines.append(f"**{i}.** {error.get('message', 'Message non disponible')}")
+                    lines.append(f"   📅 {error.get('timestamp', 'Date inconnue')}")
+                lines.append("")
+
+            # Problèmes de custom nodes
+            if custom_nodes_issues:
+                lines.append("🔌 **PROBLÈMES CUSTOM NODES:**")
+                for issue in custom_nodes_issues[:3]:
+                    lines.append(f"• {issue.get('message', 'Message non disponible')}")
+                lines.append("")
+
+        else:
+            lines.append("ℹ️ Aucune analyse de log disponible pour cet environnement.")
+            lines.append("")
+
+        # État du système RAG
+        lines.append("🧠 **ÉTAT DU SYSTÈME RAG**")
+        lines.append(f"📚 **Documents indexés:** {rag_stats.get('total_docs', 0)}")
+        lines.append(f"🔄 **Dernière indexation:** {rag_stats.get('last_indexed', 'Jamais')}")
+        lines.append("")
+
+        # Recommandations d'expert
+        lines.append("💡 **RECOMMANDATIONS D'EXPERT**")
+
+        if recent_analyses:
+            error_count = len([a for a in recent_analyses if 'error' in a.get('log_type', '').lower()])
+            if error_count > 5:
+                lines.append("🔧 **Action recommandée:** Redémarrage du serveur ComfyUI")
+                lines.append("   Raison: Nombre élevé d'erreurs détectées")
+            elif error_count > 0:
+                lines.append("🔍 **Action recommandée:** Vérification des custom nodes")
+                lines.append("   Raison: Erreurs sporadiques détectées")
+            else:
+                lines.append("✅ **Système stable:** Aucune action immédiate requise")
+        else:
+            lines.append("📋 **Action recommandée:** Analyser les logs ComfyUI")
+            lines.append("   Raison: Aucune donnée d'analyse disponible")
+
+        lines.append("")
+        lines.append("🎯 **Pour plus de détails, consultez l'onglet Log ou Environnement**")
+
+        return "\n".join(lines)
+
+    def get_current_server_status(self):
+        """Récupérer l'état actuel du serveur (simulé)"""
+        try:
+            # Test rapide de connectivité ComfyUI
+            import requests
+            server_info = os.getenv("COMFYUI_SERVER", "127.0.0.1:8188")
+            response = requests.get(f"http://{server_info}/system_stats", timeout=2)
+
+            if response.status_code == 200:
+                return {
+                    'status': 'online',
+                    'system_stats': response.json()
+                }
+            else:
+                return {'status': 'error', 'code': response.status_code}
+
+        except Exception as e:
+            return {'status': 'offline', 'error': str(e)}
+
+    def generate_expert_system_info(self, user_message: str):
+        """Générer une réponse d'expert pour les informations système"""
+        try:
+            if not self.current_environment_id:
+                self.add_chat_message("assistant",
+                    "⚠️ **Environnement non identifié**\n\n"
+                    "Pour accéder aux informations système, je dois d'abord identifier l'environnement ComfyUI.\n"
+                    "📋 Allez dans l'onglet ComfyUI et cliquez sur '🔍 Identifier l'environnement'.")
+                return
+
+            # Rechercher les informations système dans les analyses
+            recent_analyses = self.get_recent_log_analyses(self.current_environment_id, limit=50)
+
+            # Extraire les informations système spécifiques
+            pytorch_info = None
+            cuda_info = None
+            vram_info = None
+            ram_info = None
+            python_info = None
+
+            for analysis in recent_analyses:
+                message = analysis.get('message', '').lower()
+
+                # PyTorch version
+                if 'pytorch version' in message:
+                    import re
+                    pytorch_match = re.search(r'pytorch version:\s*([^\s]+)', message)
+                    if pytorch_match:
+                        pytorch_info = pytorch_match.group(1)
+
+                        # Extraire CUDA depuis PyTorch (ex: 2.1.2+cu118)
+                        cuda_match = re.search(r'\+cu(\d+)', pytorch_info)
+                        if cuda_match:
+                            cuda_version = cuda_match.group(1)
+                            cuda_info = f"CUDA {cuda_version[:2]}.{cuda_version[2:]}"  # cu118 -> CUDA 11.8
+
+                # VRAM/RAM
+                if 'vram' in message and 'ram' in message:
+                    import re
+                    vram_match = re.search(r'vram\s+(\d+)\s*mb', message)
+                    ram_match = re.search(r'total\s+ram\s+(\d+)\s*mb', message)
+                    if vram_match:
+                        vram_info = f"{vram_match.group(1)} MB"
+                    if ram_match:
+                        ram_info = f"{ram_match.group(1)} MB"
+
+                # Python info depuis les paths
+                if 'python' in message and 'embeded' in message:
+                    python_info = "Python Embedded (ComfyUI)"
+
+            # Générer la réponse d'expert
+            response = []
+            response.append("🔍 **INFORMATIONS SYSTÈME - ENVIRONNEMENT COMFYUI**")
+            response.append("=" * 55)
+            response.append("")
+            response.append(f"🆔 **Environnement:** `{self.current_environment_id}`")
+            response.append("")
+
+            # Section PyTorch/CUDA
+            response.append("🧠 **FRAMEWORKS & ACCÉLÉRATION:**")
+            if pytorch_info:
+                response.append(f"• **PyTorch:** {pytorch_info}")
+                if cuda_info:
+                    response.append(f"• **CUDA:** {cuda_info} (intégrée à PyTorch)")
+                else:
+                    response.append("• **CUDA:** Version intégrée (détails dans PyTorch)")
+            else:
+                response.append("• **PyTorch:** ⚠️ Version non détectée dans les logs")
+                response.append("• **CUDA:** ⚠️ Information non disponible")
+
+            response.append("")
+
+            # Section Mémoire
+            response.append("💾 **RESSOURCES MÉMOIRE:**")
+            if vram_info:
+                response.append(f"• **VRAM GPU:** {vram_info}")
+            else:
+                response.append("• **VRAM GPU:** ⚠️ Non détectée")
+
+            if ram_info:
+                response.append(f"• **RAM Système:** {ram_info}")
+            else:
+                response.append("• **RAM Système:** ⚠️ Non détectée")
+
+            response.append("")
+
+            # Section Python
+            response.append("🐍 **ENVIRONNEMENT PYTHON:**")
+            if python_info:
+                response.append(f"• **Type:** {python_info}")
+            else:
+                response.append("• **Type:** Python (détection automatique)")
+
+            if hasattr(self, 'current_python_path') and self.current_python_path:
+                response.append(f"• **Chemin:** `{self.current_python_path}`")
+
+            response.append("")
+
+            # Conseils d'expert
+            response.append("💡 **CONSEILS D'EXPERT:**")
+
+            if pytorch_info and '2.1' in pytorch_info:
+                response.append("⚠️ **PyTorch ancien détecté**")
+                response.append("   • Version recommandée: PyTorch 2.4+")
+                response.append("   • Risque: Chargement non sécurisé des modèles")
+                response.append("   • Action: Mise à jour recommandée")
+                response.append("")
+
+            if vram_info and 'MB' in vram_info:
+                vram_value = int(vram_info.split()[0])
+                if vram_value < 6000:  # Moins de 6GB
+                    response.append("⚠️ **VRAM limitée détectée**")
+                    response.append("   • Utiliser des modèles optimisés")
+                    response.append("   • Réduire la taille des batches")
+                    response.append("   • Considérer l'offloading CPU")
+                elif vram_value >= 12000:  # 12GB+
+                    response.append("✅ **VRAM excellente**")
+                    response.append("   • Capable de gérer les gros modèles")
+                    response.append("   • Workflows complexes supportés")
+
+            response.append("")
+            response.append("🔍 **Note:** Informations extraites des logs ComfyUI récents")
+            response.append("📋 **Pour plus de détails:** Consultez l'onglet Log")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"Erreur extraction informations système: {e}")
+
+    def generate_expert_error_analysis(self, user_message: str):
+        """Générer une analyse d'expert pour les erreurs"""
+        try:
+            # Rechercher des erreurs similaires dans les analyses
+            relevant_errors = []
+            custom_nodes_info = {}
+
+            if self.current_environment_id:
+                recent_analyses = self.get_recent_log_analyses(self.current_environment_id, limit=50)
+                # Filtrer pour ne garder que les erreurs - utiliser les vrais types de la DB
+                relevant_errors = [a for a in recent_analyses if
+                                   a.get('log_type', '').upper() in ['ERREUR', 'ERROR'] or
+                                   a.get('level', '').upper() in ['ERROR', 'WARNING', 'ATTENTION'] or
+                                   'error' in a.get('message', '').lower() or
+                                   'failed' in a.get('message', '').lower() or
+                                   'exception' in a.get('message', '').lower()]
+
+                # Extraire les noms de custom nodes des messages d'erreur
+                for error in relevant_errors:
+                    message = error.get('message', '')
+                    # Chercher les patterns de noms de custom nodes - patterns améliorés
+                    import re
+                    patterns = [
+                        r'custom_nodes[/\\]([^/\\\\s]+)',                    # custom_nodes/nom
+                        r'ComfyUI[/\\]custom_nodes[/\\]([^/\\\\s]+)',       # ComfyUI/custom_nodes/nom
+                        r'([a-zA-Z_][a-zA-Z0-9_-]*[-_]node[-_]?[a-zA-Z0-9_-]*)', # xxx-node-xxx
+                        r'([a-zA-Z_][a-zA-Z0-9_-]*[-_]suite[-_]?[a-zA-Z0-9_-]*)', # xxx-suite-xxx
+                        r'from\s+([a-zA-Z_][a-zA-Z0-9_-]+)\s+import',       # from module import
+                        r'module\s+[\'"]([^\'"]+)[\'"]',                      # module "nom"
+                        r'([a-zA-Z_][a-zA-Z0-9_-]*comfy[a-zA-Z0-9_-]*)',    # xxxcomfyxxx
+                        r'`([^`]+)`\s*(?:custom|node|suite)',               # `nom` custom/node/suite
+                        r'([a-zA-Z_][a-zA-Z0-9_-]{2,})\s*(?:load|install|fail|error)', # nom load/fail/error
+                    ]
+
+                    for pattern in patterns:
+                        matches = re.finditer(pattern, message, re.IGNORECASE)
+                        for match in matches:
+                            node_name = match.group(1)
+                            # Filtrer les faux positifs et garder seulement les noms valides
+                            false_positives = [
+                                'line', 'file', 'module', 'import', 'error', 'warning', 'python',
+                                'load', 'failed', 'custom', 'node', 'suite', 'config', 'json',
+                                'path', 'bin', 'was', 'comfyui', 'main', 'py', 'lib', 'site',
+                                'packages', 'torch', 'numpy', 'api'
+                            ]
+                            if (len(node_name) >= 3 and
+                                node_name.lower() not in false_positives and
+                                not node_name.isdigit()):
+                                custom_nodes_info[node_name] = custom_nodes_info.get(node_name, 0) + 1
+
+            response = []
+            response.append("🔍 **ANALYSE D'EXPERT - GESTION D'ERREURS**")
+            response.append("=" * 50)
+            response.append("")
+
+            if relevant_errors:
+                response.append(f"📊 **{len(relevant_errors)} erreurs analysées** dans l'environnement `{self.current_environment_id}`")
+                response.append("")
+
+                # Noms de custom nodes détectés
+                if custom_nodes_info:
+                    response.append("🔌 **CUSTOM NODES PROBLÉMATIQUES IDENTIFIÉS:**")
+                    for node_name, count in sorted(custom_nodes_info.items(), key=lambda x: x[1], reverse=True):
+                        response.append(f"• **{node_name}** - {count} erreur(s)")
+                    response.append("")
+
+                # Analyser les patterns d'erreurs
+                error_patterns = {}
+                for error in relevant_errors:
+                    message = error.get('message', '')
+                    # Simplifier le message pour identifier les patterns
+                    if 'cuda' in message.lower():
+                        error_patterns['CUDA/GPU'] = error_patterns.get('CUDA/GPU', 0) + 1
+                    elif 'custom' in message.lower() and 'node' in message.lower():
+                        error_patterns['Custom Nodes'] = error_patterns.get('Custom Nodes', 0) + 1
+                    elif 'memory' in message.lower():
+                        error_patterns['Mémoire'] = error_patterns.get('Mémoire', 0) + 1
+                    elif 'model' in message.lower():
+                        error_patterns['Modèles'] = error_patterns.get('Modèles', 0) + 1
+                    elif 'dependency' in message.lower() or 'import' in message.lower():
+                        error_patterns['Dépendances'] = error_patterns.get('Dépendances', 0) + 1
+                    else:
+                        error_patterns['Autres'] = error_patterns.get('Autres', 0) + 1
+
+                if error_patterns:
+                    response.append("📈 **RÉPARTITION DES ERREURS:**")
+                    for pattern, count in sorted(error_patterns.items(), key=lambda x: x[1], reverse=True):
+                        response.append(f"• **{pattern}:** {count} occurrence(s)")
+                    response.append("")
+
+                # Solutions recommandées
+                response.append("💡 **SOLUTIONS RECOMMANDÉES:**")
+
+                if error_patterns.get('CUDA/GPU', 0) > 0:
+                    response.append("🎮 **Problèmes GPU/CUDA:**")
+                    response.append("   • Vérifier que CUDA est installé correctement")
+                    response.append("   • Redémarrer ComfyUI pour réinitialiser la mémoire GPU")
+                    response.append("   • Réduire la taille des modèles ou batch size")
+                    response.append("")
+
+                if error_patterns.get('Custom Nodes', 0) > 0:
+                    response.append("🔌 **Problèmes Custom Nodes:**")
+                    if custom_nodes_info:
+                        response.append("   • **Nodes identifiés avec problèmes:**")
+                        for node_name, count in list(custom_nodes_info.items())[:3]:
+                            response.append(f"     - {node_name} ({count} erreur(s))")
+                    response.append("   • Mettre à jour ComfyUI Manager")
+                    response.append("   • Réinstaller les custom nodes défaillants")
+                    response.append("   • Vérifier les dépendances Python avec:")
+                    response.append("     `pip install -r requirements.txt`")
+                    response.append("")
+
+                if error_patterns.get('Dépendances', 0) > 0:
+                    response.append("📦 **Problèmes Dépendances:**")
+                    response.append("   • Vérifier l'environnement Python")
+                    response.append("   • Réinstaller les packages manquants")
+                    response.append("   • Utiliser l'environnement Python embedded de ComfyUI")
+                    response.append("")
+
+                if error_patterns.get('Mémoire', 0) > 0:
+                    response.append("🧠 **Problèmes Mémoire:**")
+                    response.append("   • Fermer les applications non utilisées")
+                    response.append("   • Utiliser des modèles plus légers")
+                    response.append("   • Redémarrer ComfyUI")
+                    response.append("")
+
+            else:
+                response.append("✅ **Aucune erreur récente détectée** dans cet environnement.")
+                response.append("")
+                response.append("💡 **Conseils préventifs:**")
+                response.append("• Surveillez régulièrement les logs")
+                response.append("• Maintenez ComfyUI à jour")
+                response.append("• Sauvegardez vos workflows importants")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"Erreur analyse erreurs: {e}")
+
+    def generate_expert_optimization_advice(self, user_message: str):
+        """Générer des conseils d'optimisation d'expert"""
+        response = []
+        response.append("⚡ **CONSEILS D'OPTIMISATION COMFYUI**")
+        response.append("=" * 45)
+        response.append("")
+
+        response.append("🎯 **OPTIMISATIONS PERFORMANCE:**")
+        response.append("")
+
+        response.append("🖥️ **Système:**")
+        response.append("• Fermer les applications inutiles")
+        response.append("• Utiliser un SSD pour les modèles")
+        response.append("• Augmenter la RAM si possible")
+        response.append("")
+
+        response.append("🎮 **GPU/CUDA:**")
+        response.append("• Utiliser les derniers drivers NVIDIA")
+        response.append("• Activer la compilation optimisée")
+        response.append("• Surveiller la température GPU")
+        response.append("")
+
+        response.append("🔧 **ComfyUI:**")
+        response.append("• Mettre à jour régulièrement")
+        response.append("• Désactiver les custom nodes inutilisés")
+        response.append("• Utiliser le mode --cpu si problèmes GPU")
+        response.append("")
+
+        response.append("📦 **Modèles:**")
+        response.append("• Privilégier les modèles optimisés")
+        response.append("• Utiliser des versions quantifiées")
+        response.append("• Organiser les modèles par dossiers")
+
+        self.add_chat_message("assistant", "\n".join(response))
+
+    def generate_intelligent_response(self, user_message: str):
+        """Générer une réponse intelligente pour les requêtes générales"""
+        try:
+            # Rechercher des problèmes similaires mais avec une meilleure présentation
+            if self.rag_manager and self.rag_manager.is_available():
+                similar_issues = self.rag_manager.search_similar_issues(user_message, limit=3)
+
+                if similar_issues:
+                    response = []
+                    response.append(f"🔍 **Recherche pour:** {user_message}")
+                    response.append("")
+                    response.append("📋 **Analyses pertinentes trouvées:**")
+                    response.append("")
+
+                    for i, issue in enumerate(similar_issues, 1):
+                        content = issue.get('content', '')
+                        # Extraire des informations utiles du contenu
+                        if len(content) > 200:
+                            content = content[:200] + "..."
+
+                        response.append(f"**{i}.** {content}")
+
+                        metadata = issue.get('metadata', {})
+                        if metadata.get('timestamp'):
+                            response.append(f"   📅 {metadata['timestamp']}")
+                        response.append("")
+
+                    # Ajouter une suggestion d'action
+                    response.append("💡 **Suggestion:**")
+                    response.append("Consultez les onglets Log ou Environnement pour plus de détails sur votre configuration actuelle.")
+
+                    self.add_chat_message("assistant", "\n".join(response))
+
+                else:
+                    self.add_chat_message("assistant",
+                        f"🔍 Aucune analyse pertinente trouvée pour '{user_message}'.\n\n"
+                        "💡 **Suggestions:**\n"
+                        "• Essayez 'rapport serveur' pour un diagnostic complet\n"
+                        "• Utilisez 'aide erreurs' pour l'analyse des problèmes\n"
+                        "• Tapez 'optimisation' pour des conseils de performance")
+            else:
+                self.add_chat_message("assistant",
+                    "⚠️ **Système RAG non disponible**\n\n"
+                    "Je ne peux pas effectuer de recherches intelligentes pour le moment.\n"
+                    "Vérifiez que l'environnement est identifié et que le RAG est initialisé.")
+
+        except Exception as e:
+            self.add_chat_message("error", f"Erreur génération réponse: {e}")
 
     def send_quick_message(self, message: str):
         """Envoyer un message rapide prédéfini"""
@@ -7223,6 +8351,1672 @@ N'hésitez pas à me poser vos questions !"""
             messagebox.showerror("Erreur", f"Erreur recherche: {e}")
 
     # ===== FIN MÉTHODES CHAT RAG =====
+
+    # ===== MÉTHODES PYTHON EMBEDDED =====
+
+    def detect_python_manually(self):
+        """Détection manuelle du Python embedded"""
+        try:
+            print("🐍 Détection manuelle du Python ComfyUI...")
+            from cy8_comfyui_customNode_call import ComfyUICustomNodeCaller
+
+            self.python_status_label.config(text="🔍 Détection en cours...", foreground="blue")
+            self.root.update()
+
+            with ComfyUICustomNodeCaller() as caller:
+                python_path = caller.get_python_path_from_comfyui()
+
+                if python_path:
+                    print(f"✅ Python path détecté manuellement: {python_path}")
+                    self.detected_python_path = python_path
+
+                    # Mettre à jour l'interface
+                    self.python_status_label.config(
+                        text=f"✅ Détecté: {python_path.split('/')[-1] if '/' in python_path else python_path}",
+                        foreground="green"
+                    )
+
+                    self.python_prefix_entry.config(state="normal")
+                    self.python_prefix_entry.delete(0, tk.END)
+                    self.python_prefix_entry.insert(0, f'"{python_path}" -m ')
+                    self.python_prefix_entry.config(state="readonly")
+
+                    self.execute_python_btn.config(state="normal")
+
+                    messagebox.showinfo(
+                        "Python Détecté",
+                        f"Python ComfyUI détecté:\n\n{python_path}\n\n"
+                        "Vous pouvez maintenant exécuter des commandes Python."
+                    )
+                else:
+                    self.python_status_label.config(text="❌ Non détecté", foreground="red")
+                    messagebox.showerror(
+                        "Détection échouée",
+                        "Impossible de détecter le Python ComfyUI.\n\n"
+                        "Vérifiez que:\n"
+                        "• ComfyUI est démarré\n"
+                        "• Le custom node PythonPathNode est installé"
+                    )
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ Erreur détection manuelle: {error_msg}")
+            self.python_status_label.config(text="❌ Erreur", foreground="red")
+            messagebox.showerror("Erreur", f"Erreur lors de la détection:\n\n{error_msg}")
+
+    def execute_python_command(self):
+        """Exécuter une commande Python dans l'environnement ComfyUI"""
+        try:
+            command = self.python_command_entry.get().strip()
+            if not command:
+                messagebox.showwarning("Commande vide", "Veuillez saisir une commande Python.")
+                return
+
+            if not hasattr(self, 'detected_python_path') or not self.detected_python_path:
+                messagebox.showerror("Python non détecté", "Veuillez d'abord détecter l'environnement Python.")
+                return
+
+            print(f"🐍 Exécution de la commande: {command}")
+
+            # Construire la commande complète
+            full_command = f'"{self.detected_python_path}" -m {command}'
+
+            # Créer une fenêtre pour afficher le résultat
+            result_window = tk.Toplevel(self.root)
+            result_window.title(f"Résultat: python -m {command}")
+            result_window.geometry("600x400")
+
+            # Zone de texte pour le résultat
+            result_frame = ttk.Frame(result_window)
+            result_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+            result_text = tk.Text(result_frame, wrap="word", font=("Consolas", 9))
+            result_scroll = ttk.Scrollbar(result_frame, orient="vertical", command=result_text.yview)
+            result_text.configure(yscrollcommand=result_scroll.set)
+
+            result_text.pack(side="left", fill="both", expand=True)
+            result_scroll.pack(side="right", fill="y")
+
+            # Bouton fermer
+            ttk.Button(
+                result_window,
+                text="Fermer",
+                command=result_window.destroy
+            ).pack(pady=(0, 10))
+
+            # Afficher la commande
+            result_text.insert("end", f"$ {full_command}\n\n")
+            result_text.update()
+
+            # Exécuter la commande en arrière-plan
+            import threading
+            import subprocess
+
+            def run_command():
+                try:
+                    result = subprocess.run(
+                        full_command,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+
+                    # Mettre à jour l'interface dans le thread principal
+                    def update_result():
+                        if result.returncode == 0:
+                            result_text.insert("end", "✅ SUCCÈS\n\n")
+                            if result.stdout:
+                                result_text.insert("end", "SORTIE:\n")
+                                result_text.insert("end", result.stdout)
+                        else:
+                            result_text.insert("end", f"❌ ERREUR (code {result.returncode})\n\n")
+                            if result.stderr:
+                                result_text.insert("end", "ERREUR:\n")
+                                result_text.insert("end", result.stderr)
+
+                        result_text.see("end")
+
+                    self.root.after(0, update_result)
+
+                except subprocess.TimeoutExpired:
+                    def show_timeout():
+                        result_text.insert("end", "⏱️ TIMEOUT - Commande interrompue après 30s\n")
+                        result_text.see("end")
+                    self.root.after(0, show_timeout)
+
+                except Exception as e:
+                    def show_error():
+                        result_text.insert("end", f"❌ ERREUR D'EXÉCUTION:\n{e}\n")
+                        result_text.see("end")
+                    self.root.after(0, show_error)
+
+            # Lancer l'exécution en arrière-plan
+            thread = threading.Thread(target=run_command, daemon=True)
+            thread.start()
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ Erreur exécution commande: {error_msg}")
+            messagebox.showerror("Erreur", f"Erreur lors de l'exécution:\n\n{error_msg}")
+
+    # ===== FIN MÉTHODES PYTHON EMBEDDED =====
+
+    # ===== MÉTHODES SCAN RAG =====
+
+    def scan_and_index_existing_analyses(self, environment_id, logger=None):
+        """Scanner et indexer automatiquement les analyses existantes"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                print("⚠️ RAG non disponible pour le scan")
+                return
+
+            print(f"🔍 Scan des analyses pour l'environnement: {environment_id}")
+
+            # Obtenir le répertoire d'analyses pour cet environnement
+            analyses_dir = self.db_manager.get_environment_analyses_directory(environment_id)
+            if not analyses_dir or not os.path.exists(analyses_dir):
+                print(f"📭 Aucun répertoire d'analyses trouvé pour {environment_id}")
+                return
+
+            print(f"📁 Répertoire d'analyses: {analyses_dir}")
+
+            # Chercher les fichiers d'analyses
+            analysis_files = []
+            for root, dirs, files in os.walk(analyses_dir):
+                for file in files:
+                    if (file.endswith(('.json', '.txt', '.md')) and
+                        any(keyword in file.lower() for keyword in ['analysis', 'analyse', 'log'])):
+                        filepath = os.path.join(root, file)
+                        analysis_files.append(filepath)
+
+            print(f"📄 Fichiers d'analyses trouvés: {len(analysis_files)}")
+
+            if not analysis_files:
+                print("📭 Aucun fichier d'analyse à indexer")
+                self.update_chat_rag_indicators()
+                return
+
+            # Indexer les analyses
+            indexed_count = 0
+            skipped_count = 0
+
+            for filepath in analysis_files:
+                try:
+                    # Vérifier si déjà indexé en se basant sur le nom du fichier
+                    if self.is_analysis_already_indexed(filepath):
+                        skipped_count += 1
+                        continue
+
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    if not content.strip():
+                        continue
+
+                    # Créer les données d'analyse
+                    analysis_data = {
+                        "timestamp": datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat(),
+                        "type": "stored_analysis",
+                        "filename": os.path.basename(filepath),
+                        "full_analysis": content,
+                        "environment_id": environment_id,
+                        "filepath": filepath,
+                        "auto_indexed": True  # Marquer comme indexé automatiquement
+                    }
+
+                    # Indexer
+                    success = self.rag_manager.index_analysis_result(analysis_data)
+                    if success:
+                        indexed_count += 1
+                        print(f"✅ Indexé: {os.path.basename(filepath)}")
+                        if logger:
+                            logger.info(f"Analyse indexée: {os.path.basename(filepath)}")
+                    else:
+                        print(f"❌ Échec indexation: {os.path.basename(filepath)}")
+
+                except Exception as e:
+                    print(f"❌ Erreur fichier {filepath}: {e}")
+
+            print(f"🎉 Scan terminé: {indexed_count} indexés, {skipped_count} ignorés")
+            if logger:
+                logger.info(f"Scan RAG terminé: {indexed_count}/{len(analysis_files)} analyses indexées")
+
+            # Mettre à jour les indicateurs dans l'onglet Chat
+            self.update_chat_rag_indicators()
+
+        except Exception as e:
+            print(f"❌ Erreur scan RAG: {e}")
+            if logger:
+                logger.error(f"Erreur scan RAG: {e}")
+
+    def is_analysis_already_indexed(self, filepath):
+        """Vérifier si une analyse est déjà indexée"""
+        try:
+            if not self.rag_manager or not self.rag_manager.collection:
+                return False
+
+            filename = os.path.basename(filepath)
+
+            # Rechercher par nom de fichier dans les métadonnées
+            results = self.rag_manager.collection.get(
+                where={"filename": filename},
+                include=["metadatas"]
+            )
+
+            return len(results['metadatas']) > 0
+
+        except Exception as e:
+            print(f"⚠️ Erreur vérification indexation {filepath}: {e}")
+            return False
+
+    def update_chat_rag_indicators(self):
+        """Mettre à jour les indicateurs RAG dans l'onglet Chat"""
+        try:
+            if not hasattr(self, 'rag_status_frame'):
+                return
+
+            # Obtenir les statistiques RAG
+            stats = self.get_rag_statistics()
+
+            # Mettre à jour les labels d'indicateurs
+            if hasattr(self, 'rag_docs_count_label'):
+                self.rag_docs_count_label.config(text=f"{stats['total_docs']}")
+
+            if hasattr(self, 'rag_env_label'):
+                self.rag_env_label.config(text=f"{stats['current_env'] or 'Aucun'}")
+
+            if hasattr(self, 'rag_status_indicator'):
+                if stats['is_available'] and stats['total_docs'] > 0:
+                    self.rag_status_indicator.config(text="🟢", foreground="green")
+                elif stats['is_available']:
+                    self.rag_status_indicator.config(text="🟡", foreground="orange")
+                else:
+                    self.rag_status_indicator.config(text="🔴", foreground="red")
+
+            print(f"📊 Indicateurs RAG mis à jour: {stats['total_docs']} docs")
+
+        except Exception as e:
+            print(f"⚠️ Erreur mise à jour indicateurs RAG: {e}")
+
+    def get_rag_statistics(self):
+        """Obtenir les statistiques du RAG"""
+        try:
+            stats = {
+                'is_available': False,
+                'total_docs': 0,
+                'current_env': self.current_environment_id,
+                'last_indexed': None
+            }
+
+            if self.rag_manager and self.rag_manager.is_available():
+                stats['is_available'] = True
+
+                if self.rag_manager.collection:
+                    stats['total_docs'] = self.rag_manager.collection.count()
+
+                    # Obtenir la dernière analyse indexée
+                    if stats['total_docs'] > 0:
+                        try:
+                            results = self.rag_manager.collection.get(
+                                limit=1,
+                                include=["metadatas"]
+                            )
+                            if results['metadatas']:
+                                stats['last_indexed'] = results['metadatas'][0].get('timestamp')
+                        except Exception as e:
+                            # Fallback si get() échoue
+                            print(f"⚠️ Impossible de récupérer les métadonnées: {e}")
+                            stats['last_indexed'] = "Récente"
+
+            return stats
+
+        except Exception as e:
+            print(f"⚠️ Erreur statistiques RAG: {e}")
+            return {
+                'is_available': False,
+                'total_docs': 0,
+                'current_env': self.current_environment_id,
+                'last_indexed': None
+            }
+
+    def manual_rag_scan(self):
+        """Scanner manuellement les analyses via bouton dans l'onglet Chat"""
+        try:
+            if not self.current_environment_id:
+                messagebox.showwarning(
+                    "Environnement requis",
+                    "Vous devez d'abord identifier un environnement ComfyUI.\n\n"
+                    "Allez dans l'onglet ComfyUI et cliquez sur 'Identifier l'environnement'."
+                )
+                return
+
+            if not self.rag_manager or not self.rag_manager.is_available():
+                messagebox.showerror(
+                    "RAG non disponible",
+                    "Le système RAG n'est pas disponible.\n\n"
+                    "Vérifiez que les dépendances sont installées."
+                )
+                return
+
+            # Demander confirmation
+            result = messagebox.askyesno(
+                "Scanner les analyses",
+                f"Scanner et indexer les analyses de l'environnement '{self.current_environment_id}' ?\n\n"
+                "Cette opération peut prendre quelques instants."
+            )
+
+            if not result:
+                return
+
+            # Mettre à jour le statut
+            old_status = self.chat_status_label.cget("text")
+            self.chat_status_label.config(text="🔍 Scan en cours...", foreground="blue")
+            self.root.update()
+
+            try:
+                # Lancer le scan
+                self.scan_and_index_existing_analyses(self.current_environment_id)
+
+                # Afficher le résultat
+                stats = self.get_rag_statistics()
+                messagebox.showinfo(
+                    "Scan terminé",
+                    f"Scan terminé avec succès !\n\n"
+                    f"Documents indexés: {stats['total_docs']}\n"
+                    f"Environnement: {stats['current_env']}"
+                )
+
+            except Exception as scan_error:
+                messagebox.showerror("Erreur scan", f"Erreur lors du scan:\n\n{scan_error}")
+
+            finally:
+                # Restaurer le statut
+                self.chat_status_label.config(text=old_status, foreground="black")
+
+        except Exception as e:
+            print(f"❌ Erreur scan manuel: {e}")
+            messagebox.showerror("Erreur", f"Erreur lors du scan manuel:\n\n{e}")
+
+    def send_environment_context_to_rag(self, environment_id, extra_paths_data=None, server_status=None):
+        """Envoyer le contexte complet de l'environnement au RAG"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                print("⚠️ RAG non disponible, envoi du contexte annulé")
+                return
+
+            print(f"🧠 Envoi du contexte environnement {environment_id} au RAG...")
+
+            # 1. Préparer les informations d'environnement
+            env_info = {
+                "environment_id": environment_id,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "identification_type": "comfyui_custom_node"
+            }
+
+            # 2. Ajouter les extra paths si disponibles
+            if extra_paths_data:
+                env_info["extra_paths"] = extra_paths_data
+                env_info["comfyui_root"] = extra_paths_data.get("comfyui_root", "")
+
+                # Extraire informations clés
+                if "extra_paths" in extra_paths_data:
+                    paths_config = extra_paths_data["extra_paths"]
+                    env_info["custom_nodes_paths"] = []
+                    env_info["models_paths"] = []
+
+                    for section, paths in paths_config.items():
+                        if isinstance(paths, dict):
+                            for key, path in paths.items():
+                                if "custom_nodes" in key.lower():
+                                    env_info["custom_nodes_paths"].append(path)
+                                elif any(model_type in key.lower() for model_type in ["checkpoints", "vae", "loras", "embeddings"]):
+                                    env_info["models_paths"].append(path)
+
+            # 3. Ajouter l'état du serveur
+            if server_status:
+                env_info["server_status"] = server_status
+
+            # 4. Récupérer les dernières analyses de logs
+            recent_analyses = self.get_recent_log_analyses(environment_id, limit=50)
+            if recent_analyses:
+                env_info["recent_log_analyses"] = recent_analyses
+
+                # Catégoriser les analyses
+                categories = {
+                    "errors": [],
+                    "custom_nodes_issues": [],
+                    "performance_issues": [],
+                    "server_status": [],
+                    "warnings": []
+                }
+
+                for analysis in recent_analyses:
+                    log_type = analysis.get("log_type", "").lower()
+                    message = analysis.get("message", "").lower()
+
+                    if "error" in log_type or "failed" in message:
+                        categories["errors"].append(analysis)
+                    elif "custom" in message and "node" in message:
+                        categories["custom_nodes_issues"].append(analysis)
+                    elif any(perf_word in message for perf_word in ["slow", "performance", "memory", "gpu", "cuda"]):
+                        categories["performance_issues"].append(analysis)
+                    elif any(status_word in message for status_word in ["server", "starting", "ready", "listening"]):
+                        categories["server_status"].append(analysis)
+                    elif "warning" in log_type:
+                        categories["warnings"].append(analysis)
+
+                env_info["categorized_analyses"] = categories
+
+            # 5. Créer le rapport contextualisé pour le RAG
+            context_report = self.create_rag_context_report(env_info)
+
+            # 6. Indexer le contexte dans le RAG
+            self.rag_manager.index_analysis_result({
+                "timestamp": time.time(),
+                "type": "environment_context",
+                "analysis_type": "environment_context",
+                "content": context_report,
+                "environment_id": environment_id,
+                "context_type": "complete_environment_state",
+                "categories": list(env_info.get("categorized_analyses", {}).keys())
+            })
+
+            print(f"✅ Contexte environnement envoyé au RAG: {len(context_report)} caractères")
+
+            # Mettre à jour les indicateurs
+            self.update_chat_rag_indicators()
+
+        except Exception as e:
+            print(f"❌ Erreur envoi contexte au RAG: {e}")
+
+    def get_recent_log_analyses(self, environment_id, limit=50):
+        """Récupérer les analyses de logs récentes pour un environnement"""
+        try:
+            if not self.db_manager:
+                return []
+
+            # Récupérer les analyses récentes de la base de données
+            all_analyses = self.db_manager.get_analysis_results(environment_id)
+
+            # Convertir en format attendu et limiter
+            formatted_analyses = []
+            for analysis in all_analyses[:limit]:  # Limiter au nombre demandé
+                # Format: (id, environment_id, fichier, type, niveau, message, details, timestamp_analyse)
+                formatted_analysis = {
+                    "id": analysis[0],
+                    "environment_id": analysis[1],
+                    "file": analysis[2],
+                    "log_type": analysis[3],
+                    "level": analysis[4],
+                    "message": analysis[5],
+                    "details": analysis[6],
+                    "timestamp": analysis[7]
+                }
+                formatted_analyses.append(formatted_analysis)
+
+            return formatted_analyses
+
+        except Exception as e:
+            print(f"❌ Erreur récupération analyses récentes: {e}")
+            return []
+
+    def create_rag_context_report(self, env_info):
+        """Créer un rapport contextualisé pour le RAG"""
+        try:
+            report_lines = []
+
+            # En-tête spécialisé pour le RAG
+            report_lines.append("=== RAPPORT CONTEXTE COMFYUI POUR RAG EXPERT ===")
+            report_lines.append(f"Environnement: {env_info['environment_id']}")
+            report_lines.append(f"Timestamp: {env_info['timestamp']}")
+            report_lines.append("")
+
+            # Contexte d'expertise
+            report_lines.append("CONTEXTE D'EXPERTISE:")
+            report_lines.append("- Tu es un expert en maintenance applicative ComfyUI")
+            report_lines.append("- Tu es spécialisé en Python et environnements virtuels")
+            report_lines.append("- Tu connais les problèmes courants de ComfyUI et leurs solutions")
+            report_lines.append("- Tu peux diagnostiquer les erreurs de custom nodes et de dépendances")
+            report_lines.append("")
+
+            # Informations d'environnement
+            if "comfyui_root" in env_info:
+                report_lines.append(f"RACINE COMFYUI: {env_info['comfyui_root']}")
+                report_lines.append("")
+
+            # Custom nodes et chemins
+            if "custom_nodes_paths" in env_info:
+                report_lines.append("CUSTOM NODES DETECTES:")
+                for path in env_info["custom_nodes_paths"]:
+                    report_lines.append(f"- {path}")
+                report_lines.append("")
+
+            # Modèles disponibles
+            if "models_paths" in env_info:
+                report_lines.append("CHEMINS MODELES:")
+                for path in env_info["models_paths"]:
+                    report_lines.append(f"- {path}")
+                report_lines.append("")
+
+            # État du serveur
+            if "server_status" in env_info:
+                status = env_info["server_status"]
+                report_lines.append("ETAT SERVEUR:")
+                report_lines.append(f"- Statut: {status.get('status', 'inconnu')}")
+                if "system_stats" in status:
+                    stats = status["system_stats"]
+                    report_lines.append(f"- RAM: {stats.get('ram', 'N/A')}")
+                    report_lines.append(f"- VRAM: {stats.get('vram', 'N/A')}")
+                report_lines.append("")
+
+            # Analyses catégorisées
+            if "categorized_analyses" in env_info:
+                categories = env_info["categorized_analyses"]
+
+                # Erreurs critiques
+                if categories["errors"]:
+                    report_lines.append("ERREURS CRITIQUES DETECTEES:")
+                    for error in categories["errors"][:10]:  # Limiter à 10
+                        report_lines.append(f"- {error.get('timestamp', 'N/A')}: {error.get('message', 'N/A')}")
+                    report_lines.append("")
+
+                # Problèmes de custom nodes
+                if categories["custom_nodes_issues"]:
+                    report_lines.append("PROBLEMES CUSTOM NODES:")
+                    for issue in categories["custom_nodes_issues"][:10]:
+                        report_lines.append(f"- {issue.get('timestamp', 'N/A')}: {issue.get('message', 'N/A')}")
+                    report_lines.append("")
+
+                # Problèmes de performance
+                if categories["performance_issues"]:
+                    report_lines.append("PROBLEMES PERFORMANCE:")
+                    for perf in categories["performance_issues"][:10]:
+                        report_lines.append(f"- {perf.get('timestamp', 'N/A')}: {perf.get('message', 'N/A')}")
+                    report_lines.append("")
+
+                # Avertissements
+                if categories["warnings"]:
+                    report_lines.append("AVERTISSEMENTS:")
+                    for warning in categories["warnings"][:10]:
+                        report_lines.append(f"- {warning.get('timestamp', 'N/A')}: {warning.get('message', 'N/A')}")
+                    report_lines.append("")
+
+            # Instructions pour le RAG
+            report_lines.append("INSTRUCTIONS POUR REPONSES:")
+            report_lines.append("- Utilise ces informations pour contextualiser tes réponses")
+            report_lines.append("- Priorise les erreurs critiques dans tes diagnostics")
+            report_lines.append("- Propose des solutions basées sur l'environnement identifié")
+            report_lines.append("- Référence les chemins et configurations spécifiques")
+            report_lines.append("- Suggère des optimisations de performance si pertinent")
+
+            return "\n".join(report_lines)
+
+        except Exception as e:
+            print(f"❌ Erreur création rapport contexte: {e}")
+            return f"Erreur création rapport pour {env_info.get('environment_id', 'inconnu')}: {e}"
+
+    # ===== FIN MÉTHODES SCAN RAG =====
+
+    # ===== MÉTHODES TERMINAL =====
+
+    def execute_terminal_command(self):
+        """Exécute une commande dans le terminal"""
+        try:
+            command = self.terminal_input.get().strip()
+            if not command:
+                return
+
+            # Ajouter à l'historique
+            if command not in self.terminal_history:
+                self.terminal_history.append(command)
+            self.terminal_history_index = -1
+
+            # Afficher la commande
+            self.append_terminal_output(f"\n{self.terminal_cwd}> {command}\n", "command")
+
+            # Vider l'input
+            self.terminal_input.delete(0, tk.END)
+
+            # Gérer les commandes intégrées
+            if command.lower() in ['cls', 'clear']:
+                self.terminal_output.delete(1.0, tk.END)
+                return
+            elif command.lower() == 'exit':
+                self.append_terminal_output("Fermeture du terminal...\n", "info")
+                return
+            elif command.startswith('cd '):
+                self.change_terminal_directory(command[3:].strip())
+                return
+
+            # Exécuter la commande
+            self.run_command_in_subprocess(command)
+
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur: {e}\n", "error")
+
+    def run_command_in_subprocess(self, command):
+        """Exécute une commande en subprocess"""
+        try:
+            import subprocess
+            import threading
+
+            def run_process():
+                try:
+                    # Interrompre le processus précédent s'il existe
+                    self.interrupt_terminal_command()
+
+                    # Créer le processus
+                    startupinfo = None
+                    if hasattr(subprocess, 'STARTUPINFO'):
+                        startupinfo = subprocess.STARTUPINFO()
+                        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+                    self.current_process = subprocess.Popen(
+                        command,
+                        shell=True,
+                        cwd=self.terminal_cwd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        universal_newlines=True,
+                        startupinfo=startupinfo
+                    )
+
+                    # Pour les commandes simples, utiliser communicate()
+                    # Pour les commandes longues, utiliser les threads
+                    simple_commands = ['echo', 'dir', 'ls', 'pwd', 'cd', 'python --version', 'which', 'where']
+                    is_simple = any(command.strip().lower().startswith(cmd) for cmd in simple_commands)
+
+                    if is_simple:
+                        # Commande simple : utiliser communicate()
+                        try:
+                            stdout, stderr = self.current_process.communicate(timeout=10)
+
+                            # Afficher la sortie
+                            if stdout:
+                                def show_output():
+                                    self.append_terminal_output(stdout, "output")
+                                self.root.after(0, show_output)
+
+                            if stderr:
+                                def show_error():
+                                    self.append_terminal_output(stderr, "error")
+                                self.root.after(0, show_error)
+
+                            returncode = self.current_process.returncode
+
+                        except subprocess.TimeoutExpired:
+                            self.current_process.kill()
+                            def show_timeout():
+                                self.append_terminal_output("⏱️ Timeout - commande interrompue\n", "warning")
+                            self.root.after(0, show_timeout)
+                            returncode = -1
+
+                    else:
+                        # Commande complexe : utiliser les threads
+                        def read_output(pipe, tag):
+                            try:
+                                for line in iter(pipe.readline, ''):
+                                    if line:
+                                        # Utiliser une fonction locale pour capturer les variables correctement
+                                        def append_line(text=line, tag_name=tag):
+                                            self.append_terminal_output(text, tag_name)
+                                        self.root.after(0, append_line)
+                            except Exception as e:
+                                print(f"Erreur lecture thread {tag}: {e}")
+
+                        # Threads pour stdout et stderr
+                        stdout_thread = threading.Thread(target=read_output, args=(self.current_process.stdout, "output"))
+                        stderr_thread = threading.Thread(target=read_output, args=(self.current_process.stderr, "error"))
+
+                        stdout_thread.daemon = True
+                        stderr_thread.daemon = True
+                        stdout_thread.start()
+                        stderr_thread.start()
+
+                        # Attendre la fin
+                        returncode = self.current_process.wait()
+
+                        # Attendre que les threads terminent
+                        stdout_thread.join(timeout=2)
+                        stderr_thread.join(timeout=2)
+
+                    # Message de fin
+                    if returncode == 0:
+                        def append_success():
+                            self.append_terminal_output(f"\n✅ Commande terminée (code: {returncode})\n", "success")
+                        self.root.after(0, append_success)
+                    else:
+                        def append_error():
+                            self.append_terminal_output(f"\n❌ Commande terminée avec erreur (code: {returncode})\n", "error")
+                        self.root.after(0, append_error)
+
+                    # Indexer dans le RAG si activé
+                    if hasattr(self, 'terminal_rag_enabled') and self.terminal_rag_enabled.get():
+                        self.index_terminal_session(command, returncode)
+
+                except Exception as e:
+                    self.root.after(0, lambda: self.append_terminal_output(f"\n❌ Erreur subprocess: {e}\n", "error"))
+                finally:
+                    self.current_process = None
+
+            # Lancer en thread séparé
+            thread = threading.Thread(target=run_process)
+            thread.daemon = True
+            thread.start()
+
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur lancement commande: {e}\n", "error")
+
+    def interrupt_terminal_command(self):
+        """Interrompt la commande en cours"""
+        try:
+            if self.current_process and self.current_process.poll() is None:
+                self.current_process.terminate()
+                try:
+                    self.current_process.wait(timeout=2)
+                except:
+                    self.current_process.kill()
+                self.append_terminal_output("\n🛑 Commande interrompue\n", "warning")
+                self.current_process = None
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur interruption: {e}\n", "error")
+
+    def change_terminal_directory(self, path):
+        """Change le répertoire de travail du terminal"""
+        try:
+            import os
+
+            if not path:
+                path = os.path.expanduser("~")
+            else:
+                path = os.path.expandvars(os.path.expanduser(path))
+
+            if os.path.exists(path) and os.path.isdir(path):
+                self.terminal_cwd = os.path.abspath(path)
+                self.terminal_cwd_var.set(self.terminal_cwd)
+                self.append_terminal_output(f"📁 Répertoire changé: {self.terminal_cwd}\n", "info")
+            else:
+                self.append_terminal_output(f"❌ Répertoire non trouvé: {path}\n", "error")
+
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur changement répertoire: {e}\n", "error")
+
+    def browse_terminal_directory(self):
+        """Ouvre un sélecteur de dossier pour le terminal"""
+        try:
+            import tkinter.filedialog as fd
+
+            directory = fd.askdirectory(
+                title="Sélectionner le répertoire de travail",
+                initialdir=self.terminal_cwd
+            )
+
+            if directory:
+                self.change_terminal_directory(directory)
+
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur sélection répertoire: {e}\n", "error")
+
+    def on_terminal_key_press(self, event):
+        """Gère les touches spéciales dans le terminal"""
+        try:
+            if event.keysym == 'Return':
+                self.execute_terminal_command()
+                return 'break'
+            elif event.keysym == 'Up':
+                self.navigate_terminal_history(-1)
+                return 'break'
+            elif event.keysym == 'Down':
+                self.navigate_terminal_history(1)
+                return 'break'
+            elif event.keysym == 'Tab':
+                # Auto-complétion simple (TODO: améliorer)
+                return 'break'
+        except Exception as e:
+            print(f"❌ Erreur gestion touche terminal: {e}")
+
+    def navigate_terminal_history(self, direction):
+        """Navigue dans l'historique des commandes"""
+        try:
+            if not self.terminal_history:
+                return
+
+            # Mettre à jour l'index
+            self.terminal_history_index += direction
+
+            # Borner l'index
+            if self.terminal_history_index < -len(self.terminal_history):
+                self.terminal_history_index = -len(self.terminal_history)
+            elif self.terminal_history_index > -1:
+                self.terminal_history_index = -1
+                self.terminal_input.delete(0, tk.END)
+                return
+
+            # Afficher la commande
+            command = self.terminal_history[self.terminal_history_index]
+            self.terminal_input.delete(0, tk.END)
+            self.terminal_input.insert(0, command)
+
+        except Exception as e:
+            print(f"❌ Erreur navigation historique: {e}")
+
+    def append_terminal_output(self, text, tag="output"):
+        """Ajoute du texte à la sortie du terminal"""
+        try:
+            # CRITIQUE: Activer le widget Text temporairement
+            self.terminal_output.config(state=tk.NORMAL)
+
+            # Obtenir la position actuelle
+            start_pos = self.terminal_output.index(tk.END)
+
+            # Insérer le texte
+            self.terminal_output.insert(tk.END, text)
+
+            # Appliquer le tag si spécifié
+            if tag != "output":
+                end_pos = self.terminal_output.index(tk.END)
+                self.terminal_output.tag_add(tag, start_pos, end_pos)
+
+            # Scroll automatique
+            self.terminal_output.see(tk.END)
+
+            # Force refresh pour s'assurer que l'affichage est mis à jour
+            self.terminal_output.update_idletasks()
+
+            # CRITIQUE: Redésactiver le widget pour éviter l'édition manuelle
+            self.terminal_output.config(state=tk.DISABLED)
+
+        except Exception as e:
+            print(f"❌ Erreur ajout texte terminal: {e}")
+            # En cas d'erreur avec les tags, essayer sans tag
+            try:
+                self.terminal_output.config(state=tk.NORMAL)
+                self.terminal_output.insert(tk.END, text)
+                self.terminal_output.see(tk.END)
+                self.terminal_output.config(state=tk.DISABLED)
+            except Exception as e2:
+                print(f"❌ Erreur critique terminal: {e2}")
+
+    def save_terminal_session(self):
+        """Sauvegarde la session du terminal"""
+        try:
+            import tkinter.filedialog as fd
+            from datetime import datetime
+
+            # Nom de fichier par défaut
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_name = f"terminal_session_{timestamp}.log"
+
+            filename = fd.asksaveasfilename(
+                title="Sauvegarder la session terminal",
+                defaultextension=".log",
+                filetypes=[("Fichiers log", "*.log"), ("Fichiers texte", "*.txt"), ("Tous les fichiers", "*.*")],
+                initialname=default_name
+            )
+
+            if filename:
+                content = self.terminal_output.get(1.0, tk.END)
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(f"=== Session Terminal - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+                    f.write(f"Répertoire de travail: {self.terminal_cwd}\n")
+                    f.write("=" * 60 + "\n\n")
+                    f.write(content)
+
+                self.append_terminal_output(f"\n💾 Session sauvegardée: {filename}\n", "success")
+
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur sauvegarde: {e}\n", "error")
+
+    def clear_terminal_output(self):
+        """Efface la sortie du terminal"""
+        try:
+            # Activer le widget pour permettre la suppression
+            self.terminal_output.config(state=tk.NORMAL)
+            self.terminal_output.delete(1.0, tk.END)
+            self.terminal_output.config(state=tk.DISABLED)
+
+            # Afficher le message de confirmation
+            self.append_terminal_output("Terminal effacé\n", "info")
+        except Exception as e:
+            self.append_terminal_output(f"❌ Erreur effacement: {e}\n", "error")
+
+    def index_terminal_session(self, command, returncode):
+        """Indexe une session terminal dans le RAG"""
+        try:
+            if not hasattr(self, 'rag_manager') or not self.rag_manager:
+                return
+
+            from datetime import datetime
+            import os
+
+            # Créer le document pour le RAG
+            content = f"""=== Session Terminal ===
+Timestamp: {datetime.now().isoformat()}
+Répertoire: {self.terminal_cwd}
+Commande: {command}
+Code retour: {returncode}
+Environnement: {os.environ.get('VIRTUAL_ENV', 'système')}
+
+=== Contexte ===
+Application: cy8_prompts_manager
+Module: Terminal intégré
+Utilisateur: Session interactive
+
+=== Analyse ===
+"""
+
+            # Ajouter une analyse simple
+            if returncode == 0:
+                content += "✅ Commande exécutée avec succès\n"
+            else:
+                content += f"❌ Commande échouée (code {returncode})\n"
+
+            if command.startswith(('pip ', 'conda ', 'npm ')):
+                content += "📦 Gestion de packages détectée\n"
+            elif command.startswith(('git ', 'svn ')):
+                content += "🔧 Commande de contrôle de version\n"
+            elif command.startswith(('python ', 'node ', 'java ')):
+                content += "🐍 Exécution de script/programme\n"
+
+            # Ajouter au RAG en utilisant la méthode correcte
+            terminal_analysis = {
+                'timestamp': datetime.now().isoformat(),
+                'command': command,
+                'returncode': returncode,
+                'working_directory': self.terminal_cwd,
+                'type': 'terminal_session',
+                'environment_id': getattr(self, 'current_environment_id', 'unknown'),
+                'content': content,
+                'category': 'terminal',
+                'element': 'command_execution',
+                'message': f"Commande: {command}"
+            }
+
+            self.rag_manager.index_analysis_result(terminal_analysis)
+
+            print(f"📚 Session terminal indexée dans le RAG: {command}")
+
+        except Exception as e:
+            print(f"❌ Erreur indexation terminal RAG: {e}")
+
+    def toggle_rag_indexing(self):
+        """Active/désactive l'indexation RAG du terminal"""
+        try:
+            if hasattr(self, 'terminal_rag_enabled'):
+                state = "activée" if self.terminal_rag_enabled.get() else "désactivée"
+                print(f"🔄 Indexation RAG terminal {state}")
+
+                # Message dans le terminal si visible
+                if hasattr(self, 'append_terminal_output'):
+                    self.append_terminal_output(f"\n📚 Indexation RAG {state}\n", "info")
+        except Exception as e:
+            print(f"❌ Erreur toggle RAG: {e}")
+
+    def initialize_terminal_welcome(self):
+        """Initialise le terminal avec un message de bienvenue"""
+        try:
+            import os
+            from datetime import datetime
+
+            welcome_msg = f"""⚡ Terminal cy8_prompts_manager ⚡
+═══════════════════════════════════════
+📅 Session: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+📁 Répertoire: {os.getcwd()}
+🐍 Python: {hasattr(self, 'python_version') and getattr(self, 'python_version', 'Détection...')}
+🔧 RAG: {'Activé' if hasattr(self, 'terminal_rag_enabled') and self.terminal_rag_enabled.get() else 'Désactivé'}
+
+Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique.
+═══════════════════════════════════════
+
+"""
+            self.append_terminal_output(welcome_msg, "info")
+
+            # Afficher la première invite de commande
+            self.append_terminal_output(f"{self.terminal_cwd}> ", "command")
+
+        except Exception as e:
+            print(f"❌ Erreur initialisation welcome: {e}")
+
+    # ===== MÉTHODES DE GESTION RAG =====
+
+    def examine_rag_index(self):
+        """Examiner l'index RAG et afficher les statistiques détaillées"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                self.add_chat_message("error", "❌ RAG non disponible")
+                return
+
+            # Obtenir les statistiques détaillées
+            stats = self.rag_manager.get_collection_stats()
+
+            response = []
+            response.append("🔍 **EXAMEN DE L'INDEX RAG**")
+            response.append("=" * 40)
+            response.append("")
+
+            if stats.get('total_documents', 0) > 0:
+                response.append(f"📊 **Statistiques générales:**")
+                response.append(f"• Documents indexés: {stats.get('total_documents', 0)}")
+                response.append(f"• Environnement actuel: {self.current_environment_id}")
+                response.append(f"• Base ChromaDB: {'✅ Active' if self.rag_manager.collection else '❌ Non disponible'}")
+                response.append("")
+
+                # Analyser les types de documents
+                if self.rag_manager.collection:
+                    try:
+                        results = self.rag_manager.collection.get(
+                            limit=100,
+                            include=["metadatas"]
+                        )
+
+                        if results and results.get('metadatas'):
+                            types_count = {}
+                            env_count = {}
+
+                            for metadata in results['metadatas']:
+                                doc_type = metadata.get('analysis_type', 'unknown')
+                                env_id = metadata.get('environment_id', 'unknown')
+
+                                types_count[doc_type] = types_count.get(doc_type, 0) + 1
+                                env_count[env_id] = env_count.get(env_id, 0) + 1
+
+                            response.append("📋 **Types de documents:**")
+                            for doc_type, count in sorted(types_count.items(), key=lambda x: x[1], reverse=True):
+                                response.append(f"• {doc_type}: {count}")
+
+                            response.append("")
+                            response.append("🏠 **Répartition par environnement:**")
+                            for env_id, count in sorted(env_count.items(), key=lambda x: x[1], reverse=True):
+                                response.append(f"• {env_id}: {count}")
+
+                    except Exception as e:
+                        response.append(f"⚠️ Erreur analyse détaillée: {e}")
+
+            else:
+                response.append("📭 **Index vide**")
+                response.append("• Aucun document indexé")
+                response.append("• Lancez une analyse ou utilisez 'Ré-indexer'")
+
+            response.append("")
+            response.append("💡 **Actions disponibles:**")
+            response.append("• 🔄 **Ré-indexer**: Recharger toutes les analyses")
+            response.append("• 📊 **Stats RAG**: Statistiques complètes")
+            response.append("• 🧠 **Test recherche**: Tester la recherche vectorielle")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur examen RAG: {e}")
+
+    def reindex_rag_analyses(self):
+        """Relancer l'indexation complète des analyses"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                self.add_chat_message("error", "❌ RAG non disponible")
+                return
+
+            self.add_chat_message("system", "🔄 Démarrage de la ré-indexation...")
+
+            # Lancer l'indexation en arrière-plan
+            import threading
+
+            def reindex_thread():
+                try:
+                    # Scanner et indexer les analyses
+                    environment_id = self.current_environment_id or "default"
+                    self.scan_and_index_existing_analyses(environment_id)
+
+                    # Mettre à jour l'interface dans le thread principal
+                    self.root.after(0, lambda: self.add_chat_message("assistant",
+                        "✅ **Ré-indexation terminée**\n\n"
+                        "🎉 Toutes les analyses ont été ré-indexées avec succès.\n"
+                        "📊 Utilisez 'Stats RAG' pour voir les nouveaux résultats."))
+
+                except Exception as e:
+                    self.root.after(0, lambda: self.add_chat_message("error",
+                        f"❌ **Erreur ré-indexation:** {e}"))
+
+            thread = threading.Thread(target=reindex_thread, daemon=True)
+            thread.start()
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur lancement ré-indexation: {e}")
+
+    def show_rag_statistics(self):
+        """Afficher les statistiques complètes du RAG"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                self.add_chat_message("error", "❌ RAG non disponible")
+                return
+
+            stats = self.rag_manager.get_collection_stats()
+
+            response = []
+            response.append("📊 **STATISTIQUES RAG COMPLÈTES**")
+            response.append("=" * 45)
+            response.append("")
+
+            # Statistiques de base
+            response.append("🔢 **Métriques principales:**")
+            response.append(f"• Documents totaux: {stats.get('total_documents', 0)}")
+            response.append(f"• Environnement: {self.current_environment_id}")
+            response.append(f"• Dernière indexation: {stats.get('last_indexed', 'Jamais')}")
+            response.append("")
+
+            # État des composants
+            response.append("⚙️ **État des composants:**")
+            response.append(f"• ChromaDB: {'✅ Connecté' if self.rag_manager.collection else '❌ Déconnecté'}")
+            response.append(f"• Modèle embeddings: {'✅ Chargé' if self.rag_manager.embeddings_model else '❌ Non chargé'}")
+            response.append(f"• Mode actuel: {self.get_current_rag_mode()}")
+            response.append("")
+
+            # Performances récentes
+            if hasattr(self.rag_manager, 'query_history'):
+                recent_queries = getattr(self.rag_manager, 'query_history', [])
+                if recent_queries:
+                    response.append("⚡ **Performances récentes:**")
+                    response.append(f"• Requêtes traitées: {len(recent_queries)}")
+                    avg_time = sum(q.get('duration', 0) for q in recent_queries[-10:]) / min(10, len(recent_queries))
+                    response.append(f"• Temps moyen réponse: {avg_time:.2f}s")
+
+            # Actions recommandées
+            doc_count = stats.get('total_documents', 0)
+            response.append("")
+            response.append("💡 **Recommandations:**")
+            if doc_count == 0:
+                response.append("• 🔄 Lancer 'Ré-indexer' pour indexer les analyses")
+                response.append("• 📝 Créer des analyses Mistral pour alimenter le RAG")
+            elif doc_count < 10:
+                response.append("• 📈 Index léger - plus d'analyses amélioreront la précision")
+                response.append("• 🎯 Continuer à utiliser ComfyUI pour enrichir la base")
+            else:
+                response.append("• ✅ Index bien fourni - RAG opérationnel")
+                response.append("• 🔍 Utiliser la recherche d'erreurs pour tester le système")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur statistiques RAG: {e}")
+
+    def show_current_server_state(self):
+        """Afficher l'état actuel du serveur basé sur les analyses récentes"""
+        try:
+            if not self.temporal_rag:
+                self.add_chat_message("error", "❌ RAG temporel non disponible")
+                return
+
+            self.add_chat_message("system", "🔥 Recherche de l'état actuel du serveur...")
+
+            # Rechercher les informations d'état récentes (24h)
+            recent_results = self.temporal_rag.search_recent_only(
+                query="état serveur erreur status ready listening",
+                max_age_hours=24,
+                limit=5
+            )
+
+            response = []
+            response.append("🔥 **ÉTAT ACTUEL DU SERVEUR**")
+            response.append("=" * 40)
+            response.append("")
+
+            if recent_results:
+                response.append(f"📊 **Analyses récentes trouvées**: {len(recent_results)} (dernières 24h)")
+                response.append("")
+
+                # Analyser les résultats récents
+                errors_found = 0
+                warnings_found = 0
+                successes_found = 0
+
+                for result in recent_results:
+                    content = result.get('content', '').lower()
+                    age = result.get('age_days', 'N/A')
+
+                    if any(keyword in content for keyword in ['error', 'failed', 'exception']):
+                        errors_found += 1
+                    elif any(keyword in content for keyword in ['warning', 'attention']):
+                        warnings_found += 1
+                    elif any(keyword in content for keyword in ['success', 'ready', 'loaded']):
+                        successes_found += 1
+
+                # Évaluation de l'état
+                if errors_found == 0 and successes_found > 0:
+                    response.append("✅ **État**: Serveur opérationnel")
+                elif errors_found > successes_found:
+                    response.append("❌ **État**: Problèmes détectés")
+                else:
+                    response.append("⚠️ **État**: État mixte - surveillance requise")
+
+                response.append("")
+                response.append("📈 **Répartition récente**:")
+                response.append(f"• ✅ Succès: {successes_found}")
+                response.append(f"• ⚠️ Avertissements: {warnings_found}")
+                response.append(f"• ❌ Erreurs: {errors_found}")
+
+                # Afficher les derniers événements
+                response.append("")
+                response.append("🕒 **Derniers événements**:")
+                for i, result in enumerate(recent_results[:3]):
+                    age = result.get('age_days', 'N/A')
+                    content_preview = result.get('content', '')[:100] + "..."
+                    response.append(f"• **Événement {i+1}** (il y a {age} jours):")
+                    response.append(f"  {content_preview}")
+
+            else:
+                response.append("📭 **Aucune analyse récente trouvée**")
+                response.append("• Pas d'activité dans les dernières 24h")
+                response.append("• Le serveur pourrait être inactif")
+                response.append("• Lancez ComfyUI pour générer des logs")
+
+            response.append("")
+            response.append("💡 **Recommandation**: Utilisez '📈 Évolution' pour voir les tendances sur plusieurs jours")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur état actuel: {e}")
+
+    def show_temporal_analysis(self):
+        """Afficher l'analyse de la distribution temporelle des données"""
+        try:
+            if not self.temporal_rag:
+                self.add_chat_message("error", "❌ RAG temporel non disponible")
+                return
+
+            # Obtenir la distribution temporelle
+            distribution = self.temporal_rag.get_temporal_distribution()
+
+            response = []
+            response.append("🕒 **ANALYSE TEMPORELLE DES DONNÉES**")
+            response.append("=" * 45)
+            response.append("")
+
+            if "error" not in distribution:
+                # Statistiques générales
+                response.append("📊 **Vue d'ensemble**:")
+                response.append(f"• Documents totaux: {distribution.get('total_documents', 0)}")
+                response.append(f"• Documents horodatés: {distribution.get('documents_with_timestamp', 0)}")
+                response.append(f"• Période couverte: {distribution.get('age_span_days', 0)} jours")
+                response.append("")
+
+                # Fraîcheur des données
+                response.append("🔥 **Fraîcheur des données**:")
+                response.append(f"• Dernières 24h: {distribution.get('recent_24h', 0)} ({distribution.get('percentage_recent_24h', 0)}%)")
+                response.append(f"• Dernière semaine: {distribution.get('recent_week', 0)} ({distribution.get('percentage_recent_week', 0)}%)")
+                response.append(f"• Dernier mois: {distribution.get('recent_month', 0)}")
+                response.append("")
+
+                # Dates clés
+                oldest = distribution.get('oldest_document', 'N/A')
+                newest = distribution.get('newest_document', 'N/A')
+                if oldest != 'N/A':
+                    try:
+                        oldest_date = datetime.fromisoformat(oldest.replace('Z', '+00:00'))
+                        oldest = oldest_date.strftime("%Y-%m-%d %H:%M")
+                    except:
+                        pass
+                if newest != 'N/A':
+                    try:
+                        newest_date = datetime.fromisoformat(newest.replace('Z', '+00:00'))
+                        newest = newest_date.strftime("%Y-%m-%d %H:%M")
+                    except:
+                        pass
+
+                response.append("📅 **Chronologie**:")
+                response.append(f"• Plus ancienne analyse: {oldest}")
+                response.append(f"• Plus récente analyse: {newest}")
+                response.append("")
+
+                # Évaluation de la qualité temporelle
+                recent_24h_pct = distribution.get('percentage_recent_24h', 0)
+                if recent_24h_pct >= 30:
+                    response.append("✅ **Qualité temporelle**: Excellente")
+                    response.append("   Données très récentes et à jour")
+                elif recent_24h_pct >= 10:
+                    response.append("⚠️ **Qualité temporelle**: Correcte")
+                    response.append("   Mix d'analyses récentes et anciennes")
+                else:
+                    response.append("❌ **Qualité temporelle**: Faible")
+                    response.append("   Données majoritairement anciennes")
+
+            else:
+                response.append(f"❌ **Erreur**: {distribution['error']}")
+
+            response.append("")
+            response.append("💡 **Utilisation**: Les recherches RAG privilégient automatiquement les analyses récentes")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur analyse temporelle: {e}")
+
+    def show_temporal_evolution(self):
+        """Afficher l'évolution temporelle avec comparaison récent vs ancien"""
+        try:
+            if not self.temporal_rag:
+                self.add_chat_message("error", "❌ RAG temporel non disponible")
+                return
+
+            # Comparer différentes périodes
+            recent_24h = self.temporal_rag.search_recent_only("erreur PyTorch CUDA version", max_age_hours=24, limit=3)
+            recent_week = self.temporal_rag.search_with_temporal_priority("erreur PyTorch CUDA version", recent_weight=1.5, max_age_days=7, limit=3)
+
+            response = []
+            response.append("📈 **ÉVOLUTION TEMPORELLE DU SERVEUR**")
+            response.append("=" * 45)
+            response.append("")
+
+            # Analyse des tendances
+            response.append("🔍 **Analyse comparative**:")
+            response.append(f"• Activité récente (24h): {len(recent_24h)} événements")
+            response.append(f"• Activité semaine: {len(recent_week)} événements")
+            response.append("")
+
+            if recent_24h:
+                response.append("🔥 **Dernières 24 heures**:")
+                for i, result in enumerate(recent_24h):
+                    age = result.get('age_days', 'N/A')
+                    preview = result.get('content', '')[:80] + "..."
+                    response.append(f"• **Événement {i+1}** (il y a {age} jours):")
+                    response.append(f"  {preview}")
+                response.append("")
+
+            # Tendance d'activité
+            if len(recent_24h) > len(recent_week) // 3:
+                response.append("📈 **Tendance**: Activité en hausse")
+                response.append("   Le serveur est plus actif récemment")
+            elif len(recent_24h) == 0 and len(recent_week) > 0:
+                response.append("📉 **Tendance**: Activité en baisse")
+                response.append("   Le serveur était plus actif auparavant")
+            else:
+                response.append("➡️ **Tendance**: Activité stable")
+                response.append("   Niveau d'activité constant")
+
+            response.append("")
+            response.append("💡 **Conseil**: Utilisez '🔥 État actuel' pour un diagnostic immédiat")
+            response.append("🔧 **Action**: Consultez l'onglet Log pour plus de détails")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur évolution temporelle: {e}")
+
+    def reset_rag_completely(self):
+        """Réinitialisation complète du RAG - Remise à zéro totale"""
+        try:
+            # Demander confirmation avec un dialog détaillé
+            from tkinter import messagebox
+
+            confirm = messagebox.askyesno(
+                "⚠️ RÉINITIALISATION COMPLÈTE RAG",
+                "🗑️ Cette action va SUPPRIMER DÉFINITIVEMENT :\n\n"
+                "• Toutes les analyses indexées\n"
+                "• La base vectorielle ChromaDB\n"
+                "• Les métadonnées temporelles\n"
+                "• L'historique des recherches\n\n"
+                "⚠️ ATTENTION : Cette action est IRRÉVERSIBLE !\n\n"
+                "Êtes-vous sûr de vouloir tout effacer ?",
+                icon="warning"
+            )
+
+            if not confirm:
+                self.add_chat_message("system", "🔄 Réinitialisation annulée par l'utilisateur")
+                return
+
+            self.add_chat_message("system", "🗑️ DÉMARRAGE RÉINITIALISATION COMPLÈTE RAG...")
+
+            # 1. Fermer le RAG actuel
+            if self.rag_manager:
+                try:
+                    # Fermer la collection si possible
+                    if hasattr(self.rag_manager, 'collection') and self.rag_manager.collection:
+                        # ChromaDB n'a pas de méthode close explicite, on va juste supprimer la référence
+                        self.rag_manager.collection = None
+                except Exception as e:
+                    print(f"⚠️ Erreur fermeture RAG: {e}")
+
+            # 2. Supprimer le dossier ChromaDB
+            import shutil
+            vector_db_path = "G:/G_WCS/cy8_workspace/data/analyses/vector_db"
+
+            if os.path.exists(vector_db_path):
+                try:
+                    shutil.rmtree(vector_db_path)
+                    self.add_chat_message("system", f"✅ Dossier ChromaDB supprimé: {vector_db_path}")
+                except Exception as e:
+                    self.add_chat_message("error", f"❌ Erreur suppression ChromaDB: {e}")
+            else:
+                self.add_chat_message("system", "ℹ️ Dossier ChromaDB déjà absent")
+
+            # 3. Supprimer les fichiers d'analyses (optionnel)
+            analyses_dirs = [
+                "G:/G_WCS/cy8_workspace/data/analyses",
+                "G:/tmp/analyses"  # Dossier temporaire s'il existe
+            ]
+
+            for analyses_dir in analyses_dirs:
+                if os.path.exists(analyses_dir):
+                    try:
+                        # Supprimer seulement les fichiers .txt/.json, garder la structure
+                        for root, dirs, files in os.walk(analyses_dir):
+                            for file in files:
+                                if file.endswith(('.txt', '.json', '.log')):
+                                    file_path = os.path.join(root, file)
+                                    os.remove(file_path)
+                        self.add_chat_message("system", f"✅ Analyses supprimées: {analyses_dir}")
+                    except Exception as e:
+                        self.add_chat_message("error", f"❌ Erreur suppression analyses: {e}")
+
+            # 4. Réinitialiser les managers
+            self.rag_manager = None
+            self.temporal_rag = None
+
+            # 5. Recréer le RAG propre
+            if RAG_AVAILABLE:
+                try:
+                    from cy8_rag_manager import RAGManager
+                    from cy8_temporal_rag import TemporalRAGManager
+
+                    self.rag_manager = RAGManager(self.db_manager, self.current_environment_id)
+                    self.temporal_rag = TemporalRAGManager(self.rag_manager)
+
+                    self.add_chat_message("system", "✅ RAG réinitialisé avec succès")
+                    self.add_chat_message("system", "✅ Extension temporelle recréée")
+
+                except Exception as e:
+                    self.add_chat_message("error", f"❌ Erreur recréation RAG: {e}")
+
+            # 6. Message de succès
+            response = []
+            response.append("🎉 **RÉINITIALISATION COMPLÈTE TERMINÉE**")
+            response.append("=" * 45)
+            response.append("")
+            response.append("✅ **Actions effectuées:**")
+            response.append("• Base vectorielle ChromaDB supprimée")
+            response.append("• Fichiers d'analyses nettoyés")
+            response.append("• RAG recréé à neuf")
+            response.append("• Extension temporelle réinitialisée")
+            response.append("")
+            response.append("🚀 **Prochaines étapes:**")
+            response.append("1. Relancer ComfyUI dans votre nouvel environnement")
+            response.append("2. Générer quelques analyses Mistral")
+            response.append("3. Utiliser '🔬 Test Efficacité' pour évaluer")
+            response.append("4. Le RAG se reconstituera automatiquement")
+            response.append("")
+            response.append("💡 **Le RAG est maintenant propre et prêt à apprendre !**")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur réinitialisation RAG: {e}")
+
+    def clean_custom_environments(self):
+        """Nettoyer spécifiquement les environnements custom du RAG"""
+        try:
+            if not self.rag_manager or not self.rag_manager.collection:
+                self.add_chat_message("error", "❌ RAG non disponible")
+                return
+
+            self.add_chat_message("system", "🧹 Nettoyage des environnements custom...")
+
+            # Lister les environnements dans le RAG
+            results = self.rag_manager.collection.get(
+                limit=1000,
+                include=["metadatas"]
+            )
+
+            if not results or not results.get('metadatas'):
+                self.add_chat_message("system", "📭 Aucun document à nettoyer")
+                return
+
+            # Identifier les environnements custom (commençant par G11_, TEST_, etc.)
+            custom_env_patterns = ['G11_', 'TEST_', 'CUSTOM_', 'DEV_']
+            docs_to_delete = []
+            env_counts = {}
+
+            for i, metadata in enumerate(results['metadatas']):
+                env_id = metadata.get('environment_id', '')
+
+                # Vérifier si c'est un environnement custom
+                is_custom = any(env_id.startswith(pattern) for pattern in custom_env_patterns)
+
+                if is_custom:
+                    docs_to_delete.append(results['ids'][i])
+                    env_counts[env_id] = env_counts.get(env_id, 0) + 1
+
+            if docs_to_delete:
+                # Supprimer les documents custom
+                try:
+                    self.rag_manager.collection.delete(ids=docs_to_delete)
+
+                    response = []
+                    response.append("🧹 **NETTOYAGE ENVIRONNEMENTS CUSTOM**")
+                    response.append("=" * 45)
+                    response.append("")
+                    response.append(f"✅ **{len(docs_to_delete)} documents supprimés**")
+                    response.append("")
+                    response.append("🗑️ **Environnements nettoyés:**")
+                    for env_id, count in env_counts.items():
+                        response.append(f"• {env_id}: {count} documents")
+                    response.append("")
+                    response.append("💡 **Les environnements de production sont conservés**")
+
+                    self.add_chat_message("assistant", "\n".join(response))
+
+                except Exception as e:
+                    self.add_chat_message("error", f"❌ Erreur suppression: {e}")
+            else:
+                self.add_chat_message("system", "ℹ️ Aucun environnement custom trouvé à nettoyer")
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur nettoyage custom: {e}")
+
+    def test_rag_efficiency(self):
+        """Tester l'efficacité du RAG après réinitialisation"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                self.add_chat_message("error", "❌ RAG non disponible pour les tests")
+                return
+
+            self.add_chat_message("system", "🔬 Test d'efficacité du RAG en cours...")
+
+            # 1. Statistiques de base
+            stats = self.rag_manager.get_collection_stats()
+            doc_count = stats.get('total_documents', 0)
+
+            response = []
+            response.append("🔬 **TEST D'EFFICACITÉ RAG**")
+            response.append("=" * 35)
+            response.append("")
+
+            # 2. Évaluation quantitative
+            response.append("📊 **Métriques quantitatives:**")
+            response.append(f"• Documents indexés: {doc_count}")
+
+            if doc_count == 0:
+                response.append("❌ **État**: RAG vide")
+                response.append("📝 **Action requise**: Générer des analyses")
+            elif doc_count < 5:
+                response.append("⚠️ **État**: RAG insuffisant")
+                response.append("📈 **Recommandation**: Ajouter plus d'analyses")
+            elif doc_count < 20:
+                response.append("🟡 **État**: RAG fonctionnel")
+                response.append("✅ **Recommandation**: Continuer à alimenter")
+            else:
+                response.append("✅ **État**: RAG optimal")
+                response.append("🎯 **Qualité**: Prêt pour assistance")
+
+            response.append("")
+
+            # 3. Test de recherche si possible
+            if doc_count > 0:
+                response.append("🔍 **Test de recherche:**")
+                try:
+                    test_queries = [
+                        "erreur PyTorch",
+                        "CUDA problème",
+                        "serveur status"
+                    ]
+
+                    for query in test_queries:
+                        results = self.rag_manager.search_similar_issues(query, limit=2)
+                        response.append(f"• '{query}': {len(results)} résultats")
+
+                    response.append("✅ **Recherche**: Fonctionnelle")
+
+                except Exception as search_error:
+                    response.append(f"❌ **Erreur recherche**: {search_error}")
+
+            # 4. Test temporel si disponible
+            if self.temporal_rag and doc_count > 0:
+                response.append("")
+                response.append("🕒 **Test temporel:**")
+                try:
+                    distribution = self.temporal_rag.get_temporal_distribution()
+                    if "error" not in distribution:
+                        recent_pct = distribution.get('percentage_recent_24h', 0)
+                        response.append(f"• Analyses récentes: {recent_pct}%")
+
+                        if recent_pct > 50:
+                            response.append("✅ **Fraîcheur**: Excellente")
+                        elif recent_pct > 20:
+                            response.append("🟡 **Fraîcheur**: Correcte")
+                        else:
+                            response.append("⚠️ **Fraîcheur**: Faible")
+                    else:
+                        response.append("❌ **Temporel**: Non fonctionnel")
+
+                except Exception as temporal_error:
+                    response.append(f"❌ **Erreur temporel**: {temporal_error}")
+
+            # 5. Recommandations finales
+            response.append("")
+            response.append("💡 **Recommandations:**")
+
+            if doc_count == 0:
+                response.append("1. 🚀 Démarrer ComfyUI")
+                response.append("2. 📝 Générer 5-10 analyses Mistral")
+                response.append("3. 🔄 Relancer ce test")
+            elif doc_count < 10:
+                response.append("1. 📈 Continuer à générer des analyses")
+                response.append("2. 🎯 Varier les types d'erreurs/succès")
+                response.append("3. ⏰ Attendre quelques jours d'utilisation")
+            else:
+                response.append("1. ✅ RAG opérationnel")
+                response.append("2. 🔥 Utiliser 'État actuel' pour tester")
+                response.append("3. 💬 Poser des questions au chat")
+
+            response.append("")
+            response.append("🎯 **Le RAG est maintenant évalué et prêt !**")
+
+            self.add_chat_message("assistant", "\n".join(response))
+
+        except Exception as e:
+            self.add_chat_message("error", f"❌ Erreur test efficacité: {e}")
+
+    # ===== FIN MÉTHODES TERMINAL =====
 
 
 def main():

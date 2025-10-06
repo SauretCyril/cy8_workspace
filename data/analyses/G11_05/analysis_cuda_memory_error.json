@@ -1,0 +1,14 @@
+{
+    "timestamp": "2025-10-03T15:30:00",
+    "type": "error_analysis",
+    "errors": [
+        "CUDA out of memory. Tried to allocate 2.50 GiB",
+        "RuntimeError: Expected all tensors to be on the same device"
+    ],
+    "solutions": [
+        "Réduire la taille du batch",
+        "Utiliser un modèle plus léger",
+        "Vider le cache CUDA"
+    ],
+    "analysis": "Erreur de mémoire CUDA classique lors du traitement d'images haute résolution. Le modèle demande plus de VRAM que disponible. Solutions testées : réduction du batch size de 4 à 1, utilisation du modèle SD 1.5 au lieu de SDXL."
+}
