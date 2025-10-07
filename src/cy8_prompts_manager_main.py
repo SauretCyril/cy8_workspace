@@ -7,6 +7,7 @@ import json
 import subprocess
 from datetime import datetime
 from PIL import Image, ImageTk
+from typing import List, Dict, Optional
 
 # Import du gestionnaire RAG
 try:
@@ -238,6 +239,22 @@ class cy8_prompts_manager:
         exec_menu.add_command(label="Exécuter prompt", command=self.execute_workflow)
         exec_menu.add_command(
             label="Analyser prompt", command=self.open_prompt_analysis
+        )
+
+        # Menu Maintenance RAG
+        maintenance_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="🔧 Maintenance", menu=maintenance_menu)
+        maintenance_menu.add_command(
+            label="🗑️ Réinitialiser RAG complet",
+            command=self.reset_rag_completely
+        )
+        maintenance_menu.add_command(
+            label="🧹 Nettoyer environnements custom",
+            command=self.clean_custom_environments
+        )
+        maintenance_menu.add_command(
+            label="🔬 Test efficacité RAG",
+            command=self.test_rag_efficiency
         )
 
     def setup_ribbon(self):
@@ -1570,10 +1587,13 @@ class cy8_prompts_manager:
         ).pack(side="left", padx=(0, 10))
 
         # Zone de texte pour le chemin avec valeur par défaut
-        default_log_path = os.getenv(
-            "COMFYUI_FILE_LOG", "E:/Comfyui_G11/ComfyUI/user/comfyui.log"
-        )
-        self.comfyui_log_path = tk.StringVar(value=default_log_path)
+        # Récupérer depuis les préférences ou utiliser la valeur par défaut
+        saved_log_path = self.user_prefs.get_preference("comfyui_log_path")
+        if not saved_log_path:
+            saved_log_path = os.getenv(
+                "COMFYUI_FILE_LOG", "E:/Comfyui_G11/ComfyUI/user/comfyui.log"
+            )
+        self.comfyui_log_path = tk.StringVar(value=saved_log_path)
         log_path_entry = ttk.Entry(
             file_selection_frame,
             textvariable=self.comfyui_log_path,
@@ -1727,6 +1747,28 @@ class cy8_prompts_manager:
             text="🔄 Actualiser environnements",
             command=self.refresh_environments,
             width=25,
+        ).pack(side="left", padx=(0, 10))
+
+        # Boutons CRUD pour les environnements
+        ttk.Button(
+            env_actions_frame,
+            text="➕ Ajouter",
+            command=self.add_environment,
+            width=15,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            env_actions_frame,
+            text="✏️ Modifier",
+            command=self.edit_environment,
+            width=15,
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            env_actions_frame,
+            text="🗑️ Supprimer",
+            command=self.delete_environment,
+            width=15,
         ).pack(side="left", padx=(0, 10))
 
         # === SECTION 4: RESULTATS D'ANALYSE ===
@@ -5339,7 +5381,7 @@ WORKFLOW:
             raise RuntimeError(f"Erreur lors de la lecture du modèle : {str(e)}")
 
     def identify_comfyui_environment(self):
-        """Identifier l'environnement ComfyUI en récupérant les extra paths via le custom node"""
+        """Identifier l'environnement ComfyUI - UNIQUEMENT via le custom node ExtraPathReader"""
         import logging
         import time
 
@@ -5350,6 +5392,24 @@ WORKFLOW:
         print("🚀 DÉBUT - Identification de l'environnement ComfyUI")
         print("=" * 60)
         logger.info("Début de l'identification de l'environnement ComfyUI")
+
+        # Identification UNIQUEMENT via le custom node
+        try:
+            self._identify_with_custom_node()
+            return  # Succès avec custom node
+        except Exception as custom_node_error:
+            print(f"❌ Identification via custom node échouée: {custom_node_error}")
+            logger.error(f"Identification via custom node échouée: {custom_node_error}")
+
+            # Pas de fallback - l'identification échoue si le custom node ne fonctionne pas
+            raise custom_node_error
+
+    def _identify_with_custom_node(self):
+        """Identifier l'environnement avec le custom node ExtraPathReader"""
+        import logging
+        import time
+
+        logger = logging.getLogger(__name__)
 
         try:
             # Importer notre classe de custom node caller
@@ -5446,15 +5506,29 @@ WORKFLOW:
 
                     # Mise à jour de l'interface
                     self.config_info_label.config(
-                        text="⏳ Exécution du custom node en cours...",
+                        text="⏳ Récupération des données du custom node...",
                         foreground="orange",
                     )
                     self.root.update()
 
-                    # Récupération des extra paths depuis ComfyUI via le custom node
-                    print("📂 Récupération des extra paths...")
-                    logger.info("Début de récupération des extra paths")
-                    extra_paths_data = self._get_extra_paths_from_comfyui()
+                    # Récupération des données directement depuis le résultat du custom node
+                    print("📂 Récupération des données du custom node...")
+                    logger.info("Début de récupération des données du custom node")
+
+                    # Le custom node doit retourner les données dans le résultat directement
+                    # Nous devons récupérer la sortie du custom node via l'API ComfyUI
+                    try:
+                        extra_paths_data = caller.get_custom_node_output(prompt_id, "1")
+                        if extra_paths_data and isinstance(extra_paths_data, str):
+                            # Le custom node retourne un JSON string, le parser
+                            import json
+                            extra_paths_data = json.loads(extra_paths_data)
+                            print("✅ Données du custom node récupérées et parsées")
+                        else:
+                            raise Exception("Données du custom node non valides ou vides")
+                    except Exception as e:
+                        print(f"❌ Impossible de récupérer les données du custom node: {e}")
+                        raise Exception(f"Custom node non fonctionnel: {e}")
 
                     if extra_paths_data:
                         print("✅ Extra paths récupérés avec succès")
@@ -5510,6 +5584,11 @@ WORKFLOW:
                             # Mettre à jour l'ID de configuration
                             print("✏️ Mise à jour de l'ID de configuration...")
                             self.comfyui_config_id.set(config_id)
+                            
+                            # CORRECTION CRITIQUE: Mettre à jour current_environment_id pour le RAG
+                            self.current_environment_id = config_id
+                            print(f"🌍 Environnement actuel mis à jour: {self.current_environment_id}")
+                            logger.info(f"Current environment_id mis à jour: {self.current_environment_id}")
 
                             # Mettre à jour le champ si il existe (compatibilité ancienne interface)
                             if self.config_id_entry and hasattr(
@@ -5798,95 +5877,6 @@ WORKFLOW:
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de copier le chemin:\n{str(e)}")
 
-    def _get_extra_paths_from_comfyui(self):
-        """Récupérer les extra paths depuis ComfyUI (méthode temporaire)"""
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        try:
-            # Pour l'instant, on lit directement le fichier de configuration
-            import os
-            import yaml
-
-            print("  📁 Recherche du fichier extra_model_paths.yaml...")
-            logger.info(
-                "Début de recherche du fichier de configuration extra_model_paths.yaml"
-            )
-
-            config_path = os.path.expanduser("~/.config/ComfyUI/extra_model_paths.yaml")
-            print(f"  🔍 Vérification: {config_path}")
-
-            if os.path.exists(config_path):
-                print(f"  ✅ Fichier trouvé: {config_path}")
-                logger.info(f"Fichier de configuration trouvé: {config_path}")
-
-                with open(config_path, "r", encoding="utf-8") as f:
-                    config = yaml.safe_load(f)
-
-                print(
-                    f"  ✅ Configuration chargée: {len(config) if config else 0} entrées"
-                )
-                logger.info(
-                    f"Configuration chargée avec {len(config) if config else 0} entrées"
-                )
-                return config
-            else:
-                print("  ❌ Fichier non trouvé à l'emplacement standard")
-                logger.info(
-                    "Fichier non trouvé à l'emplacement standard, recherche dans d'autres emplacements"
-                )
-
-                # Essayer d'autres emplacements possibles
-                possible_paths = [
-                    os.path.expanduser("~/ComfyUI/extra_model_paths.yaml"),
-                    "E:/Comfyui_G11/ComfyUI/extra_model_paths.yaml",
-                    "C:/ComfyUI/extra_model_paths.yaml",
-                ]
-
-                for path in possible_paths:
-                    print(f"  🔍 Vérification: {path}")
-                    if os.path.exists(path):
-                        print(f"  ✅ Fichier trouvé: {path}")
-                        logger.info(f"Fichier de configuration trouvé: {path}")
-
-                        with open(path, "r", encoding="utf-8") as f:
-                            config = yaml.safe_load(f)
-
-                        print(
-                            f"  ✅ Configuration chargée: {len(config) if config else 0} entrées"
-                        )
-                        logger.info(
-                            f"Configuration chargée avec {len(config) if config else 0} entrées"
-                        )
-
-                        # Retourner dans le format attendu par _extract_config_id_from_extra_paths
-                        result = {
-                            "comfyui_root": os.path.dirname(
-                                path
-                            ),  # Racine du ComfyUI trouvé
-                            "config_path": path,
-                            "extra_paths": config,
-                        }
-                        print(
-                            f"  📋 Format de retour: comfyui_root={result['comfyui_root']}"
-                        )
-                        logger.info(
-                            f"Données formatées avec comfyui_root: {result['comfyui_root']}"
-                        )
-                        return result
-
-                print("  ❌ Aucun fichier de configuration trouvé")
-                logger.warning(
-                    "Aucun fichier de configuration extra_model_paths.yaml trouvé"
-                )
-                return None
-
-        except Exception as e:
-            print(f"  ❌ Erreur lors de la lecture: {e}")
-            logger.error(f"Erreur lors de la lecture du fichier de configuration: {e}")
-            return None
-
     def _extract_config_id_from_extra_paths(self, extra_paths_data):
         """Extraire l'ID de configuration depuis les extra paths"""
         if not extra_paths_data or not isinstance(extra_paths_data, dict):
@@ -6027,6 +6017,9 @@ WORKFLOW:
 
         if filename:
             self.comfyui_log_path.set(filename)
+            # Sauvegarder automatiquement le chemin dans les préférences
+            self.user_prefs.set_preference("comfyui_log_path", filename)
+            print(f"Chemin du log sauvegardé: {filename}")
 
     def analyze_comfyui_log(self):
         """Analyser le fichier de log ComfyUI"""
@@ -6300,6 +6293,15 @@ WORKFLOW:
         self.current_environment_id = environment_id
         print(f"🌍 Environnement identifié: {environment_id}")
 
+        # NOUVEAU: Synchroniser le gestionnaire RAG avec le nouvel environnement
+        if hasattr(self, 'rag_manager') and self.rag_manager:
+            if self.rag_manager.environment_id != environment_id:
+                print(f"🔄 Synchronisation RAG: {self.rag_manager.environment_id} -> {environment_id}")
+                self.rag_manager.environment_id = environment_id
+                # Réinitialiser les composants RAG avec le nouvel environnement
+                self.rag_manager._initialize_components()
+                print("✅ RAG synchronisé avec le nouvel environnement")
+
         # Mettre à jour l'affichage des informations du log
         self.check_log_file_status()
 
@@ -6429,6 +6431,145 @@ WORKFLOW:
 
         # Charger les résultats d'analyse pour cet environnement
         self.load_environment_analysis_results(environment_id)
+
+    # === MÉTHODES CRUD POUR LES ENVIRONNEMENTS ===
+
+    def add_environment(self):
+        """Ajouter un nouvel environnement ComfyUI"""
+        dialog = EnvironmentDialog(self.root, "Ajouter un environnement")
+        self.root.wait_window(dialog.dialog)
+
+        if dialog.result:
+            env_id, name, path = dialog.result
+            try:
+                # Vérifier que l'ID n'existe pas déjà
+                existing_envs = self.db_manager.get_all_environments()
+                existing_ids = [env[0] for env in existing_envs]
+
+                if env_id in existing_ids:
+                    messagebox.showerror(
+                        "Erreur",
+                        f"L'ID '{env_id}' existe déjà. Veuillez choisir un ID unique."
+                    )
+                    return
+
+                # Ajouter l'environnement à la base de données
+                self.db_manager.add_environment(env_id, name, path)
+
+                # Actualiser le tableau
+                self.refresh_environments()
+
+                messagebox.showinfo(
+                    "Succès",
+                    f"Environnement '{name}' ajouté avec succès !"
+                )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Erreur",
+                    f"Impossible d'ajouter l'environnement : {e}"
+                )
+
+    def edit_environment(self):
+        """Modifier l'environnement sélectionné"""
+        selection = self.environments_tree.selection()
+        if not selection:
+            messagebox.showwarning(
+                "Aucune sélection",
+                "Veuillez sélectionner un environnement à modifier."
+            )
+            return
+
+        # Récupérer les données de l'environnement sélectionné
+        item = selection[0]
+        values = self.environments_tree.item(item)["values"]
+        env_id, name, path = values[0], values[1], values[2]
+
+        # Ouvrir le dialogue de modification
+        dialog = EnvironmentDialog(
+            self.root,
+            "Modifier l'environnement",
+            current_data=(env_id, name, path)
+        )
+        self.root.wait_window(dialog.dialog)
+
+        if dialog.result:
+            new_env_id, new_name, new_path = dialog.result
+            try:
+                # Si l'ID a changé, vérifier qu'il n'existe pas déjà
+                if new_env_id != env_id:
+                    existing_envs = self.db_manager.get_all_environments()
+                    existing_ids = [env[0] for env in existing_envs if env[0] != env_id]
+
+                    if new_env_id in existing_ids:
+                        messagebox.showerror(
+                            "Erreur",
+                            f"L'ID '{new_env_id}' existe déjà. Veuillez choisir un ID unique."
+                        )
+                        return
+
+                # Mettre à jour l'environnement
+                self.db_manager.update_environment(env_id, new_env_id, new_name, new_path)
+
+                # Actualiser le tableau
+                self.refresh_environments()
+
+                messagebox.showinfo(
+                    "Succès",
+                    f"Environnement '{new_name}' modifié avec succès !"
+                )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Erreur",
+                    f"Impossible de modifier l'environnement : {e}"
+                )
+
+    def delete_environment(self):
+        """Supprimer l'environnement sélectionné"""
+        selection = self.environments_tree.selection()
+        if not selection:
+            messagebox.showwarning(
+                "Aucune sélection",
+                "Veuillez sélectionner un environnement à supprimer."
+            )
+            return
+
+        # Récupérer les données de l'environnement sélectionné
+        item = selection[0]
+        values = self.environments_tree.item(item)["values"]
+        env_id, name = values[0], values[1]
+
+        # Confirmation de suppression
+        response = messagebox.askyesno(
+            "Confirmer la suppression",
+            f"Êtes-vous sûr de vouloir supprimer l'environnement '{name}' (ID: {env_id}) ?\n\n"
+            "Cette action supprimera également toutes les analyses associées et ne peut pas être annulée.",
+            icon="warning"
+        )
+
+        if response:
+            try:
+                # Supprimer l'environnement de la base de données
+                self.db_manager.delete_environment(env_id)
+
+                # Actualiser le tableau
+                self.refresh_environments()
+
+                # Si c'était l'environnement actuel, le réinitialiser
+                if self.current_environment_id == env_id:
+                    self.current_environment_id = None
+
+                messagebox.showinfo(
+                    "Succès",
+                    f"Environnement '{name}' supprimé avec succès !"
+                )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Erreur",
+                    f"Impossible de supprimer l'environnement : {e}"
+                )
 
     def load_environment_analysis_results(self, environment_id):
         """Charger les résultats d'analyse pour un environnement spécifique"""
@@ -7319,6 +7460,16 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
 
             # Indexer l'analyse dans le RAG si disponible
             if self.rag_manager and self.rag_manager.is_available():
+                # VALIDATION CRITIQUE: Vérifier l'environnement avant indexation
+                if not self.current_environment_id:
+                    print("❌ ERREUR CRITIQUE: Impossible d'indexer sans environment_id identifié")
+                    messagebox.showwarning(
+                        "Environnement requis",
+                        "L'indexation RAG nécessite un environnement ComfyUI identifié.\n"
+                        "Veuillez identifier l'environnement avant d'analyser les logs."
+                    )
+                    return
+
                 try:
                     # Préparer les données d'analyse pour l'indexation
                     analysis_data = {
@@ -7327,14 +7478,20 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                         "popup_id": popup_id,
                         "filename": filename,
                         "full_analysis": analysis_content,
-                        "environment_id": self.current_environment_id,
+                        "environment_id": self.current_environment_id,  # OBLIGATOIRE
                         "filepath": filepath
                     }
+
+                    # Vérifier la cohérence de l'environment_id
+                    if self.rag_manager.environment_id != self.current_environment_id:
+                        print(f"🔄 Synchronisation RAG: {self.rag_manager.environment_id} -> {self.current_environment_id}")
+                        self.rag_manager.environment_id = self.current_environment_id
+                        self.rag_manager._initialize_components()
 
                     # Indexer dans la base vectorielle
                     success = self.rag_manager.index_analysis_result(analysis_data)
                     if success:
-                        print(f"🧠 Analyse indexée dans le RAG: {popup_id}")
+                        print(f"🧠 Analyse indexée dans le RAG pour {self.current_environment_id}: {popup_id}")
                     else:
                         print(f"⚠️ Erreur indexation RAG: {popup_id}")
 
@@ -7346,6 +7503,140 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 "Erreur de sauvegarde",
                 f"Impossible de sauvegarder l'analyse :\n{str(e)}",
             )
+
+    # ===== MÉTHODES DE VALIDATION RAG =====
+
+    def validate_rag_environment(self, operation_name: str = "opération RAG") -> bool:
+        """
+        Valider que le RAG peut fonctionner avec un environnement identifié
+
+        Args:
+            operation_name: Nom de l'opération pour le message d'erreur
+
+        Returns:
+            bool: True si tout est valide, False sinon
+        """
+        # Vérifier la disponibilité du RAG
+        if not self.rag_manager or not self.rag_manager.is_available():
+            print(f"❌ {operation_name}: RAG non disponible")
+            return False
+
+        # Vérifier qu'un environnement est identifié
+        if not self.current_environment_id:
+            print(f"❌ {operation_name}: Aucun environnement ComfyUI identifié")
+            messagebox.showwarning(
+                "Environnement requis",
+                f"L'{operation_name} nécessite un environnement ComfyUI identifié.\n\n"
+                "🔍 Allez dans l'onglet ComfyUI et cliquez sur 'Identifier l'environnement'."
+            )
+            return False
+
+        # Vérifier la cohérence des environment_id
+        if self.rag_manager.environment_id != self.current_environment_id:
+            print(f"🔄 Synchronisation RAG pour {operation_name}: {self.rag_manager.environment_id} -> {self.current_environment_id}")
+            self.rag_manager.environment_id = self.current_environment_id
+            self.rag_manager._initialize_components()
+            # Mettre à jour aussi le RAG temporel
+            if self.temporal_rag:
+                self.temporal_rag.rag_manager = self.rag_manager
+
+        print(f"✅ {operation_name}: Validation RAG réussie pour environnement {self.current_environment_id}")
+        return True
+
+    def audit_rag_environment_consistency(self):
+        """Auditer la cohérence des environment_id dans le RAG"""
+        try:
+            if not self.rag_manager or not self.rag_manager.is_available():
+                print("❌ Audit impossible: RAG non disponible")
+                return
+
+            print("\n" + "="*60)
+            print("🔍 AUDIT DE COHÉRENCE ENVIRONMENT_ID RAG")
+            print("="*60)
+
+            # 1. Vérifier l'état actuel
+            print(f"🎯 Environment_ID actuel: {self.current_environment_id}")
+            print(f"🎯 Environment_ID RAG: {self.rag_manager.environment_id}")
+
+            # 2. Vérifier ChromaDB si disponible
+            if self.rag_manager.collection:
+                try:
+                    results = self.rag_manager.collection.get(include=["metadatas"])
+                    env_ids = set()
+                    total_docs = 0
+
+                    for metadata in results.get('metadatas', []):
+                        env_id = metadata.get('environment_id', 'MANQUANT')
+                        env_ids.add(env_id)
+                        total_docs += 1
+
+                    print(f"📚 ChromaDB - Documents totaux: {total_docs}")
+                    print(f"📚 ChromaDB - Environment_IDs trouvés: {env_ids}")
+
+                    # Compter par environnement
+                    env_counts = {}
+                    for metadata in results.get('metadatas', []):
+                        env_id = metadata.get('environment_id', 'MANQUANT')
+                        env_counts[env_id] = env_counts.get(env_id, 0) + 1
+
+                    for env_id, count in env_counts.items():
+                        status = "✅" if env_id == self.current_environment_id else "⚠️"
+                        print(f"   {status} {env_id}: {count} documents")
+
+                except Exception as e:
+                    print(f"❌ Erreur audit ChromaDB: {e}")
+
+            # 3. Vérifier SQLite constraints
+            try:
+                constraints = self.rag_manager.get_constraints()
+                constraint_envs = set(c.get('environment_id') for c in constraints if c.get('environment_id'))
+
+                print(f"🗃️ SQLite - Contraintes trouvées: {len(constraints)}")
+                print(f"🗃️ SQLite - Environment_IDs: {constraint_envs}")
+
+                for env_id in constraint_envs:
+                    status = "✅" if env_id == self.current_environment_id else "⚠️"
+                    env_constraints = [c for c in constraints if c.get('environment_id') == env_id]
+                    print(f"   {status} {env_id}: {len(env_constraints)} contraintes")
+
+            except Exception as e:
+                print(f"❌ Erreur audit SQLite: {e}")
+
+            # 4. Recommandations
+            print("\n🎯 RECOMMANDATIONS:")
+            if not self.current_environment_id:
+                print("❌ CRITIQUE: Identifiez d'abord un environnement ComfyUI")
+            elif self.rag_manager.environment_id != self.current_environment_id:
+                print(f"⚠️ Incohérence détectée - Synchronisation recommandée")
+            else:
+                print("✅ Cohérence validée")
+
+            print("="*60 + "\n")
+
+        except Exception as e:
+            print(f"❌ Erreur lors de l'audit: {e}")
+
+    def ensure_analysis_has_environment_id(self, analysis_data: dict) -> dict:
+        """
+        S'assurer qu'une donnée d'analyse contient l'environment_id correct
+
+        Args:
+            analysis_data: Données d'analyse à valider
+
+        Returns:
+            dict: Données d'analyse avec environment_id garanti
+        """
+        # Forcer l'environment_id actuel
+        analysis_data["environment_id"] = self.current_environment_id
+
+        # Ajouter des métadonnées de validation
+        analysis_data["validation"] = {
+            "validated_at": datetime.now().isoformat(),
+            "validated_environment": self.current_environment_id,
+            "validation_source": "cy8_prompts_manager"
+        }
+
+        return analysis_data
 
     # ===== MÉTHODES DE GESTION DU CHAT RAG =====
 
@@ -7362,8 +7653,20 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 self.chat_status_label.config(text="❌ RAG non disponible")
                 return
 
+            # VALIDATION CRITIQUE: Vérifier qu'un environnement est identifié
+            if not self.current_environment_id:
+                self.add_chat_message(
+                    "system",
+                    "❌ ERREUR CRITIQUE: Aucun environnement ComfyUI identifié !\n\n"
+                    "Le système RAG nécessite un environnement identifié pour fonctionner.\n"
+                    "🔍 Allez dans l'onglet ComfyUI et cliquez sur 'Identifier l'environnement'."
+                )
+                self.chat_status_label.config(text="❌ Environnement requis")
+                return
+
             # Mettre à jour le gestionnaire RAG avec l'environnement actuel
-            if self.current_environment_id and self.rag_manager.environment_id != self.current_environment_id:
+            if self.rag_manager.environment_id != self.current_environment_id:
+                print(f"🔄 Mise à jour RAG: {self.rag_manager.environment_id} -> {self.current_environment_id}")
                 self.rag_manager.environment_id = self.current_environment_id
                 self.rag_manager._initialize_components()
                 # Mettre à jour aussi le RAG temporel
@@ -7464,6 +7767,30 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
         try:
             if not self.rag_manager or not self.rag_manager.is_available():
                 self.add_chat_message("system", "Le système RAG n'est pas disponible.")
+                return
+
+            # NOUVEAU: Vérifier les commandes TODO en priorité
+            if self.rag_manager.is_todo_command(user_message):
+                result = self.rag_manager.process_todo_command(user_message, self.get_chat_history())
+                
+                if result["success"]:
+                    # Traitement spécial selon le type de commande
+                    if result.get("clear_history"):
+                        # Mode focus : effacer l'historique
+                        self.clear_chat_history()
+                        self.add_chat_message("system", "🎯 Mode Focus activé - Historique effacé pour vous aider à vous concentrer.")
+                    
+                    if result.get("restore_history"):
+                        # Restaurer l'historique
+                        self.restore_chat_history(result["restore_history"])
+                        self.add_chat_message("system", "🔄 Historique restauré.")
+                    
+                    # Afficher la réponse
+                    response_type = "system" if result["mode"].startswith("focus") else "assistant"
+                    self.add_chat_message(response_type, result["response"])
+                else:
+                    self.add_chat_message("error", result["response"])
+                
                 return
 
             # Détecter le type de demande
@@ -8217,6 +8544,90 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
     def clear_chat_input(self):
         """Effacer la zone de saisie"""
         self.chat_input.delete("1.0", tk.END)
+
+    def get_chat_history(self) -> List[Dict]:
+        """Récupérer l'historique du chat sous forme de liste"""
+        try:
+            history = []
+            content = self.chat_display.get("1.0", tk.END).strip()
+            
+            if not content:
+                return history
+            
+            # Parser le contenu du chat
+            lines = content.split('\n')
+            current_message = None
+            
+            for line in lines:
+                if line.startswith('[') and '] ' in line:
+                    # Nouvelle entrée de message
+                    if current_message:
+                        history.append(current_message)
+                    
+                    # Extraire timestamp et type
+                    timestamp_end = line.find('] ')
+                    if timestamp_end > 0:
+                        timestamp = line[1:timestamp_end]
+                        rest = line[timestamp_end + 2:]
+                        
+                        # Déterminer le type de sender
+                        if rest.startswith('🔧 Système:'):
+                            sender_type = 'system'
+                            message = rest[12:].strip()
+                        elif rest.startswith('🧠 Assistant:'):
+                            sender_type = 'assistant'
+                            message = rest[14:].strip()
+                        elif rest.startswith('Vous:'):
+                            sender_type = 'user'
+                            message = rest[5:].strip()
+                        else:
+                            sender_type = 'unknown'
+                            message = rest
+                        
+                        current_message = {
+                            'timestamp': timestamp,
+                            'sender_type': sender_type,
+                            'message': message
+                        }
+                elif current_message:
+                    # Continuer le message précédent
+                    current_message['message'] += '\n' + line
+            
+            # Ajouter le dernier message
+            if current_message:
+                history.append(current_message)
+            
+            return history
+        
+        except Exception as e:
+            self.logger.error(f"❌ Erreur récupération historique chat: {e}")
+            return []
+
+    def clear_chat_history(self):
+        """Effacer l'historique du chat"""
+        try:
+            self.chat_display.config(state="normal")
+            self.chat_display.delete("1.0", tk.END)
+            self.chat_display.config(state="disabled")
+        except Exception as e:
+            self.logger.error(f"❌ Erreur effacement historique: {e}")
+
+    def restore_chat_history(self, history: List[Dict]):
+        """Restaurer l'historique du chat depuis une liste"""
+        try:
+            # Effacer d'abord
+            self.clear_chat_history()
+            
+            # Restaurer les messages
+            for entry in history:
+                timestamp = entry.get('timestamp', time.strftime("%H:%M:%S"))
+                sender_type = entry.get('sender_type', 'unknown')
+                message = entry.get('message', '')
+                
+                self.add_chat_message(sender_type, message)
+                
+        except Exception as e:
+            self.logger.error(f"❌ Erreur restauration historique: {e}")
 
     def on_enter_pressed(self, event):
         """Gérer la touche Entrée dans le chat"""
@@ -9767,32 +10178,64 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
 
             self.add_chat_message("system", "🗑️ DÉMARRAGE RÉINITIALISATION COMPLÈTE RAG...")
 
-            # 1. Fermer le RAG actuel
+            # 1. Supprimer TOUTES les analyses de la base de données
+            try:
+                self.db_manager.clear_analysis_results()  # Supprime toutes les analyses
+                self.add_chat_message("system", "✅ Analyses supprimées de la base de données")
+            except Exception as e:
+                self.add_chat_message("error", f"❌ Erreur suppression analyses DB: {e}")
+
+            # 2. Fermer et supprimer la collection ChromaDB actuelle
             if self.rag_manager:
                 try:
-                    # Fermer la collection si possible
+                    # Supprimer la collection si elle existe
                     if hasattr(self.rag_manager, 'collection') and self.rag_manager.collection:
-                        # ChromaDB n'a pas de méthode close explicite, on va juste supprimer la référence
+                        try:
+                            # Récupérer le client ChromaDB
+                            chroma_client = self.rag_manager.collection._client if hasattr(self.rag_manager.collection, '_client') else None
+                            collection_name = self.rag_manager.collection.name if hasattr(self.rag_manager.collection, 'name') else "comfyui_analyses_default"
+
+                            # Supprimer la collection
+                            if chroma_client:
+                                chroma_client.delete_collection(name=collection_name)
+                                self.add_chat_message("system", f"✅ Collection ChromaDB '{collection_name}' supprimée")
+                        except Exception as e:
+                            print(f"⚠️ Erreur suppression collection: {e}")
+
+                        # Nettoyer les références
                         self.rag_manager.collection = None
+
+                    # Nettoyer le client ChromaDB
+                    if hasattr(self.rag_manager, 'chroma_client'):
+                        self.rag_manager.chroma_client = None
+
                 except Exception as e:
                     print(f"⚠️ Erreur fermeture RAG: {e}")
 
-            # 2. Supprimer le dossier ChromaDB
+            # Nettoyer complètement les managers
+            self.rag_manager = None
+            self.temporal_rag = None
+
+            # 3. Supprimer le dossier ChromaDB (chemin dynamique)
             import shutil
-            vector_db_path = "G:/G_WCS/cy8_workspace/data/analyses/vector_db"
+            import time
+            vector_db_path = os.path.join(os.getcwd(), "data", "analyses", "vector_db")
 
             if os.path.exists(vector_db_path):
                 try:
+                    # Petite pause pour laisser ChromaDB se fermer
+                    time.sleep(1)
                     shutil.rmtree(vector_db_path)
                     self.add_chat_message("system", f"✅ Dossier ChromaDB supprimé: {vector_db_path}")
                 except Exception as e:
                     self.add_chat_message("error", f"❌ Erreur suppression ChromaDB: {e}")
+                    self.add_chat_message("system", "⚠️ Fichiers ChromaDB verrouillés - redémarrez l'application pour finir le nettoyage")
             else:
                 self.add_chat_message("system", "ℹ️ Dossier ChromaDB déjà absent")
 
-            # 3. Supprimer les fichiers d'analyses (optionnel)
+            # 4. Supprimer les fichiers d'analyses (utiliser chemins dynamiques)
             analyses_dirs = [
-                "G:/G_WCS/cy8_workspace/data/analyses",
+                os.path.join(os.getcwd(), "data", "analyses"),
                 "G:/tmp/analyses"  # Dossier temporaire s'il existe
             ]
 
@@ -9801,6 +10244,9 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
                     try:
                         # Supprimer seulement les fichiers .txt/.json, garder la structure
                         for root, dirs, files in os.walk(analyses_dir):
+                            # Ignorer le dossier vector_db qu'on a déjà traité
+                            if 'vector_db' in root:
+                                continue
                             for file in files:
                                 if file.endswith(('.txt', '.json', '.log')):
                                     file_path = os.path.join(root, file)
@@ -10017,6 +10463,239 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
             self.add_chat_message("error", f"❌ Erreur test efficacité: {e}")
 
     # ===== FIN MÉTHODES TERMINAL =====
+
+
+# === CLASSE POUR LES DIALOGUES D'ENVIRONNEMENT ===
+
+class EnvironmentDialog:
+    """Dialogue pour ajouter/modifier un environnement ComfyUI"""
+
+    def __init__(self, parent, title, current_data=None):
+        self.result = None
+
+        # Créer la fenêtre de dialogue
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(title)
+        self.dialog.geometry("500x300")
+        self.dialog.resizable(False, False)
+
+        # Centrer la fenêtre
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        # Variables pour les champs
+        self.env_id_var = tk.StringVar()
+        self.name_var = tk.StringVar()
+        self.path_var = tk.StringVar()
+
+        # Si modification, préremplir avec les données actuelles
+        if current_data:
+            self.env_id_var.set(current_data[0])
+            self.name_var.set(current_data[1])
+            self.path_var.set(current_data[2])
+
+        self.setup_ui()
+
+        # Focus sur le premier champ
+        self.env_id_entry.focus()
+
+        # Raccourcis clavier
+        self.dialog.bind('<Return>', lambda e: self.validate_and_save())
+        self.dialog.bind('<Escape>', lambda e: self.cancel())
+
+    def setup_ui(self):
+        """Configuration de l'interface du dialogue"""
+        main_frame = ttk.Frame(self.dialog, padding="20")
+        main_frame.pack(fill="both", expand=True)
+
+        # Titre
+        title_label = ttk.Label(
+            main_frame,
+            text="Configuration de l'environnement ComfyUI",
+            font=("TkDefaultFont", 12, "bold")
+        )
+        title_label.pack(pady=(0, 20))
+
+        # Formulaire
+        form_frame = ttk.Frame(main_frame)
+        form_frame.pack(fill="x", pady=(0, 20))
+
+        # ID de l'environnement
+        ttk.Label(form_frame, text="ID de l'environnement:").grid(
+            row=0, column=0, sticky="w", pady=(0, 10)
+        )
+        self.env_id_entry = ttk.Entry(
+            form_frame, textvariable=self.env_id_var, width=40
+        )
+        self.env_id_entry.grid(row=0, column=1, sticky="ew", pady=(0, 10), padx=(10, 0))
+
+        ttk.Label(form_frame, text="(ex: comfyui_main, comfyui_dev)",
+                 foreground="gray").grid(
+            row=1, column=1, sticky="w", padx=(10, 0), pady=(0, 10)
+        )
+
+        # Nom de l'environnement
+        ttk.Label(form_frame, text="Nom d'affichage:").grid(
+            row=2, column=0, sticky="w", pady=(0, 10)
+        )
+        self.name_entry = ttk.Entry(
+            form_frame, textvariable=self.name_var, width=40
+        )
+        self.name_entry.grid(row=2, column=1, sticky="ew", pady=(0, 10), padx=(10, 0))
+
+        ttk.Label(form_frame, text="(ex: ComfyUI Principal, ComfyUI Développement)",
+                 foreground="gray").grid(
+            row=3, column=1, sticky="w", padx=(10, 0), pady=(0, 10)
+        )
+
+        # Chemin du répertoire
+        ttk.Label(form_frame, text="Répertoire ComfyUI:").grid(
+            row=4, column=0, sticky="w", pady=(0, 10)
+        )
+
+        path_frame = ttk.Frame(form_frame)
+        path_frame.grid(row=4, column=1, sticky="ew", pady=(0, 10), padx=(10, 0))
+
+        self.path_entry = ttk.Entry(path_frame, textvariable=self.path_var, width=35)
+        self.path_entry.pack(side="left", fill="x", expand=True)
+
+        ttk.Button(
+            path_frame, text="Parcourir...", command=self.browse_folder, width=12
+        ).pack(side="right", padx=(5, 0))
+
+        ttk.Label(form_frame, text="(Répertoire racine de ComfyUI)",
+                 foreground="gray").grid(
+            row=5, column=1, sticky="w", padx=(10, 0), pady=(0, 20)
+        )
+
+        # Configuration des colonnes
+        form_frame.columnconfigure(1, weight=1)
+
+        # Boutons
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill="x")
+
+        ttk.Button(
+            buttons_frame, text="Annuler", command=self.cancel
+        ).pack(side="right", padx=(10, 0))
+
+        ttk.Button(
+            buttons_frame, text="Valider", command=self.validate_and_save
+        ).pack(side="right")
+
+    def browse_folder(self):
+        """Ouvrir un dialogue de sélection de dossier"""
+        from tkinter import filedialog
+
+        folder = filedialog.askdirectory(
+            title="Sélectionner le répertoire ComfyUI",
+            initialdir=self.path_var.get() if self.path_var.get() else "C:\\"
+        )
+
+        if folder:
+            self.path_var.set(folder)
+
+    def validate_and_save(self):
+        """Valider les données et sauvegarder"""
+        env_id = self.env_id_var.get().strip()
+        name = self.name_var.get().strip()
+        path = self.path_var.get().strip()
+
+        # Validation
+        if not env_id:
+            messagebox.showerror("Erreur", "L'ID de l'environnement est obligatoire.")
+            return
+
+        if not name:
+            messagebox.showerror("Erreur", "Le nom d'affichage est obligatoire.")
+            return
+
+        if not path:
+            messagebox.showerror("Erreur", "Le répertoire ComfyUI est obligatoire.")
+            return
+
+        # Vérifier que le répertoire existe
+        if not os.path.exists(path):
+            response = messagebox.askyesno(
+                "Répertoire inexistant",
+                f"Le répertoire '{path}' n'existe pas.\n\n"
+                "Voulez-vous continuer quand même ?"
+            )
+            if not response:
+                return
+
+        # Validation de l'ID (pas d'espaces, caractères spéciaux limités)
+        import re
+        if not re.match(r'^[A-Za-z0-9_-]+$', env_id):
+            messagebox.showerror(
+                "ID invalide",
+                "L'ID ne peut contenir que des lettres, chiffres, tirets et underscores."
+            )
+            return
+
+        self.result = {
+            "id": env_id,
+            "name": name,
+            "path": path
+        }
+        self.dialog.destroy()
+
+    def _save_identified_environment(self, environment_info: dict):
+        """Sauvegarder automatiquement l'environnement identifié"""
+        try:
+            if not environment_info or not environment_info.get("environment_id"):
+                return
+
+            env_id = environment_info["environment_id"]
+
+            # Créer un nom d'affichage intelligent
+            display_name = f"ComfyUI {env_id}"
+
+            # Déterminer le chemin le plus probable
+            comfyui_path = "/"  # Par défaut
+            if environment_info.get("potential_paths"):
+                for path in environment_info["potential_paths"]:
+                    if "comfyui" in path.lower() and os.path.exists(path):
+                        comfyui_path = path
+                        break
+
+            # Vérifier si l'environnement existe déjà
+            existing_envs = self.db_manager.get_all_environments()
+            for env in existing_envs:
+                if env[1] == env_id:  # ID existe déjà
+                    print(f"📝 Environnement {env_id} existe déjà, mise à jour...")
+                    return
+
+            # Ajouter le nouvel environnement
+            success = self.db_manager.add_environment(env_id, display_name, comfyui_path)
+            if success:
+                print(f"💾 Environnement {env_id} sauvegardé automatiquement")
+                # Rafraîchir l'affichage des environnements
+                if hasattr(self, 'refresh_environments'):
+                    self.refresh_environments()
+            else:
+                print(f"⚠️ Échec de la sauvegarde automatique de {env_id}")
+
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la sauvegarde automatique: {e}")
+
+
+        # Validation de l'ID (pas d'espaces, caractères spéciaux limités)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', env_id):
+            messagebox.showerror(
+                "Erreur",
+                "L'ID ne peut contenir que des lettres, chiffres, tirets et underscores."
+            )
+            return
+
+        # Tout est valide
+        self.result = (env_id, name, path)
+        self.dialog.destroy()
+
+    def cancel(self):
+        """Annuler le dialogue"""
+        self.dialog.destroy()
 
 
 def main():

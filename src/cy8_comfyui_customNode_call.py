@@ -546,6 +546,63 @@ class ComfyUICustomNodeCaller:
         """Support du context manager"""
         self.close()
 
+    def get_custom_node_output(self, prompt_id: str, node_id: str) -> Optional[str]:
+        """
+        Récupérer la sortie d'un custom node spécifique
+
+        Args:
+            prompt_id: ID du prompt exécuté
+            node_id: ID du node dans le workflow
+
+        Returns:
+            Sortie du custom node ou None si non trouvée
+        """
+        try:
+            # Récupérer l'historique du prompt
+            url = urljoin(self.server_url, f"/history/{prompt_id}")
+            response = self.session.get(url, timeout=10)
+
+            if response.status_code != 200:
+                print(f"❌ Erreur récupération historique: {response.status_code}")
+                return None
+
+            history = response.json()
+
+            # Chercher dans l'historique la sortie du node spécifique
+            if prompt_id in history:
+                prompt_data = history[prompt_id]
+                if "outputs" in prompt_data:
+                    outputs = prompt_data["outputs"]
+
+                    # D'abord chercher le node demandé
+                    if node_id in outputs:
+                        node_output = outputs[node_id]
+                        # Le custom node ExtraPathReader retourne une sortie dans le format [output_value]
+                        if isinstance(node_output, dict):
+                            # Chercher dans toutes les clés de sortie
+                            for key, value in node_output.items():
+                                if isinstance(value, list) and len(value) > 0:
+                                    return value[0]
+
+                    # Si pas trouvé, chercher dans tous les outputs (pour le PreviewAny)
+                    for out_node_id, node_output in outputs.items():
+                        if isinstance(node_output, dict):
+                            # Chercher la sortie text (PreviewAny)
+                            if "text" in node_output and isinstance(node_output["text"], list):
+                                if len(node_output["text"]) > 0:
+                                    return node_output["text"][0]
+                            # Autres formats possibles
+                            for key, value in node_output.items():
+                                if isinstance(value, list) and len(value) > 0:
+                                    return value[0]
+
+            print(f"⚠️ Aucune sortie trouvée pour le node {node_id} dans le prompt {prompt_id}")
+            return None
+
+        except Exception as e:
+            print(f"❌ Erreur récupération sortie custom node: {e}")
+            return None
+
 
 # Exemple d'utilisation
 def example_usage():

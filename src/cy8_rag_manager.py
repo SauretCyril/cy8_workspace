@@ -2,6 +2,7 @@
 Gestionnaire RAG Hybride pour l'analyse et l'indexation des résultats d'analyse IA Mistral
 Supporte deux modes : Rapide (templates) et Expert (RAG + Mistral AI)
 Permet de surveiller et optimiser le serveur ComfyUI avec mémoire des erreurs et contraintes
+Intègre un système TODO/Focus pour la gestion des tâches
 """
 
 import os
@@ -13,6 +14,7 @@ import logging
 from pathlib import Path
 import hashlib
 import time
+import uuid
 
 try:
     import chromadb
@@ -51,6 +53,9 @@ class RAGManager:
         self.embeddings_model = None
         self.vector_db_path = None
         self.constraints_db_path = None
+        
+        # Gestionnaire TODO/Focus
+        self.todo_manager = None
 
         # Initialiser les modèles et base vectorielle
         self._initialize_components()
@@ -58,18 +63,18 @@ class RAGManager:
     def _initialize_components(self):
         """Initialiser les composants RAG"""
         try:
-            # Vérifier les dépendances
-            if not CHROMADB_AVAILABLE:
-                self.logger.error("ChromaDB non disponible")
-                return False
-
-            if not SENTENCE_TRANSFORMERS_AVAILABLE:
-                self.logger.error("SentenceTransformers non disponible")
-                return False
-
-            # Obtenir le répertoire d'analyses pour l'environnement
+            # Obtenir le répertoire d'analyses pour l'environnement TOUJOURS
             if self.environment_id:
-                analyses_dir = self.db_manager.get_environment_analyses_directory(self.environment_id)
+                # Vérifier si la méthode existe dans db_manager
+                if hasattr(self.db_manager, 'get_environment_analyses_directory'):
+                    analyses_dir = self.db_manager.get_environment_analyses_directory(self.environment_id)
+                else:
+                    # Fallback: utiliser le répertoire de la base
+                    db_path = self.db_manager.get_database_path() if hasattr(self.db_manager, 'get_database_path') else None
+                    if db_path:
+                        analyses_dir = os.path.join(os.path.dirname(db_path), "analyses", self.environment_id)
+                    else:
+                        analyses_dir = os.path.join(os.getcwd(), "data", "analyses", self.environment_id)
             else:
                 # Fallback vers un répertoire par défaut
                 analyses_dir = os.path.join(os.getcwd(), "data", "analyses")
@@ -77,23 +82,31 @@ class RAGManager:
             # Créer le répertoire s'il n'existe pas
             os.makedirs(analyses_dir, exist_ok=True)
 
-            # Chemins pour la base vectorielle et les contraintes
+            # Chemins pour la base vectorielle et les contraintes - TOUJOURS définis
             self.vector_db_path = os.path.join(analyses_dir, "vector_db")
             self.constraints_db_path = os.path.join(analyses_dir, "constraints.db")
 
-            # Initialiser ChromaDB (optionnel)
-            self._initialize_chromadb()
+            # Vérifier les dépendances ChromaDB et SentenceTransformers (optionnel)
+            chromadb_available = CHROMADB_AVAILABLE
+            sentence_transformers_available = SENTENCE_TRANSFORMERS_AVAILABLE
 
-            # Initialiser le modèle d'embeddings (optionnel)
-            self._initialize_embeddings_model()
+            if chromadb_available and sentence_transformers_available:
+                # Initialiser ChromaDB (optionnel)
+                self._initialize_chromadb()
 
-            # Initialiser la base de contraintes
+                # Initialiser le modèle d'embeddings (optionnel)
+                self._initialize_embeddings_model()
+
+            # Initialiser la base de contraintes (toujours)
             self._initialize_constraints_db()
+            
+            # Initialiser le gestionnaire TODO/Focus (toujours)
+            self._initialize_todo_manager()
 
             # Vérifier si au moins une fonctionnalité fonctionne
-            if self.chroma_client is None and self.embeddings_model is None:
-                self.logger.warning("⚠️ RAG initialisé en mode dégradé (ChromaDB et embeddings indisponibles)")
-                print("⚠️ RAG en mode dégradé - fonctionnalités limitées")
+            if not chromadb_available or not sentence_transformers_available:
+                self.logger.warning("⚠️ RAG initialisé en mode dégradé (ChromaDB ou embeddings indisponibles)")
+                print("⚠️ RAG en mode dégradé - TODO/contraintes disponibles")
             else:
                 self.logger.info(f"✅ RAG initialisé pour l'environnement {self.environment_id}")
                 print(f"✅ RAG fonctionnel pour {self.environment_id}")
@@ -185,35 +198,40 @@ class RAGManager:
             conn = sqlite3.connect(self.constraints_db_path)
             cursor = conn.cursor()
 
-            # Table des contraintes système
+            # Table des contraintes système (avec environment_id)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS system_constraints (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
                     constraint_type TEXT NOT NULL,
                     constraint_value TEXT NOT NULL,
                     description TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(environment_id, constraint_type, constraint_value)
                 )
             """)
 
-            # Table de l'historique des erreurs
+            # Table de l'historique des erreurs (avec environment_id)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS error_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
                     error_type TEXT NOT NULL,
                     error_message TEXT NOT NULL,
                     solution TEXT,
                     frequency INTEGER DEFAULT 1,
                     first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(environment_id, error_type, error_message)
                 )
             """)
 
-            # Table de l'état du serveur
+            # Table de l'état du serveur (avec environment_id)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS server_state (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
                     state_type TEXT NOT NULL,
                     state_value TEXT NOT NULL,
                     analysis_result TEXT,
@@ -229,51 +247,78 @@ class RAGManager:
         except Exception as e:
             self.logger.error(f"❌ Erreur initialisation base contraintes: {e}")
 
-    def add_constraint(self, constraint_type: str, constraint_value: str, description: str = ""):
-        """Ajouter une contrainte système"""
+    def _initialize_todo_manager(self):
+        """Initialiser le gestionnaire TODO/Focus"""
         try:
+            if self.environment_id and self.constraints_db_path:
+                from cy8_todo_manager import RAGTodoManager
+                self.todo_manager = RAGTodoManager(self.constraints_db_path, self.environment_id)
+                self.logger.info("📋 Gestionnaire TODO initialisé")
+            else:
+                self.logger.warning("⚠️ TODO manager non initialisé (environment_id ou db_path manquant)")
+        except ImportError:
+            self.logger.error("❌ Erreur import cy8_todo_manager")
+        except Exception as e:
+            self.logger.error(f"❌ Erreur initialisation TODO manager: {e}")
+
+    def add_constraint(self, constraint_type: str, constraint_value: str, description: str = ""):
+        """Ajouter une contrainte système pour l'environnement actuel"""
+        try:
+            # VALIDATION: S'assurer qu'un environment_id est défini
+            if not self.environment_id:
+                self.logger.error("❌ ERREUR: Impossible d'ajouter une contrainte sans environment_id")
+                return False
+
             conn = sqlite3.connect(self.constraints_db_path)
             cursor = conn.cursor()
 
-            # Vérifier si la contrainte existe déjà
+            # Vérifier si la contrainte existe déjà pour cet environnement
             cursor.execute("""
                 SELECT id FROM system_constraints
-                WHERE constraint_type = ? AND constraint_value = ?
-            """, (constraint_type, constraint_value))
+                WHERE environment_id = ? AND constraint_type = ? AND constraint_value = ?
+            """, (self.environment_id, constraint_type, constraint_value))
 
             if cursor.fetchone():
                 # Mettre à jour la contrainte existante
                 cursor.execute("""
                     UPDATE system_constraints
                     SET description = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE constraint_type = ? AND constraint_value = ?
-                """, (description, constraint_type, constraint_value))
+                    WHERE environment_id = ? AND constraint_type = ? AND constraint_value = ?
+                """, (description, self.environment_id, constraint_type, constraint_value))
             else:
-                # Ajouter nouvelle contrainte
+                # Ajouter nouvelle contrainte avec environment_id
                 cursor.execute("""
-                    INSERT INTO system_constraints (constraint_type, constraint_value, description)
-                    VALUES (?, ?, ?)
-                """, (constraint_type, constraint_value, description))
+                    INSERT INTO system_constraints (environment_id, constraint_type, constraint_value, description)
+                    VALUES (?, ?, ?, ?)
+                """, (self.environment_id, constraint_type, constraint_value, description))
 
             conn.commit()
             conn.close()
 
-            self.logger.info(f"✅ Contrainte ajoutée: {constraint_type} = {constraint_value}")
+            self.logger.info(f"✅ Contrainte ajoutée pour {self.environment_id}: {constraint_type} = {constraint_value}")
+            return True
 
         except Exception as e:
             self.logger.error(f"❌ Erreur ajout contrainte: {e}")
+            return False
 
     def get_constraints(self) -> List[Dict]:
-        """Récupérer toutes les contraintes système"""
+        """Récupérer toutes les contraintes système pour l'environnement actuel"""
         try:
+            # VALIDATION: S'assurer qu'un environment_id est défini
+            if not self.environment_id:
+                self.logger.warning("⚠️ Aucun environment_id défini pour récupérer les contraintes")
+                return []
+
             conn = sqlite3.connect(self.constraints_db_path)
             cursor = conn.cursor()
 
             cursor.execute("""
                 SELECT constraint_type, constraint_value, description, created_at
                 FROM system_constraints
+                WHERE environment_id = ?
                 ORDER BY created_at DESC
-            """)
+            """, (self.environment_id,))
 
             constraints = []
             for row in cursor.fetchall():
@@ -281,7 +326,8 @@ class RAGManager:
                     'type': row[0],
                     'value': row[1],
                     'description': row[2],
-                    'created_at': row[3]
+                    'created_at': row[3],
+                    'environment_id': self.environment_id
                 })
 
             conn.close()
@@ -298,6 +344,18 @@ class RAGManager:
                 self.logger.error("❌ RAG non initialisé correctement")
                 return False
 
+            # VALIDATION CRITIQUE: S'assurer qu'un environment_id est toujours défini
+            if not self.environment_id:
+                self.logger.error("❌ ERREUR CRITIQUE: Aucun environment_id défini pour l'indexation RAG")
+                print("❌ ERREUR CRITIQUE: Toutes les données RAG doivent être liées à un environnement identifié")
+                return False
+
+            # VALIDATION: L'analysis_result doit contenir l'environment_id correspondant
+            result_env_id = analysis_result.get("environment_id")
+            if result_env_id and result_env_id != self.environment_id:
+                self.logger.warning(f"⚠️ Incohérence environment_id: RAG={self.environment_id}, Données={result_env_id}")
+                print(f"⚠️ Correction environment_id: {result_env_id} -> {self.environment_id}")
+
             # Préparer les données pour l'indexation
             content = self._prepare_content_for_indexing(analysis_result)
             if not content:
@@ -306,13 +364,13 @@ class RAGManager:
             # Générer l'embedding
             embedding = self.embeddings_model.encode(content)
 
-            # Créer un ID unique pour le document
+            # Créer un ID unique pour le document (inclut environment_id)
             doc_id = self._generate_document_id(analysis_result)
 
-            # Métadonnées du document (s'assurer qu'aucune valeur n'est None)
+            # Métadonnées du document (TOUJOURS avec environment_id obligatoire)
             metadata = {
                 "timestamp": analysis_result.get("timestamp", datetime.now().isoformat()),
-                "environment_id": str(self.environment_id or "default"),
+                "environment_id": str(self.environment_id),  # OBLIGATOIRE et validé
                 "analysis_type": str(analysis_result.get("type", "general")),
                 "has_errors": bool(len(analysis_result.get("errors", [])) > 0),
                 "error_count": int(len(analysis_result.get("errors", []))),
@@ -390,9 +448,14 @@ class RAGManager:
         return hashlib.md5(unique_string.encode()).hexdigest()
 
     def _update_error_history(self, analysis_result: Dict[str, Any]):
-        """Mettre à jour l'historique des erreurs"""
+        """Mettre à jour l'historique des erreurs pour l'environnement actuel"""
         try:
             if "errors" not in analysis_result:
+                return
+
+            # VALIDATION: S'assurer qu'un environment_id est défini
+            if not self.environment_id:
+                self.logger.error("❌ ERREUR: Impossible de mettre à jour l'historique sans environment_id")
                 return
 
             conn = sqlite3.connect(self.constraints_db_path)
@@ -408,27 +471,27 @@ class RAGManager:
                     error_message = error.get("message", str(error))
                     solution = error.get("solution", "")
 
-                # Vérifier si l'erreur existe déjà
+                # Vérifier si l'erreur existe déjà pour cet environnement
                 cursor.execute("""
                     SELECT id, frequency FROM error_history
-                    WHERE error_type = ? AND error_message = ?
-                """, (error_type, error_message))
+                    WHERE environment_id = ? AND error_type = ? AND error_message = ?
+                """, (self.environment_id, error_type, error_message))
 
                 existing = cursor.fetchone()
 
                 if existing:
-                    # Mettre à jour la fréquence
+                    # Mettre à jour la fréquence pour cet environnement
                     cursor.execute("""
                         UPDATE error_history
                         SET frequency = frequency + 1, last_seen = CURRENT_TIMESTAMP, solution = ?
                         WHERE id = ?
                     """, (solution, existing[0]))
                 else:
-                    # Nouvelle erreur
+                    # Nouvelle erreur pour cet environnement
                     cursor.execute("""
-                        INSERT INTO error_history (error_type, error_message, solution)
-                        VALUES (?, ?, ?)
-                    """, (error_type, error_message, solution))
+                        INSERT INTO error_history (environment_id, error_type, error_message, solution)
+                        VALUES (?, ?, ?, ?)
+                    """, (self.environment_id, error_type, error_message, solution))
 
             conn.commit()
             conn.close()
@@ -437,10 +500,51 @@ class RAGManager:
             self.logger.error(f"❌ Erreur mise à jour historique: {e}")
 
     def _update_server_state(self, analysis_result: Dict[str, Any]):
-        """Mettre à jour l'état du serveur"""
+        """Mettre à jour l'état du serveur pour l'environnement actuel"""
         try:
+            # VALIDATION: S'assurer qu'un environment_id est défini
+            if not self.environment_id:
+                self.logger.error("❌ ERREUR: Impossible de mettre à jour l'état serveur sans environment_id")
+                return
+
+            # VALIDATION: S'assurer que le chemin de la base existe
+            if not self.constraints_db_path or not isinstance(self.constraints_db_path, str):
+                self.logger.error("❌ ERREUR: Chemin de base de contraintes invalide")
+                return
+
             conn = sqlite3.connect(self.constraints_db_path)
             cursor = conn.cursor()
+
+            # CORRECTION: Vérifier si la table server_state existe et a la bonne structure
+            cursor.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='server_state'
+            """)
+
+            table_exists = cursor.fetchone() is not None
+
+            if not table_exists:
+                # Créer la table si elle n'existe pas
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS server_state (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        environment_id TEXT NOT NULL,
+                        state_type TEXT NOT NULL,
+                        state_value TEXT NOT NULL,
+                        analysis_result TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                self.logger.info("✅ Table server_state créée")
+            else:
+                # Vérifier si la colonne environment_id existe
+                cursor.execute("PRAGMA table_info(server_state)")
+                columns = [column[1] for column in cursor.fetchall()]
+
+                if "environment_id" not in columns:
+                    # Ajouter la colonne environment_id si elle n'existe pas
+                    cursor.execute("ALTER TABLE server_state ADD COLUMN environment_id TEXT")
+                    self.logger.info("✅ Colonne environment_id ajoutée à server_state")
 
             # Déterminer l'état du serveur
             error_count = len(analysis_result.get("errors", []))
@@ -456,11 +560,11 @@ class RAGManager:
                 state_type = "warning"
                 state_value = f"{error_count} erreurs, {success_count} succès"
 
-            # Enregistrer l'état
+            # Enregistrer l'état avec environment_id
             cursor.execute("""
-                INSERT INTO server_state (state_type, state_value, analysis_result)
-                VALUES (?, ?, ?)
-            """, (state_type, state_value, json.dumps(analysis_result)))
+                INSERT INTO server_state (environment_id, state_type, state_value, analysis_result)
+                VALUES (?, ?, ?, ?)
+            """, (self.environment_id, state_type, state_value, json.dumps(analysis_result)))
 
             conn.commit()
             conn.close()
@@ -501,31 +605,42 @@ class RAGManager:
             return []
 
     def get_server_status_summary(self) -> Dict[str, Any]:
-        """Obtenir un résumé de l'état du serveur"""
+        """Obtenir un résumé de l'état du serveur pour l'environnement actuel"""
         try:
+            # VALIDATION: S'assurer qu'un environment_id est défini
+            if not self.environment_id:
+                self.logger.warning("⚠️ Aucun environment_id défini pour le résumé d'état")
+                return {
+                    "current_state": {"type": "error", "value": "Aucun environnement identifié"},
+                    "recurring_errors": [],
+                    "constraints": [],
+                    "environment_id": None
+                }
+
             conn = sqlite3.connect(self.constraints_db_path)
             cursor = conn.cursor()
 
-            # État actuel du serveur
+            # État actuel du serveur pour cet environnement
             cursor.execute("""
                 SELECT state_type, state_value, timestamp
                 FROM server_state
+                WHERE environment_id = ?
                 ORDER BY timestamp DESC
                 LIMIT 1
-            """)
+            """, (self.environment_id,))
             current_state = cursor.fetchone()
 
-            # Erreurs récurrentes
+            # Erreurs récurrentes pour cet environnement
             cursor.execute("""
                 SELECT error_type, error_message, frequency, solution
                 FROM error_history
-                WHERE frequency > 1
+                WHERE environment_id = ? AND frequency > 1
                 ORDER BY frequency DESC
                 LIMIT 5
-            """)
+            """, (self.environment_id,))
             recurring_errors = cursor.fetchall()
 
-            # Contraintes actives
+            # Contraintes actives pour cet environnement
             constraints = self.get_constraints()
 
             conn.close()
@@ -735,17 +850,32 @@ class RAGManager:
         for doc in similar_docs:
             doc_content = doc.get("content", {})
 
-            # Extraire les types d'erreurs
-            if "errors" in doc_content:
+            # CORRECTION: S'assurer que doc_content est un dictionnaire
+            if isinstance(doc_content, str):
+                try:
+                    import json
+                    doc_content = json.loads(doc_content)
+                except (json.JSONDecodeError, TypeError):
+                    # Si ce n'est pas du JSON, utiliser les métadonnées
+                    doc_content = doc.get("metadata", {})
+
+            if not isinstance(doc_content, dict):
+                doc_content = {}
+
+            # Extraire les types d'erreurs avec vérification supplémentaire
+            if "errors" in doc_content and isinstance(doc_content["errors"], (list, tuple)):
                 for error in doc_content["errors"]:
                     if isinstance(error, dict):
-                        error_types.add(error.get("type", "unknown"))
-                        if "solution" in error:
+                        error_type = error.get("type", "unknown")
+                        if isinstance(error_type, str):
+                            error_types.add(error_type)
+                        if "solution" in error and isinstance(error.get("solution"), str):
                             solutions.append(error["solution"])
 
-            # Extraire l'environnement
-            if "environment_id" in doc_content:
-                environments.add(doc_content["environment_id"])
+            # Extraire l'environnement avec vérification
+            env_id = doc_content.get("environment_id")
+            if isinstance(env_id, str) and env_id:
+                environments.add(env_id)
 
         # Construire la réponse template
         response = "🔍 **Analyse Rapide RAG** - Résultats similaires trouvés\n\n"
@@ -805,6 +935,18 @@ class RAGManager:
 
             doc_content = doc.get("content", {})
 
+            # CORRECTION: S'assurer que doc_content est un dictionnaire
+            if isinstance(doc_content, str):
+                try:
+                    import json
+                    doc_content = json.loads(doc_content)
+                except (json.JSONDecodeError, TypeError):
+                    # Si ce n'est pas du JSON, utiliser les métadonnées
+                    doc_content = doc.get("metadata", {})
+
+            if not isinstance(doc_content, dict):
+                doc_content = {}
+
             # Métadonnées de base
             if "timestamp" in doc_content:
                 context += f"Date: {doc_content['timestamp']}\n"
@@ -815,21 +957,27 @@ class RAGManager:
             if "summary" in doc_content:
                 context += f"Résumé: {doc_content['summary']}\n"
 
-            # Erreurs
-            if "errors" in doc_content and doc_content["errors"]:
+            # Erreurs avec vérifications renforcées
+            if "errors" in doc_content and isinstance(doc_content.get("errors"), (list, tuple)):
                 context += "Erreurs trouvées:\n"
                 for error in doc_content["errors"][:3]:  # Limiter à 3 erreurs par doc
                     if isinstance(error, dict):
-                        context += f"  - Type: {error.get('type', 'N/A')}\n"
-                        context += f"    Message: {error.get('message', 'N/A')}\n"
-                        if "solution" in error:
+                        error_type = error.get('type', 'N/A')
+                        error_message = error.get('message', 'N/A')
+                        context += f"  - Type: {error_type}\n"
+                        context += f"    Message: {error_message}\n"
+                        if "solution" in error and isinstance(error.get('solution'), str):
                             context += f"    Solution: {error['solution']}\n"
-                    else:
+                    elif isinstance(error, str):
                         context += f"  - {error}\n"
+                    else:
+                        context += f"  - {str(error)}\n"
 
-            # Succès
-            if "successes" in doc_content and doc_content["successes"]:
-                context += f"Éléments fonctionnels: {', '.join(doc_content['successes'][:3])}\n"
+            # Succès avec vérifications
+            if "successes" in doc_content and isinstance(doc_content.get("successes"), (list, tuple)):
+                successes = [str(s) for s in doc_content["successes"][:3] if s]
+                if successes:
+                    context += f"Éléments fonctionnels: {', '.join(successes)}\n"
 
             context += "\n"
 
@@ -945,6 +1093,193 @@ Fournis une analyse experte en te basant sur les patterns observés dans l'histo
             self.collection is not None and
             self.embeddings_model is not None
         )
+
+    # === MÉTHODES TODO/FOCUS ===
+    
+    def process_todo_command(self, query: str, chat_history: List = None) -> Dict[str, Any]:
+        """Traiter les commandes TODO dans le chat"""
+        try:
+            if not self.todo_manager:
+                return {
+                    "success": False,
+                    "response": "❌ Gestionnaire TODO non disponible. Vérifiez l'initialisation du RAG.",
+                    "mode": "todo_error"
+                }
+            
+            query = query.strip().lower()
+            
+            # Commande /todo list
+            if query in ['/todo list', '/todo', '/list']:
+                todos = self.todo_manager.get_todos()
+                if not todos:
+                    response = "📝 Aucune tâche en cours"
+                else:
+                    response = "📋 **Tâches TODO:**\n"
+                    for todo in todos:
+                        status_icon = "✅" if todo['status'] == 'completed' else "⏳"
+                        priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo['priority'], "⚪")
+                        response += f"{status_icon} {priority_icon} **{todo['id'][:8]}**: {todo['title']} ({todo['status']})\n"
+                
+                return {
+                    "success": True,
+                    "response": response,
+                    "mode": "todo_list",
+                    "todos": todos
+                }
+            
+            # Commande /todo add <titre>
+            if query.startswith('/todo add '):
+                title = query[10:].strip()
+                if not title:
+                    return {
+                        "success": False,
+                        "response": "❌ Usage: /todo add <titre de la tâche>",
+                        "mode": "todo_error"
+                    }
+                
+                todo_id = self.todo_manager.add_todo(title)
+                return {
+                    "success": True,
+                    "response": f"✅ Tâche ajoutée avec ID: **{todo_id[:8]}**\n📝 {title}",
+                    "mode": "todo_added",
+                    "todo_id": todo_id
+                }
+            
+            # Commande /todo done <id>
+            if query.startswith('/todo done '):
+                todo_id = query[11:].strip()
+                if not todo_id:
+                    return {
+                        "success": False,
+                        "response": "❌ Usage: /todo done <id>",
+                        "mode": "todo_error"
+                    }
+                
+                success = self.todo_manager.complete_todo(todo_id)
+                if success:
+                    return {
+                        "success": True,
+                        "response": f"✅ Tâche **{todo_id[:8]}** marquée comme terminée !",
+                        "mode": "todo_completed"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": f"❌ Tâche **{todo_id[:8]}** non trouvée",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /focus <id>
+            if query.startswith('/focus '):
+                todo_id = query[7:].strip()
+                if not todo_id:
+                    return {
+                        "success": False,
+                        "response": "❌ Usage: /focus <id>",
+                        "mode": "todo_error"
+                    }
+                
+                # Sauvegarder l'historique avant focus
+                if chat_history:
+                    self.todo_manager.start_focus(todo_id, chat_history)
+                else:
+                    self.todo_manager.start_focus(todo_id, [])
+                
+                todo = self.todo_manager.get_todo_by_id(todo_id)
+                if todo:
+                    return {
+                        "success": True,
+                        "response": f"🎯 **MODE FOCUS ACTIVÉ**\n\n📝 **Focus sur:** {todo['title']}\n💡 Historique sauvegardé. Utilisez `/restore` pour revenir.",
+                        "mode": "focus_started",
+                        "todo": todo,
+                        "clear_history": True
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": f"❌ Tâche **{todo_id[:8]}** non trouvée",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /end-focus
+            if query in ['/end-focus', '/endfocus']:
+                self.todo_manager.end_focus()
+                return {
+                    "success": True,
+                    "response": "🔄 **Mode focus terminé**\n💡 Vous pouvez utiliser `/restore` pour récupérer l'historique.",
+                    "mode": "focus_ended"
+                }
+            
+            # Commande /restore
+            if query in ['/restore', '/back']:
+                backup = self.todo_manager.restore_chat_history()
+                if backup:
+                    return {
+                        "success": True,
+                        "response": "🔄 **Historique restauré**\n📚 Conversation précédente récupérée.",
+                        "mode": "history_restored",
+                        "restore_history": backup
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": "❌ Aucun historique à restaurer",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /help ou commande inconnue
+            return {
+                "success": True,
+                "response": """🆘 **Commandes TODO disponibles:**
+
+📋 **Gestion des tâches:**
+• `/todo list` - Afficher toutes les tâches
+• `/todo add <titre>` - Ajouter une nouvelle tâche  
+• `/todo done <id>` - Marquer une tâche comme terminée
+
+🎯 **Mode Focus:**
+• `/focus <id>` - Activer le mode focus sur une tâche
+• `/end-focus` - Terminer le mode focus
+• `/restore` - Restaurer l'historique précédent
+
+💡 **Le mode focus efface l'historique pour vous concentrer sur UNE seule tâche.**""",
+                "mode": "todo_help"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Erreur commande TODO: {e}")
+            return {
+                "success": False,
+                "response": f"❌ Erreur lors du traitement de la commande: {e}",
+                "mode": "todo_error"
+            }
+    
+    def is_todo_command(self, query: str) -> bool:
+        """Vérifier si une query est une commande TODO"""
+        if not query:
+            return False
+        
+        query = query.strip().lower()
+        
+        # Commandes simples
+        simple_commands = ['/todo', '/todo list', '/list', '/help', '/end-focus', 
+                          '/endfocus', '/restore', '/back']
+        if query in simple_commands:
+            return True
+        
+        # Vérifier les commandes avec paramètres
+        if (query.startswith('/todo add ') or 
+            query.startswith('/todo done ') or 
+            query.startswith('/focus ')):
+            return True
+        
+        return False
+
+    def get_current_focus(self) -> Optional[str]:
+        """Obtenir l'ID de la tâche en focus actuel"""
+        if self.todo_manager:
+            return self.todo_manager.get_current_focus()
+        return None
 
 
 def main():
@@ -1062,6 +1397,221 @@ class RAGManagerStats:
                 'collection_name': None,
                 'available': False
             }
+
+    # === MÉTHODES TODO/FOCUS ===
+    
+    def process_todo_command(self, query: str, chat_history: List = None) -> Dict[str, Any]:
+        """Traiter les commandes TODO dans le chat"""
+        try:
+            if not self.todo_manager:
+                return {
+                    "success": False,
+                    "response": "❌ Gestionnaire TODO non disponible. Vérifiez l'initialisation du RAG.",
+                    "mode": "todo_error"
+                }
+            
+            query = query.strip().lower()
+            
+            # Commande /todo list
+            if query in ['/todo list', '/todo', '/list']:
+                todos = self.todo_manager.get_todos()
+                return {
+                    "success": True,
+                    "response": self.todo_manager.format_todos_list(todos),
+                    "mode": "todo_list"
+                }
+            
+            # Commande /todo add <titre>
+            if query.startswith('/todo add '):
+                title = query[10:].strip()
+                if not title:
+                    return {
+                        "success": False,
+                        "response": "❌ Veuillez spécifier un titre pour la tâche.\nUsage: `/todo add <titre>`",
+                        "mode": "todo_error"
+                    }
+                
+                todo_id = self.todo_manager.add_todo(title)
+                if todo_id:
+                    return {
+                        "success": True,
+                        "response": f"✅ Tâche créée avec l'ID: **{todo_id}**\n\n📝 {title}\n\n💡 Utilisez `/focus {todo_id}` pour vous concentrer dessus.",
+                        "mode": "todo_add"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": "❌ Erreur lors de la création de la tâche.",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /focus <id>
+            if query.startswith('/focus '):
+                todo_id = query[7:].strip()
+                if not todo_id:
+                    return {
+                        "success": False,
+                        "response": "❌ Veuillez spécifier l'ID de la tâche.\nUsage: `/focus <id>`",
+                        "mode": "todo_error"
+                    }
+                
+                success = self.todo_manager.start_focus(todo_id, chat_history)
+                if success:
+                    self.todo_manager.update_todo_status(todo_id, "in_progress")
+                    return {
+                        "success": True,
+                        "response": self.todo_manager.get_focus_context(),
+                        "mode": "focus_start",
+                        "clear_history": True,  # Signal pour effacer l'historique
+                        "focus_id": todo_id
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": f"❌ Impossible de démarrer le focus sur la tâche {todo_id}. Vérifiez que l'ID existe.",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /end-focus
+            if query in ['/end-focus', '/end', '/unfocus']:
+                if not self.todo_manager.current_focus_id:
+                    return {
+                        "success": False,
+                        "response": "❌ Aucun focus actif à terminer.",
+                        "mode": "todo_error"
+                    }
+                
+                focused_id = self.todo_manager.current_focus_id
+                success = self.todo_manager.end_focus()
+                if success:
+                    return {
+                        "success": True,
+                        "response": f"🏁 Focus terminé pour la tâche **{focused_id}**.\n\n💡 Utilisez `/todo list` pour voir vos tâches ou `/restore` pour restaurer l'historique.",
+                        "mode": "focus_end",
+                        "restore_available": True
+                    }
+            
+            # Commande /todo done <id>
+            if query.startswith('/todo done '):
+                todo_id = query[11:].strip()
+                if not todo_id:
+                    return {
+                        "success": False,
+                        "response": "❌ Veuillez spécifier l'ID de la tâche.\nUsage: `/todo done <id>`",
+                        "mode": "todo_error"
+                    }
+                
+                success = self.todo_manager.update_todo_status(todo_id, "completed")
+                if success:
+                    # Si on termine la tâche en focus, terminer le focus aussi
+                    if self.todo_manager.current_focus_id == todo_id:
+                        self.todo_manager.end_focus("Tâche terminée")
+                    
+                    return {
+                        "success": True,
+                        "response": f"✅ Tâche **{todo_id}** marquée comme terminée !",
+                        "mode": "todo_complete"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "response": f"❌ Impossible de marquer la tâche {todo_id} comme terminée. Vérifiez que l'ID existe.",
+                        "mode": "todo_error"
+                    }
+            
+            # Commande /restore
+            if query in ['/restore', '/back', '/history']:
+                history = self.todo_manager.restore_chat_history()
+                return {
+                    "success": True,
+                    "response": "🔄 Historique de chat restauré.",
+                    "mode": "history_restore",
+                    "restore_history": history
+                }
+            
+            # Commande /status
+            if query in ['/status', '/focus-status']:
+                if self.todo_manager.current_focus_id:
+                    return {
+                        "success": True,
+                        "response": self.todo_manager.get_focus_context(),
+                        "mode": "focus_status"
+                    }
+                else:
+                    todos = self.todo_manager.get_todos('pending')
+                    pending_count = len(todos)
+                    return {
+                        "success": True,
+                        "response": f"🔍 Aucun focus actif.\n\n📋 Vous avez {pending_count} tâche(s) en attente.\n\n💡 Utilisez `/todo list` pour voir vos tâches.",
+                        "mode": "status_no_focus"
+                    }
+            
+            # Commande d'aide
+            if query in ['/help', '/todo help', '/?']:
+                help_text = """📋 **COMMANDES TODO/FOCUS**\n\n
+**Gestion des tâches:**
+• `/todo list` - Afficher toutes les tâches
+• `/todo add <titre>` - Créer une nouvelle tâche
+• `/todo done <id>` - Marquer une tâche comme terminée
+
+**Mode Focus:**
+• `/focus <id>` - Se concentrer sur une tâche (efface l'historique)
+• `/end-focus` - Terminer le focus actuel
+• `/status` - Voir le statut du focus actuel
+
+**Historique:**
+• `/restore` - Restaurer l'historique de chat sauvegardé
+• `/help` - Afficher cette aide
+
+💡 **Le mode focus efface automatiquement l'historique pour vous aider à vous concentrer sur une seule tâche.**
+                """
+                return {
+                    "success": True,
+                    "response": help_text,
+                    "mode": "help"
+                }
+            
+            # Commande non reconnue
+            return {
+                "success": False,
+                "response": "❓ Commande TODO non reconnue. Utilisez `/help` pour voir les commandes disponibles.",
+                "mode": "todo_unknown"
+            }
+        
+        except Exception as e:
+            self.logger.error(f"❌ Erreur traitement commande TODO: {e}")
+            return {
+                "success": False,
+                "response": f"❌ Erreur lors du traitement de la commande: {str(e)}",
+                "mode": "todo_error"
+            }
+    
+    def get_current_focus(self) -> Optional[str]:
+        """Obtenir l'ID de la tâche en focus actuel"""
+        if self.todo_manager:
+            return self.todo_manager.current_focus_id
+        return None
+    
+    def is_todo_command(self, query: str) -> bool:
+        """Vérifier si une requête est une commande TODO"""
+        query = query.strip().lower()
+        todo_commands = [
+            '/todo', '/focus', '/end-focus', '/end', '/unfocus', 
+            '/restore', '/back', '/history', '/status', '/focus-status', 
+            '/help', '/todo help', '/?', '/list'
+        ]
+        
+        # Vérifier les commandes exactes
+        if query in todo_commands:
+            return True
+        
+        # Vérifier les commandes avec paramètres
+        if (query.startswith('/todo add ') or 
+            query.startswith('/todo done ') or 
+            query.startswith('/focus ')):
+            return True
+        
+        return False
 
 
 # Ajouter la méthode à RAGManager

@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+from datetime import datetime
 from cy8_paths import normalize_path, ensure_dir, get_default_db_path
 
 
@@ -959,3 +960,103 @@ class cy8_database_manager:
         except sqlite3.Error as e:
             print(f"Erreur lors de la récupération de l'environnement : {e}")
             return None
+
+    # === MÉTHODES CRUD POUR LES ENVIRONNEMENTS ===
+
+    def add_environment(self, env_id, name, path, description=""):
+        """Ajouter un nouvel environnement"""
+        try:
+            current_time = datetime.now().isoformat()
+            self.cursor.execute(
+                """
+                INSERT INTO environnements (id, name, path, description, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (env_id, name, path, description, current_time, current_time),
+            )
+            self.conn.commit()
+            print(f"Environnement '{name}' ajouté avec succès (ID: {env_id})")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout de l'environnement : {e}")
+            return False
+
+    def update_environment(self, old_env_id, new_env_id, name, path, description=""):
+        """Mettre à jour un environnement existant"""
+        try:
+            current_time = datetime.now().isoformat()
+
+            # Si l'ID change, on doit mettre à jour toutes les références
+            if old_env_id != new_env_id:
+                # Mettre à jour les analyses liées (si la table existe)
+                try:
+                    self.cursor.execute(
+                        "UPDATE analyses SET environment_id = ? WHERE environment_id = ?",
+                        (new_env_id, old_env_id)
+                    )
+                except sqlite3.OperationalError:
+                    # Table analyses n'existe pas, on continue
+                    pass
+
+                # Mettre à jour les images liées (si la table existe)
+                try:
+                    self.cursor.execute(
+                        "UPDATE prompt_images SET environment_id = ? WHERE environment_id = ?",
+                        (new_env_id, old_env_id)
+                    )
+                except sqlite3.OperationalError:
+                    # Table prompt_images n'existe pas, on continue
+                    pass
+
+            # Mettre à jour l'environnement
+            self.cursor.execute(
+                """
+                UPDATE environnements
+                SET id = ?, name = ?, path = ?, description = ?, updated_at = ?
+                WHERE id = ?
+            """,
+                (new_env_id, name, path, description, current_time, old_env_id),
+            )
+
+            self.conn.commit()
+            print(f"Environnement mis à jour avec succès (ID: {new_env_id})")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la mise à jour de l'environnement : {e}")
+            return False
+
+    def delete_environment(self, env_id):
+        """Supprimer un environnement et toutes ses données associées"""
+        try:
+            # Supprimer les analyses liées (si la table existe)
+            try:
+                self.cursor.execute(
+                    "DELETE FROM analyses WHERE environment_id = ?",
+                    (env_id,)
+                )
+            except sqlite3.OperationalError:
+                # Table analyses n'existe pas, on continue
+                pass
+
+            # Supprimer les images liées (si la table existe)
+            try:
+                self.cursor.execute(
+                    "DELETE FROM prompt_images WHERE environment_id = ?",
+                    (env_id,)
+                )
+            except sqlite3.OperationalError:
+                # Table prompt_images n'existe pas, on continue
+                pass
+
+            # Supprimer l'environnement
+            self.cursor.execute(
+                "DELETE FROM environnements WHERE id = ?",
+                (env_id,)
+            )
+
+            self.conn.commit()
+            print(f"Environnement '{env_id}' et toutes ses données supprimés avec succès")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression de l'environnement : {e}")
+            return False
