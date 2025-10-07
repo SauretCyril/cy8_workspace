@@ -94,6 +94,21 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table env_action pour les actions par environnement
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS env_action (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    short_desc TEXT NOT NULL,
+                    action_cmd TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             self.conn.commit()
             self.ensure_additional_columns()
             self.add_default_environments()
@@ -791,6 +806,21 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table env_action pour les actions par environnement
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS env_action (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    short_desc TEXT NOT NULL,
+                    action_cmd TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             self.conn.commit()
             print("Tables d'environnement créées/vérifiées avec succès")
 
@@ -1060,3 +1090,92 @@ class cy8_database_manager:
         except sqlite3.Error as e:
             print(f"Erreur lors de la suppression de l'environnement : {e}")
             return False
+
+    # === MÉTHODES CRUD POUR LES ACTIONS D'ENVIRONNEMENT ===
+
+    def get_env_actions(self, environment_id):
+        """Récupérer toutes les actions pour un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, environment_id, short_desc, action_cmd, created_at, updated_at
+                FROM env_action
+                WHERE environment_id = ?
+                ORDER BY created_at DESC
+                """,
+                (environment_id,)
+            )
+            rows = self.cursor.fetchall()
+            return [
+                {
+                    "id": row[0],
+                    "environment_id": row[1],
+                    "short_desc": row[2],
+                    "action_cmd": row[3],
+                    "created_at": row[4],
+                    "updated_at": row[5]
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            print(f"Erreur lors de la récupération des actions: {e}")
+            return []
+
+    def add_env_action(self, environment_id, short_desc, action_cmd=""):
+        """Ajouter une nouvelle action pour un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                INSERT INTO env_action (environment_id, short_desc, action_cmd)
+                VALUES (?, ?, ?)
+                """,
+                (environment_id, short_desc, action_cmd)
+            )
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except Exception as e:
+            print(f"Erreur lors de l'ajout de l'action: {e}")
+            return None
+
+    def update_env_action(self, action_id, short_desc, action_cmd):
+        """Mettre à jour une action existante"""
+        try:
+            self.cursor.execute(
+                """
+                UPDATE env_action
+                SET short_desc = ?, action_cmd = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (short_desc, action_cmd, action_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour de l'action: {e}")
+            return False
+
+    def delete_env_action(self, action_id):
+        """Supprimer une action"""
+        try:
+            self.cursor.execute("DELETE FROM env_action WHERE id = ?", (action_id,))
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            print(f"Erreur lors de la suppression de l'action: {e}")
+            return False
+
+    def get_environment_analyses_directory(self, environment_id):
+        """Obtenir le répertoire d'analyses pour un environnement"""
+        try:
+            # Récupérer le chemin de l'environnement
+            self.cursor.execute(
+                "SELECT path FROM environnements WHERE id = ?", (environment_id,)
+            )
+            result = self.cursor.fetchone()
+            if result:
+                env_path = result[0]
+                return os.path.join(env_path, "analyses")
+            return None
+        except Exception as e:
+            print(f"Erreur lors de la récupération du répertoire analyses: {e}")
+            return None

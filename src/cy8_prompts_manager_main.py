@@ -9,6 +9,28 @@ from datetime import datetime
 from PIL import Image, ImageTk
 from typing import List, Dict, Optional
 
+def center_window(window, width=None, height=None):
+    """Centrer une fenêtre sur l'écran"""
+    # Mettre à jour la fenêtre pour obtenir les bonnes dimensions
+    window.update_idletasks()
+
+    # Obtenir les dimensions de la fenêtre
+    if width is None:
+        width = window.winfo_reqwidth()
+    if height is None:
+        height = window.winfo_reqheight()
+
+    # Obtenir les dimensions de l'écran
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+
+    # Calculer la position pour centrer
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+
+    # Appliquer la géométrie
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
 # Import du gestionnaire RAG
 try:
     from cy8_rag_manager import RAGManager
@@ -1737,6 +1759,8 @@ class cy8_prompts_manager:
 
         # Binding pour la sélection d'un environnement
         self.environments_tree.bind("<<TreeviewSelect>>", self.on_environment_select)
+        # Binding pour double-clic = ouvrir popup des actions
+        self.environments_tree.bind("<Double-1>", self.on_environment_double_click)
 
         # Boutons d'actions pour les environnements
         env_actions_frame = ttk.Frame(environments_frame)
@@ -2762,6 +2786,7 @@ class cy8_prompts_manager:
             # Centrer la fenêtre
             enlarge_window.transient(self.root)
             enlarge_window.grab_set()
+            center_window(enlarge_window, 800, 600)
 
             # Frame principal avec scrollbars
             main_frame = ttk.Frame(enlarge_window)
@@ -3056,10 +3081,7 @@ class cy8_prompts_manager:
             stats_window.grab_set()
 
             # Centrer la fenêtre
-            stats_window.update_idletasks()
-            x = (stats_window.winfo_screenwidth() // 2) - (500 // 2)
-            y = (stats_window.winfo_screenheight() // 2) - (400 // 2)
-            stats_window.geometry(f"500x400+{x}+{y}")
+            center_window(stats_window, 500, 400)
 
             # Zone de texte avec scrollbar
             text_frame = ttk.Frame(stats_window)
@@ -4187,6 +4209,7 @@ WORKFLOW:
             # Centrer la fenêtre
             image_window.geometry(f"{image.width + 20}x{image.height + 20}")
             image_window.resizable(True, True)
+            center_window(image_window, image.width + 20, image.height + 20)
 
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir l'image:\n{str(e)}")
@@ -5584,7 +5607,7 @@ WORKFLOW:
                             # Mettre à jour l'ID de configuration
                             print("✏️ Mise à jour de l'ID de configuration...")
                             self.comfyui_config_id.set(config_id)
-                            
+
                             # CORRECTION CRITIQUE: Mettre à jour current_environment_id pour le RAG
                             self.current_environment_id = config_id
                             print(f"🌍 Environnement actuel mis à jour: {self.current_environment_id}")
@@ -6432,6 +6455,333 @@ WORKFLOW:
         # Charger les résultats d'analyse pour cet environnement
         self.load_environment_analysis_results(environment_id)
 
+    def on_environment_double_click(self, event):
+        """Gérer le double-clic sur un environnement pour ouvrir la popup des actions"""
+        selection = self.environments_tree.selection()
+        if not selection:
+            return
+
+        # Récupérer l'ID de l'environnement sélectionné
+        item = selection[0]
+        values = self.environments_tree.item(item)["values"]
+        environment_id = values[0]
+        environment_name = values[1] if len(values) > 1 else environment_id
+
+        self.open_env_actions_popup(environment_id, environment_name)
+
+    def open_env_actions_popup(self, environment_id, environment_name):
+        """Ouvrir la popup de gestion des actions pour un environnement"""
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+        import json
+        import os
+
+        # Créer la popup
+        popup = tk.Toplevel(self.root)
+        popup.title(f"Actions pour l'environnement {environment_name}")
+        popup.geometry("800x600")
+        popup.transient(self.root)
+        popup.grab_set()
+
+        # Centrer la popup
+        center_window(popup, 800, 600)
+
+        # Frame principal
+        main_frame = ttk.Frame(popup, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        # Titre
+        title_label = ttk.Label(
+            main_frame,
+            text=f"🔧 Actions pour {environment_name}",
+            font=("TkDefaultFont", 12, "bold")
+        )
+        title_label.pack(pady=(0, 10))
+
+        # Frame pour le tableau des actions
+        tree_frame = ttk.Frame(main_frame)
+        tree_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        # Tableau des actions
+        columns = ("id", "desc", "cmd")
+        actions_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+
+        # Définir les colonnes
+        actions_tree.heading("id", text="ID")
+        actions_tree.heading("desc", text="Descriptif court")
+        actions_tree.heading("cmd", text="Action (commande)")
+
+        actions_tree.column("id", width=50, minwidth=40)
+        actions_tree.column("desc", width=200, minwidth=150)
+        actions_tree.column("cmd", width=400, minwidth=200)
+
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=actions_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=actions_tree.xview)
+        actions_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+        # Pack tree et scrollbars
+        actions_tree.grid(row=0, column=0, sticky="nsew")
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+
+        # Fonction pour rafraîchir le tableau
+        def refresh_actions():
+            for item in actions_tree.get_children():
+                actions_tree.delete(item)
+
+            actions = self.db_manager.get_env_actions(environment_id)
+            for action in actions:
+                actions_tree.insert("", "end", values=(
+                    action["id"],
+                    action["short_desc"],
+                    action["action_cmd"] or ""
+                ))
+
+        # Charger les actions initiales
+        refresh_actions()
+
+        # Frame pour les boutons
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill="x", pady=(0, 10))
+
+        # Boutons CRUD
+        ttk.Button(
+            buttons_frame,
+            text="➕ Ajouter",
+            command=lambda: self.add_env_action_dialog(environment_id, refresh_actions)
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            buttons_frame,
+            text="✏️ Modifier",
+            command=lambda: self.edit_env_action_dialog(actions_tree, refresh_actions)
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            buttons_frame,
+            text="🗑️ Supprimer",
+            command=lambda: self.delete_env_action_dialog(actions_tree, refresh_actions)
+        ).pack(side="left", padx=(0, 5))
+
+        # Espace
+        ttk.Frame(buttons_frame).pack(side="left", expand=True)
+
+        # Bouton sauvegarde JSON
+        ttk.Button(
+            buttons_frame,
+            text="💾 Sauvegarder JSON",
+            command=lambda: self.save_env_actions_json(environment_id, environment_name)
+        ).pack(side="right")
+
+        # Bouton fermer
+        ttk.Button(
+            main_frame,
+            text="Fermer",
+            command=popup.destroy
+        ).pack(pady=(10, 0))
+
+    def add_env_action_dialog(self, environment_id, refresh_callback):
+        """Dialogue pour ajouter une nouvelle action"""
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+
+        # Créer le dialogue
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Ajouter une action")
+        dialog.geometry("500x300")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Centrer le dialogue
+        center_window(dialog, 500, 300)
+
+        # Frame principal
+        main_frame = ttk.Frame(dialog, padding="15")
+        main_frame.pack(fill="both", expand=True)
+
+        # Descriptif court
+        ttk.Label(main_frame, text="Descriptif court:").pack(anchor="w")
+        desc_entry = ttk.Entry(main_frame, width=60)
+        desc_entry.pack(fill="x", pady=(5, 10))
+
+        # Action/commande
+        ttk.Label(main_frame, text="Action (commande):").pack(anchor="w")
+        action_text = tk.Text(main_frame, height=8, width=60)
+        action_text.pack(fill="both", expand=True, pady=(5, 10))
+
+        # Frame pour les boutons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x")
+
+        def save_action():
+            desc = desc_entry.get().strip()
+            cmd = action_text.get("1.0", "end-1c").strip()
+
+            if not desc:
+                messagebox.showerror("Erreur", "Le descriptif est obligatoire")
+                return
+
+            action_id = self.db_manager.add_env_action(environment_id, desc, cmd)
+            if action_id:
+                messagebox.showinfo("Succès", "Action ajoutée avec succès")
+                refresh_callback()
+                dialog.destroy()
+            else:
+                messagebox.showerror("Erreur", "Erreur lors de l'ajout de l'action")
+
+        ttk.Button(button_frame, text="Sauvegarder", command=save_action).pack(side="right", padx=(5, 0))
+        ttk.Button(button_frame, text="Annuler", command=dialog.destroy).pack(side="right")
+
+        # Focus sur le champ descriptif
+        desc_entry.focus()
+
+    def edit_env_action_dialog(self, actions_tree, refresh_callback):
+        """Dialogue pour modifier une action existante"""
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+
+        # Vérifier qu'une action est sélectionnée
+        selection = actions_tree.selection()
+        if not selection:
+            messagebox.showwarning("Sélection", "Veuillez sélectionner une action à modifier")
+            return
+
+        # Récupérer les valeurs de l'action sélectionnée
+        item = selection[0]
+        values = actions_tree.item(item)["values"]
+        action_id = values[0]
+        current_desc = values[1]
+        current_cmd = values[2]
+
+        # Créer le dialogue
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Modifier l'action")
+        dialog.geometry("500x300")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # Centrer le dialogue
+        center_window(dialog, 500, 300)
+
+        # Frame principal
+        main_frame = ttk.Frame(dialog, padding="15")
+        main_frame.pack(fill="both", expand=True)
+
+        # Descriptif court
+        ttk.Label(main_frame, text="Descriptif court:").pack(anchor="w")
+        desc_entry = ttk.Entry(main_frame, width=60)
+        desc_entry.pack(fill="x", pady=(5, 10))
+        desc_entry.insert(0, current_desc)
+
+        # Action/commande
+        ttk.Label(main_frame, text="Action (commande):").pack(anchor="w")
+        action_text = tk.Text(main_frame, height=8, width=60)
+        action_text.pack(fill="both", expand=True, pady=(5, 10))
+        action_text.insert("1.0", current_cmd)
+
+        # Frame pour les boutons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x")
+
+        def save_changes():
+            desc = desc_entry.get().strip()
+            cmd = action_text.get("1.0", "end-1c").strip()
+
+            if not desc:
+                messagebox.showerror("Erreur", "Le descriptif est obligatoire")
+                return
+
+            success = self.db_manager.update_env_action(action_id, desc, cmd)
+            if success:
+                messagebox.showinfo("Succès", "Action modifiée avec succès")
+                refresh_callback()
+                dialog.destroy()
+            else:
+                messagebox.showerror("Erreur", "Erreur lors de la modification de l'action")
+
+        ttk.Button(button_frame, text="Sauvegarder", command=save_changes).pack(side="right", padx=(5, 0))
+        ttk.Button(button_frame, text="Annuler", command=dialog.destroy).pack(side="right")
+
+        # Focus sur le champ descriptif
+        desc_entry.focus()
+
+    def delete_env_action_dialog(self, actions_tree, refresh_callback):
+        """Dialogue pour supprimer une action"""
+        from tkinter import messagebox
+
+        # Vérifier qu'une action est sélectionnée
+        selection = actions_tree.selection()
+        if not selection:
+            messagebox.showwarning("Sélection", "Veuillez sélectionner une action à supprimer")
+            return
+
+        # Récupérer les valeurs de l'action sélectionnée
+        item = selection[0]
+        values = actions_tree.item(item)["values"]
+        action_id = values[0]
+        desc = values[1]
+
+        # Demander confirmation
+        result = messagebox.askyesno(
+            "Confirmation",
+            f"Êtes-vous sûr de vouloir supprimer l'action:\n\n'{desc}' ?"
+        )
+
+        if result:
+            success = self.db_manager.delete_env_action(action_id)
+            if success:
+                messagebox.showinfo("Succès", "Action supprimée avec succès")
+                refresh_callback()
+            else:
+                messagebox.showerror("Erreur", "Erreur lors de la suppression de l'action")
+
+    def save_env_actions_json(self, environment_id, environment_name):
+        """Sauvegarder les actions en JSON dans le répertoire analyses"""
+        import json
+        import os
+        from tkinter import messagebox
+
+        try:
+            # Récupérer toutes les actions
+            actions = self.db_manager.get_env_actions(environment_id)
+
+            # Récupérer le répertoire d'analyses
+            analyses_dir = self.db_manager.get_environment_analyses_directory(environment_id)
+
+            if not analyses_dir:
+                messagebox.showerror("Erreur", "Impossible de déterminer le répertoire d'analyses")
+                return
+
+            # Créer le répertoire s'il n'existe pas
+            os.makedirs(analyses_dir, exist_ok=True)
+
+            # Chemin du fichier JSON
+            json_path = os.path.join(analyses_dir, "actions.json")
+
+            # Préparer les données à sauvegarder
+            export_data = {
+                "environment_id": environment_id,
+                "environment_name": environment_name,
+                "export_date": datetime.now().isoformat(),
+                "actions": actions
+            }
+
+            # Sauvegarder le fichier JSON
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=2)
+
+            messagebox.showinfo(
+                "Sauvegarde réussie",
+                f"Actions sauvegardées dans:\n{json_path}\n\n{len(actions)} action(s) exportée(s)"
+            )
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde:\n{str(e)}")
+
     # === MÉTHODES CRUD POUR LES ENVIRONNEMENTS ===
 
     def add_environment(self):
@@ -7025,6 +7375,7 @@ Message: {message}
         analysis_window.geometry("1000x800")
         analysis_window.transient(self.root)
         analysis_window.grab_set()
+        center_window(analysis_window, 1000, 800)
 
         # Gérer la fermeture avec désregistrement
         def on_close():
@@ -7298,6 +7649,7 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
         examples_window.geometry("800x600")
         examples_window.transient(self.root)
         examples_window.grab_set()
+        center_window(examples_window, 800, 600)
 
         main_frame = ttk.Frame(examples_window, padding="15")
         main_frame.pack(fill="both", expand=True)
@@ -7772,25 +8124,25 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
             # NOUVEAU: Vérifier les commandes TODO en priorité
             if self.rag_manager.is_todo_command(user_message):
                 result = self.rag_manager.process_todo_command(user_message, self.get_chat_history())
-                
+
                 if result["success"]:
                     # Traitement spécial selon le type de commande
                     if result.get("clear_history"):
                         # Mode focus : effacer l'historique
                         self.clear_chat_history()
                         self.add_chat_message("system", "🎯 Mode Focus activé - Historique effacé pour vous aider à vous concentrer.")
-                    
+
                     if result.get("restore_history"):
                         # Restaurer l'historique
                         self.restore_chat_history(result["restore_history"])
                         self.add_chat_message("system", "🔄 Historique restauré.")
-                    
+
                     # Afficher la réponse
                     response_type = "system" if result["mode"].startswith("focus") else "assistant"
                     self.add_chat_message(response_type, result["response"])
                 else:
                     self.add_chat_message("error", result["response"])
-                
+
                 return
 
             # Détecter le type de demande
@@ -8550,26 +8902,26 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
         try:
             history = []
             content = self.chat_display.get("1.0", tk.END).strip()
-            
+
             if not content:
                 return history
-            
+
             # Parser le contenu du chat
             lines = content.split('\n')
             current_message = None
-            
+
             for line in lines:
                 if line.startswith('[') and '] ' in line:
                     # Nouvelle entrée de message
                     if current_message:
                         history.append(current_message)
-                    
+
                     # Extraire timestamp et type
                     timestamp_end = line.find('] ')
                     if timestamp_end > 0:
                         timestamp = line[1:timestamp_end]
                         rest = line[timestamp_end + 2:]
-                        
+
                         # Déterminer le type de sender
                         if rest.startswith('🔧 Système:'):
                             sender_type = 'system'
@@ -8583,7 +8935,7 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
                         else:
                             sender_type = 'unknown'
                             message = rest
-                        
+
                         current_message = {
                             'timestamp': timestamp,
                             'sender_type': sender_type,
@@ -8592,13 +8944,13 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
                 elif current_message:
                     # Continuer le message précédent
                     current_message['message'] += '\n' + line
-            
+
             # Ajouter le dernier message
             if current_message:
                 history.append(current_message)
-            
+
             return history
-        
+
         except Exception as e:
             self.logger.error(f"❌ Erreur récupération historique chat: {e}")
             return []
@@ -8617,15 +8969,15 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
         try:
             # Effacer d'abord
             self.clear_chat_history()
-            
+
             # Restaurer les messages
             for entry in history:
                 timestamp = entry.get('timestamp', time.strftime("%H:%M:%S"))
                 sender_type = entry.get('sender_type', 'unknown')
                 message = entry.get('message', '')
-                
+
                 self.add_chat_message(sender_type, message)
-                
+
         except Exception as e:
             self.logger.error(f"❌ Erreur restauration historique: {e}")
 
@@ -10185,6 +10537,15 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
             except Exception as e:
                 self.add_chat_message("error", f"❌ Erreur suppression analyses DB: {e}")
 
+            # 1.5. Supprimer toutes les actions d'environnement
+            try:
+                # Nettoyer la table env_action
+                self.db_manager.cursor.execute("DELETE FROM env_action")
+                self.db_manager.conn.commit()
+                self.add_chat_message("system", "✅ Actions d'environnement supprimées")
+            except Exception as e:
+                self.add_chat_message("error", f"❌ Erreur suppression actions: {e}")
+
             # 2. Fermer et supprimer la collection ChromaDB actuelle
             if self.rag_manager:
                 try:
@@ -10482,6 +10843,7 @@ class EnvironmentDialog:
         # Centrer la fenêtre
         self.dialog.transient(parent)
         self.dialog.grab_set()
+        center_window(self.dialog, 500, 300)
 
         # Variables pour les champs
         self.env_id_var = tk.StringVar()
