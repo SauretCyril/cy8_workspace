@@ -40,7 +40,7 @@ cy8_workspace/
 ├── 📂 scripts/                # Scripts utilitaires
 │   ├── activate.*             # Activation venv
 │   ├── start.*                # Démarrage application
-│   └── install_*.* 
+│   └── install_*.*
 │
 ├── 📂 debugs/                 # Scripts de diagnostic
 │   ├── debug_*.py
@@ -62,7 +62,7 @@ cy8_workspace/
 └── 📂 logs/                   # Fichiers de logs
 ```
 
-📖 **Documentation complète** : Voir [docs/INDEX.md](docs/INDEX.md)  
+📖 **Documentation complète** : Voir [docs/INDEX.md](docs/INDEX.md)
 🏗️ **Architecture détaillée** : Voir [docs/STRUCTURE.md](docs/STRUCTURE.md)
 
 ### Modules principaux

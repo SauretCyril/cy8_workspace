@@ -1,6 +1,6 @@
 # 📚 Réorganisation de la Documentation
 
-**Date :** 8 octobre 2025  
+**Date :** 8 octobre 2025
 **Action :** Déplacement de tous les fichiers `.md` vers `docs/` (sauf `README.md`)
 
 ## ✅ Fichiers déplacés vers docs/

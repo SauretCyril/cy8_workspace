@@ -161,7 +161,7 @@ def check_imports():
     # Le script est maintenant dans tests/, donc on remonte d'un niveau
     project_root = Path(__file__).parent.parent.absolute()
     src_path = project_root / "src"
-    
+
     if src_path not in [Path(p) for p in sys.path]:
         sys.path.insert(0, str(src_path))
 

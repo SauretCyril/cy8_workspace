@@ -173,5 +173,5 @@ Organisation, résumés
 
 ---
 
-**Dernière mise à jour** : 8 octobre 2025  
+**Dernière mise à jour** : 8 octobre 2025
 **Maintenance** : Mettre à jour cet index lors de l'ajout de nouveaux documents

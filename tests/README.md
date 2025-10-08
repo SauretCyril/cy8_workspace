@@ -124,10 +124,10 @@ def test_ma_fonctionnalite():
     """Test de ma nouvelle fonctionnalité"""
     # Arrange
     data = setup_test_data()
-    
+
     # Act
     result = ma_fonction(data)
-    
+
     # Assert
     assert result == expected_value
 ```

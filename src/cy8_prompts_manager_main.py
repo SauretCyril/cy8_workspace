@@ -6497,7 +6497,7 @@ WORKFLOW:
         """Actualiser le tableau des environnements"""
         try:
             print("🔄 DEBUG refresh_environments: Début de l'actualisation...")
-            
+
             # Effacer le tableau
             for item in self.environments_tree.get_children():
                 self.environments_tree.delete(item)
@@ -6509,7 +6509,7 @@ WORKFLOW:
 
             for idx, env in enumerate(environments):
                 print(f"   🔍 Traitement environnement #{idx + 1}: {env}")
-                
+
                 (
                     env_id,
                     name,
@@ -6909,13 +6909,13 @@ WORKFLOW:
             # dialog.result est maintenant un dictionnaire
             print(f"🔍 DEBUG add_environment: dialog.result = {dialog.result}")
             print(f"   Type: {type(dialog.result)}")
-            
+
             env_id = dialog.result.get("id")
             name = dialog.result.get("name")
             path = dialog.result.get("path")
-            
+
             print(f"   Extrait: env_id='{env_id}', name='{name}', path='{path}'")
-            
+
             try:
                 # Vérifier que l'ID n'existe pas déjà
                 existing_envs = self.db_manager.get_all_environments()
@@ -6977,14 +6977,14 @@ WORKFLOW:
         if dialog.result:
             # dialog.result est maintenant un dictionnaire
             print(f"🔍 DEBUG edit_environment: dialog.result = {dialog.result}")
-            
+
             new_env_id = dialog.result.get("id")
             new_name = dialog.result.get("name")
             new_path = dialog.result.get("path")
-            
+
             print(f"   Ancien: env_id='{env_id}', name='{name}', path='{path}'")
             print(f"   Nouveau: env_id='{new_env_id}', name='{new_name}', path='{new_path}'")
-            
+
             try:
                 # Si l'ID a changé, vérifier qu'il n'existe pas déjà
                 if new_env_id != env_id:
@@ -11568,11 +11568,11 @@ class EnvironmentDialog:
             "name": name,
             "path": path
         }
-        
+
         print(f"✅ DEBUG EnvironmentDialog: Validation réussie")
         print(f"   self.result = {self.result}")
         print(f"   Type: {type(self.result)}")
-        
+
         self.dialog.destroy()
 
     def _save_identified_environment(self, environment_info: dict):
