@@ -241,6 +241,10 @@ class cy8_database_manager:
                 alterations.append(
                     "ALTER TABLE prompts ADD COLUMN status TEXT DEFAULT 'new'"
                 )
+            if "file" not in columns:
+                alterations.append("ALTER TABLE prompts ADD COLUMN file TEXT")
+            if "id_env" not in columns:
+                alterations.append("ALTER TABLE prompts ADD COLUMN id_env TEXT")
 
             for statement in alterations:
                 self.cursor.execute(statement)
@@ -498,42 +502,42 @@ class cy8_database_manager:
     def get_all_prompts(self):
         """Récupérer tous les prompts avec toutes les colonnes"""
         self.cursor.execute(
-            "SELECT id, name, parent, model, workflow, status, comment FROM prompts"
+            "SELECT id, name, parent, model, workflow, status, comment, id_env FROM prompts"
         )
         results = []
         for row in self.cursor.fetchall():
-            prompt_id, name, parent, model, workflow, status, comment = row
+            prompt_id, name, parent, model, workflow, status, comment, id_env = row
             # Dériver le modèle si vide
             if not model and workflow:
                 model = self.derive_model_from_workflow(workflow)
-            results.append((prompt_id, name, parent, model, workflow, status, comment))
+            results.append((prompt_id, name, parent, model, workflow, status, comment, id_env))
         return results
 
     def get_prompt_by_id(self, prompt_id):
         """Récupérer un prompt par son ID"""
         self.cursor.execute(
-            "SELECT name, prompt_values, workflow, url, parent, model, comment, status FROM prompts WHERE id=?",
+            "SELECT name, prompt_values, workflow, url, parent, model, comment, status, file, id_env FROM prompts WHERE id=?",
             (prompt_id,),
         )
         return self.cursor.fetchone()
 
     def update_prompt(
-        self, prompt_id, name, prompt_values, workflow, url, model, comment, status
+        self, prompt_id, name, prompt_values, workflow, url, model, comment, status, file=None, id_env=None
     ):
         """Mettre à jour un prompt complet"""
         self.cursor.execute(
-            "UPDATE prompts SET name=?, prompt_values=?, workflow=?, url=?, model=?, comment=?, status=? WHERE id=?",
-            (name, prompt_values, workflow, url, model, comment, status, prompt_id),
+            "UPDATE prompts SET name=?, prompt_values=?, workflow=?, url=?, model=?, comment=?, status=?, file=?, id_env=? WHERE id=?",
+            (name, prompt_values, workflow, url, model, comment, status, file, id_env, prompt_id),
         )
         self.conn.commit()
 
     def create_prompt(
-        self, name, prompt_values, workflow, url, model, status, comment, parent=None
+        self, name, prompt_values, workflow, url, model, status, comment, parent=None, file=None, id_env=None
     ):
         """Créer un nouveau prompt"""
         self.cursor.execute(
-            "INSERT INTO prompts (name, prompt_values, workflow, url, model, status, comment, parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (name, prompt_values, workflow, url, model, status, comment, parent),
+            "INSERT INTO prompts (name, prompt_values, workflow, url, model, status, comment, parent, file, id_env) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, prompt_values, workflow, url, model, status, comment, parent, file, id_env),
         )
         self.conn.commit()
         return self.cursor.lastrowid

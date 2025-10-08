@@ -545,13 +545,13 @@ class cy8_prompts_manager:
     def setup_prompts_table(self, parent):
         """
         0) Configuration du tableau des prompts
-        Colonnes: ID, Name, Status, Model, Comment, Parent
+        Colonnes: ID, Name, Status, Model, Comment, Parent, Env
         """
         table_frame = ttk.LabelFrame(parent, text="Liste des Prompts", padding="5")
         table_frame.pack(fill="both", expand=True)
 
         # Treeview pour les prompts
-        columns = ("id", "name", "status", "model", "comment", "parent")
+        columns = ("id", "name", "status", "model", "comment", "parent", "id_env")
         self.prompts_tree = ttk.Treeview(
             table_frame, columns=columns, show="headings", height=15
         )
@@ -563,6 +563,7 @@ class cy8_prompts_manager:
         self.prompts_tree.heading("model", text="Modèle")
         self.prompts_tree.heading("comment", text="Commentaire")
         self.prompts_tree.heading("parent", text="Parent")
+        self.prompts_tree.heading("id_env", text="Env")
 
         self.prompts_tree.column("id", width=50)
         self.prompts_tree.column("name", width=200)
@@ -570,6 +571,7 @@ class cy8_prompts_manager:
         self.prompts_tree.column("model", width=150)
         self.prompts_tree.column("comment", width=200)
         self.prompts_tree.column("parent", width=60)
+        self.prompts_tree.column("id_env", width=100)
 
         # Scrollbars
         v_scrollbar = ttk.Scrollbar(
@@ -1277,6 +1279,8 @@ class cy8_prompts_manager:
         self.comment_var = tk.StringVar()
         self.model_var = tk.StringVar()
         self.status_var = tk.StringVar()
+        self.file_var = tk.StringVar()
+        self.id_env_var = tk.StringVar()
 
         # Interface
         row = 0
@@ -1320,6 +1324,23 @@ class cy8_prompts_manager:
         ttk.Entry(info_frame, textvariable=self.comment_var, width=50).grid(
             row=row, column=1, sticky="ew", padx=10
         )
+        row += 1
+
+        ttk.Label(info_frame, text="ID Environnement:").grid(
+            row=row, column=0, sticky="w", pady=5
+        )
+        ttk.Entry(info_frame, textvariable=self.id_env_var, width=50).grid(
+            row=row, column=1, sticky="ew", padx=10
+        )
+        row += 1
+
+        ttk.Label(info_frame, text="Fichier exporté:").grid(
+            row=row, column=0, sticky="w", pady=5
+        )
+        file_frame = ttk.Frame(info_frame)
+        file_frame.grid(row=row, column=1, sticky="ew", padx=10)
+        ttk.Entry(file_frame, textvariable=self.file_var, width=40, state="readonly").pack(side="left", fill="x", expand=True)
+        ttk.Button(file_frame, text="📂", width=3, command=lambda: self.copy_path_to_clipboard(self.file_var.get())).pack(side="left", padx=(5, 0))
         row += 1
 
         info_frame.grid_columnconfigure(1, weight=1)
@@ -3270,12 +3291,12 @@ class cy8_prompts_manager:
 
         try:
             prompts = self.db_manager.get_all_prompts()
-            for prompt_id, name, parent, model, workflow, status, comment in prompts:
+            for prompt_id, name, parent, model, workflow, status, comment, id_env in prompts:
                 self.prompts_tree.insert(
                     "",
                     "end",
                     iid=str(prompt_id),
-                    values=(prompt_id, name, status, model, comment, parent or ""),
+                    values=(prompt_id, name, status, model, comment, parent or "", id_env or ""),
                 )
 
             self.update_status(f"{len(prompts)} prompts chargés")
@@ -3305,7 +3326,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = (
+                name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = (
                     data
                 )
 
@@ -3315,6 +3336,12 @@ class cy8_prompts_manager:
                 self.comment_var.set(comment or "")
                 self.model_var.set(model or "")
                 self.status_var.set(status or "new")
+                
+                # Nouveaux champs
+                if hasattr(self, "file_var"):
+                    self.file_var.set(file or "")
+                if hasattr(self, "id_env_var"):
+                    self.id_env_var.set(id_env or "")
 
                 # 1.1) Charger les prompt_values dans le tableau
                 self.table_manager.load_prompt_values_data(
@@ -3365,6 +3392,8 @@ class cy8_prompts_manager:
             comment = self.comment_var.get().strip()
             model = self.model_var.get().strip()
             status = self.status_var.get()
+            file = self.file_var.get().strip() if hasattr(self, "file_var") else None
+            id_env = self.id_env_var.get().strip() if hasattr(self, "id_env_var") else None
 
             if not name:
                 messagebox.showerror("Erreur", "Le nom est obligatoire.")
@@ -3388,6 +3417,8 @@ class cy8_prompts_manager:
                 model,
                 comment,
                 status,
+                file,
+                id_env,
             )
 
             # Mettre à jour l'affichage
@@ -3400,6 +3431,7 @@ class cy8_prompts_manager:
                     model,
                     comment,
                     self.prompts_tree.item(str(self.selected_prompt_id), "values")[5],
+                    id_env or "",
                 ),
             )
 
@@ -4795,8 +4827,91 @@ WORKFLOW:
             print(f"Erreur lors de l'import JSON: {e}")  # Pour le debug
 
     def export_json(self):
-        """Exporter des données JSON"""
-        messagebox.showinfo("Export", "Fonctionnalité d'export à implémenter")
+        """Exporter le workflow du prompt sélectionné"""
+        if not self.selected_prompt_id:
+            messagebox.showwarning("Attention", "Veuillez sélectionner un prompt à exporter.")
+            return
+
+        try:
+            # Récupérer les données du prompt
+            data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
+            if not data:
+                messagebox.showerror("Erreur", "Impossible de récupérer les données du prompt.")
+                return
+
+            name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = data
+
+            if not workflow or not prompt_values:
+                messagebox.showerror("Erreur", "Le prompt ne contient pas de workflow ou de valeurs à exporter.")
+                return
+
+            # Créer les fichiers temporaires
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            
+            tmp_values_file = os.path.join(temp_dir, "tmp_values.json")
+            tmp_workflow_file = os.path.join(temp_dir, "tmp_workflow.json")
+
+            # Écrire les fichiers temporaires
+            with open(tmp_values_file, "w", encoding="utf-8") as f:
+                f.write(prompt_values)
+            
+            with open(tmp_workflow_file, "w", encoding="utf-8") as f:
+                f.write(workflow)
+
+            # Importer la fonction update_workflow
+            from cy6_websocket_api_client import update_workflow
+
+            # Mettre à jour le workflow avec les valeurs
+            self.update_status("Fusion du workflow avec les valeurs...")
+            updated_workflow, updated_values = update_workflow(tmp_values_file, tmp_workflow_file)
+
+            # Nettoyer les fichiers temporaires
+            try:
+                os.remove(tmp_values_file)
+                os.remove(tmp_workflow_file)
+            except:
+                pass
+
+            # Demander où sauvegarder le fichier
+            filename = filedialog.asksaveasfilename(
+                title="Exporter le workflow",
+                defaultextension=".json",
+                initialfile=f"{name}_workflow.json",
+                filetypes=[("Fichiers JSON", "*.json"), ("Tous les fichiers", "*.*")]
+            )
+
+            if not filename:
+                self.update_status("Export annulé")
+                return
+
+            # Sauvegarder le workflow mis à jour
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(updated_workflow, f, indent=2, ensure_ascii=False)
+
+            # Mettre à jour le champ file dans la base de données
+            self.file_var.set(filename)
+            self.db_manager.update_prompt(
+                self.selected_prompt_id,
+                name,
+                json.dumps(updated_values, ensure_ascii=False),
+                json.dumps(updated_workflow, ensure_ascii=False),
+                url,
+                model,
+                comment,
+                status,
+                filename,
+                id_env,
+            )
+
+            self.update_status(f"Workflow exporté vers: {filename}")
+            messagebox.showinfo("Succès", f"Workflow exporté avec succès !\n\nFichier: {filename}")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'export: {e}")
+            import traceback
+            traceback.print_exc()
+            self.update_status("Erreur lors de l'export")
 
     def update_recent_databases_menu(self):
         """Mettre à jour le menu des bases récentes"""
@@ -4997,7 +5112,7 @@ WORKFLOW:
         active_check.grid(row=0, column=0, padx=5, pady=2)
 
         # Type de filtre (ComboBox)
-        filter_types = ["Statut d'exécution", "Modèle", "Hiérarchie", "Nom", "Statut"]
+        filter_types = ["Statut d'exécution", "Modèle", "Hiérarchie", "Nom", "Statut", "Environnement"]
         type_var = tk.StringVar(value=filter_type)
         type_combo = ttk.Combobox(
             filter_frame, textvariable=type_var, values=filter_types, width=15
@@ -5098,6 +5213,15 @@ WORKFLOW:
             criteria_combo["values"] = ["Égal à", "Différent de"]
             filter_data["criteria_var"].set("Égal à")
 
+        elif filter_type == "Environnement":
+            criteria_combo["values"] = [
+                "Égal à",
+                "Contient",
+                "Vide",
+                "Non vide",
+            ]
+            filter_data["criteria_var"].set("Égal à")
+
     def add_new_filter(self):
         """Ajouter un nouveau filtre vide"""
         self.add_filter_row()
@@ -5166,8 +5290,8 @@ WORKFLOW:
         result = []
 
         for prompt in prompts:
-            # prompt est un tuple: (id, name, parent, model, workflow, status, comment) - format get_all_prompts
-            prompt_id, name, parent, model, workflow, status, comment = prompt
+            # prompt est un tuple: (id, name, parent, model, workflow, status, comment, id_env) - format get_all_prompts
+            prompt_id, name, parent, model, workflow, status, comment, id_env = prompt
 
             include_prompt = False
 
@@ -5223,6 +5347,16 @@ WORKFLOW:
                 elif criteria == "Différent de":
                     include_prompt = (status or "").lower() != value.lower()
 
+            elif filter_type == "Environnement":
+                if criteria == "Égal à":
+                    include_prompt = (id_env or "").lower() == value.lower()
+                elif criteria == "Contient":
+                    include_prompt = value.lower() in (id_env or "").lower()
+                elif criteria == "Vide":
+                    include_prompt = not id_env or id_env.strip() == ""
+                elif criteria == "Non vide":
+                    include_prompt = id_env and id_env.strip() != ""
+
             if include_prompt:
                 result.append(prompt)
 
@@ -5246,7 +5380,7 @@ WORKFLOW:
 
         # Ajouter les prompts filtrés
         for prompt in filtered_prompts:
-            prompt_id, name, parent, model, workflow, status, comment = prompt
+            prompt_id, name, parent, model, workflow, status, comment, id_env = prompt
 
             # Format des valeurs pour l'affichage (même format que load_prompts)
             display_values = (
@@ -5256,6 +5390,7 @@ WORKFLOW:
                 model or "",
                 comment or "",
                 parent or "",
+                id_env or "",
             )
 
             # Insérer avec iid pour pouvoir identifier l'élément
