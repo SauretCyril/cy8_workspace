@@ -35,6 +35,7 @@ def center_window(window, width=None, height=None):
 try:
     from cy8_rag_manager import RAGManager
     from cy8_temporal_rag import TemporalRAGManager
+    from cy8_rag_tester import RAGTester
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -116,16 +117,24 @@ class cy8_prompts_manager:
         # Gestionnaire RAG pour l'analyse intelligente (après définition de current_environment_id)
         self.rag_manager = None
         self.temporal_rag = None
+        self.rag_tester = None
         if RAG_AVAILABLE:
             try:
-                self.rag_manager = RAGManager(self.db_manager, self.current_environment_id)
+                # Utiliser un environnement par défaut si aucun n'est défini
+                default_env_id = self.current_environment_id or "default_workspace"
+
+                self.rag_manager = RAGManager(self.db_manager, default_env_id)
                 self.temporal_rag = TemporalRAGManager(self.rag_manager)
+                self.rag_tester = RAGTester(self.rag_manager, self.db_manager)
                 print("🧠 Gestionnaire RAG initialisé")
+                print(f"🏷️ Environnement RAG: {default_env_id}")
                 print("🕒 Extension RAG temporelle activée")
+                print("🧪 Testeur RAG initialisé")
             except Exception as e:
                 print(f"⚠️ Erreur initialisation RAG: {e}")
                 self.rag_manager = None
                 self.temporal_rag = None
+                self.rag_tester = None
 
         # Gestionnaire d'index d'images optimisé
         self.image_index = ImageIndexManager()
@@ -152,8 +161,54 @@ class cy8_prompts_manager:
         self.load_prompts()
         self.update_database_stats()
 
+        # NOUVEAU: Restaurer l'environnement sauvegardé
+        self.restore_saved_environment()
+
         # Initialiser le tableau des environnements après la création de l'interface
         self.root.after(100, self.refresh_environments)
+
+    def restore_saved_environment(self):
+        """Restaurer l'environnement sauvegardé depuis les préférences"""
+        try:
+            saved_env_id = self.user_prefs.get_preference("current_environment_id")
+            if saved_env_id:
+                print(f"🔄 Restauration de l'environnement: {saved_env_id}")
+                self.current_environment_id = saved_env_id
+
+                # Synchroniser le RAG avec l'environnement restauré
+                if hasattr(self, 'rag_manager') and self.rag_manager:
+                    if self.rag_manager.environment_id != saved_env_id:
+                        print(f"🔄 Synchronisation RAG: {self.rag_manager.environment_id} -> {saved_env_id}")
+                        self.rag_manager.environment_id = saved_env_id
+                        self.rag_manager._initialize_components()
+                        print("✅ RAG synchronisé avec l'environnement restauré")
+
+                print(f"✅ Environnement restauré: {saved_env_id}")
+
+                # Mettre à jour le message de bienvenue pour indiquer l'environnement restauré
+                self.update_chat_welcome_message(f"✅ Environnement restauré: {saved_env_id}")
+            else:
+                print("ℹ️  Aucun environnement sauvegardé")
+                self.update_chat_welcome_message("⚠️ Aucun environnement sauvegardé - Identification requise")
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la restauration de l'environnement: {e}")
+
+    def update_chat_welcome_message(self, status_message):
+        """Mettre à jour le message de bienvenue avec le statut de l'environnement"""
+        try:
+            if hasattr(self, 'chat_history'):
+                # Différer l'update pour que l'interface soit complètement chargée
+                self.root.after(500, lambda: self.add_chat_message("system", status_message))
+        except Exception as e:
+            print(f"⚠️ Erreur mise à jour chat: {e}")
+
+    def add_startup_environment_message(self, env_id):
+        """Ajouter un message de démarrage sur l'environnement restauré - DEPRECATED"""
+        pass
+
+    def add_no_environment_message(self):
+        """Ajouter un message quand aucun environnement n'est sauvegardé - DEPRECATED"""
+        pass
 
     def init_images_paths(self):
         """Initialiser le chemin du répertoire d'images depuis le fichier .env"""
@@ -809,7 +864,25 @@ class cy8_prompts_manager:
             text="🔄 Actualiser contexte",
             command=self.refresh_chat_context,
             width=20
-        ).pack(side="right")
+        ).pack(side="right", padx=(5, 0))
+
+        # Boutons de test RAG
+        test_buttons_frame = ttk.Frame(self.chat_status_frame)
+        test_buttons_frame.pack(side="right", padx=(5, 5))
+
+        ttk.Button(
+            test_buttons_frame,
+            text="🧪 Test RAG",
+            command=self.run_rag_test_suite,
+            width=12
+        ).pack(side="left", padx=(0, 5))
+
+        ttk.Button(
+            test_buttons_frame,
+            text="⚡ Test rapide",
+            command=self.run_quick_rag_test,
+            width=12
+        ).pack(side="left")
 
         # Zone de conversation
         conversation_frame = ttk.LabelFrame(main_frame, text="💬 Conversation", padding="5")
@@ -841,6 +914,18 @@ class cy8_prompts_manager:
         self.chat_history.tag_configure("system", foreground="#666666", font=("Consolas", 9, "italic"))
         self.chat_history.tag_configure("error", foreground="#cc0000")
         self.chat_history.tag_configure("timestamp", foreground="#999999", font=("Consolas", 8))
+
+        # Message de bienvenue au démarrage
+        self.chat_history.config(state=tk.NORMAL)
+        welcome_msg = (
+            "🚀 **CHAT RAG DÉMARRÉ**\n\n"
+            "✅ Interface chat opérationnelle\n"
+            "🔍 En attente de l'identification de l'environnement ComfyUI...\n\n"
+            "💡 Pour activer le RAG, allez dans l'onglet ComfyUI → 'Identifier l'environnement'"
+        )
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.chat_history.insert(tk.END, f"[{timestamp}] 🔧 Système: {welcome_msg}\n\n", "system")
+        self.chat_history.config(state=tk.DISABLED)
 
         # Zone de saisie
         input_frame = ttk.LabelFrame(main_frame, text="✍️ Votre message", padding="5")
@@ -5608,10 +5693,9 @@ WORKFLOW:
                             print("✏️ Mise à jour de l'ID de configuration...")
                             self.comfyui_config_id.set(config_id)
 
-                            # CORRECTION CRITIQUE: Mettre à jour current_environment_id pour le RAG
-                            self.current_environment_id = config_id
-                            print(f"🌍 Environnement actuel mis à jour: {self.current_environment_id}")
-                            logger.info(f"Current environment_id mis à jour: {self.current_environment_id}")
+                            # L'environnement sera défini via set_current_environment() plus bas
+                            print(f"🌍 Préparation de la mise à jour de l'environnement: {config_id}")
+                            logger.info(f"Configuration ID détecté: {config_id}")
 
                             # Mettre à jour le champ si il existe (compatibilité ancienne interface)
                             if self.config_id_entry and hasattr(
@@ -5646,6 +5730,17 @@ WORKFLOW:
 
                             # Définir l'environnement actuel pour l'onglet Log
                             self.set_current_environment(config_id)
+
+                            # NOUVEAU: Ajouter un message dans le chat pour informer l'utilisateur
+                            if hasattr(self, 'add_chat_message'):
+                                self.add_chat_message(
+                                    "system",
+                                    f"✅ **ENVIRONNEMENT IDENTIFIÉ AVEC SUCCÈS**\n\n"
+                                    f"🆔 **ID:** {config_id}\n"
+                                    f"🧠 **RAG:** Synchronisé automatiquement\n"
+                                    f"💾 **Sauvegarde:** Environnement persisté\n\n"
+                                    f"Le système RAG est maintenant opérationnel pour cet environnement !"
+                                )
 
                             # *** NOUVEAU: Détecter automatiquement le Python embedded ***
                             print("🐍 Détection automatique du Python embedded...")
@@ -6313,8 +6408,15 @@ WORKFLOW:
 
     def set_current_environment(self, environment_id):
         """Définir l'environnement actuellement identifié"""
+        print(f"🔧 DEBUG: set_current_environment appelé avec: {environment_id}")
         self.current_environment_id = environment_id
         print(f"🌍 Environnement identifié: {environment_id}")
+        print(f"🔍 Vérification: self.current_environment_id = {self.current_environment_id}")
+
+        # NOUVEAU: Sauvegarder l'environnement dans les préférences
+        if hasattr(self, 'user_prefs') and self.user_prefs:
+            self.user_prefs.set_preference("current_environment_id", environment_id)
+            print(f"💾 Environnement sauvegardé: {environment_id}")
 
         # NOUVEAU: Synchroniser le gestionnaire RAG avec le nouvel environnement
         if hasattr(self, 'rag_manager') and self.rag_manager:
@@ -6324,6 +6426,14 @@ WORKFLOW:
                 # Réinitialiser les composants RAG avec le nouvel environnement
                 self.rag_manager._initialize_components()
                 print("✅ RAG synchronisé avec le nouvel environnement")
+
+                # Synchroniser le RAG Tester (il utilise maintenant dynamiquement l'environment_id)
+                if hasattr(self, 'rag_tester') and self.rag_tester:
+                    print(f"🧪 RAG Tester synchronisé: {self.rag_tester.environment_id}")
+
+                # Synchroniser le Temporal RAG
+                if hasattr(self, 'temporal_rag') and self.temporal_rag:
+                    print("🕒 Temporal RAG synchronisé")
 
         # Mettre à jour l'affichage des informations du log
         self.check_log_file_status()
@@ -6386,14 +6496,20 @@ WORKFLOW:
     def refresh_environments(self):
         """Actualiser le tableau des environnements"""
         try:
+            print("🔄 DEBUG refresh_environments: Début de l'actualisation...")
+            
             # Effacer le tableau
             for item in self.environments_tree.get_children():
                 self.environments_tree.delete(item)
 
             # Récupérer les environnements depuis la base
+            print("   📥 Appel de db_manager.get_all_environments()...")
             environments = self.db_manager.get_all_environments()
+            print(f"   📊 {len(environments)} environnements récupérés")
 
-            for env in environments:
+            for idx, env in enumerate(environments):
+                print(f"   🔍 Traitement environnement #{idx + 1}: {env}")
+                
                 (
                     env_id,
                     name,
@@ -6422,16 +6538,16 @@ WORKFLOW:
                 status = "🟢 Actif" if os.path.exists(path) else "🔴 Indisponible"
 
                 # Ajouter l'environnement au tableau
-                self.environments_tree.insert(
-                    "", "end", values=(env_id, name, path, last_analysis_str, status)
-                )
+                values = (env_id, name, path, last_analysis_str, status)
+                print(f"      ➕ Insertion: {values}")
+                self.environments_tree.insert("", "end", values=values)
 
-            print(
-                f"Tableau des environnements actualisé : {len(environments)} environnements"
-            )
+            print(f"✅ Tableau des environnements actualisé : {len(environments)} environnements")
 
         except Exception as e:
-            print(f"Erreur lors de l'actualisation des environnements : {e}")
+            print(f"❌ Erreur lors de l'actualisation des environnements : {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror(
                 "Erreur", f"Impossible d'actualiser les environnements :\n{e}"
             )
@@ -6790,7 +6906,16 @@ WORKFLOW:
         self.root.wait_window(dialog.dialog)
 
         if dialog.result:
-            env_id, name, path = dialog.result
+            # dialog.result est maintenant un dictionnaire
+            print(f"🔍 DEBUG add_environment: dialog.result = {dialog.result}")
+            print(f"   Type: {type(dialog.result)}")
+            
+            env_id = dialog.result.get("id")
+            name = dialog.result.get("name")
+            path = dialog.result.get("path")
+            
+            print(f"   Extrait: env_id='{env_id}', name='{name}', path='{path}'")
+            
             try:
                 # Vérifier que l'ID n'existe pas déjà
                 existing_envs = self.db_manager.get_all_environments()
@@ -6804,9 +6929,12 @@ WORKFLOW:
                     return
 
                 # Ajouter l'environnement à la base de données
-                self.db_manager.add_environment(env_id, name, path)
+                print(f"📥 Appel de db_manager.add_environment('{env_id}', '{name}', '{path}')")
+                result = self.db_manager.add_environment(env_id, name, path)
+                print(f"   Résultat: {result}")
 
                 # Actualiser le tableau
+                print("🔄 Actualisation du tableau...")
                 self.refresh_environments()
 
                 messagebox.showinfo(
@@ -6815,6 +6943,9 @@ WORKFLOW:
                 )
 
             except Exception as e:
+                print(f"❌ Exception dans add_environment: {e}")
+                import traceback
+                traceback.print_exc()
                 messagebox.showerror(
                     "Erreur",
                     f"Impossible d'ajouter l'environnement : {e}"
@@ -6844,7 +6975,16 @@ WORKFLOW:
         self.root.wait_window(dialog.dialog)
 
         if dialog.result:
-            new_env_id, new_name, new_path = dialog.result
+            # dialog.result est maintenant un dictionnaire
+            print(f"🔍 DEBUG edit_environment: dialog.result = {dialog.result}")
+            
+            new_env_id = dialog.result.get("id")
+            new_name = dialog.result.get("name")
+            new_path = dialog.result.get("path")
+            
+            print(f"   Ancien: env_id='{env_id}', name='{name}', path='{path}'")
+            print(f"   Nouveau: env_id='{new_env_id}', name='{new_name}', path='{new_path}'")
+            
             try:
                 # Si l'ID a changé, vérifier qu'il n'existe pas déjà
                 if new_env_id != env_id:
@@ -6859,9 +6999,12 @@ WORKFLOW:
                         return
 
                 # Mettre à jour l'environnement
-                self.db_manager.update_environment(env_id, new_env_id, new_name, new_path)
+                print(f"📝 Appel de db_manager.update_environment('{env_id}', '{new_env_id}', '{new_name}', '{new_path}')")
+                result = self.db_manager.update_environment(env_id, new_env_id, new_name, new_path)
+                print(f"   Résultat: {result}")
 
                 # Actualiser le tableau
+                print("🔄 Actualisation du tableau...")
                 self.refresh_environments()
 
                 messagebox.showinfo(
@@ -6870,6 +7013,9 @@ WORKFLOW:
                 )
 
             except Exception as e:
+                print(f"❌ Exception dans edit_environment: {e}")
+                import traceback
+                traceback.print_exc()
                 messagebox.showerror(
                     "Erreur",
                     f"Impossible de modifier l'environnement : {e}"
@@ -8006,7 +8152,12 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 return
 
             # VALIDATION CRITIQUE: Vérifier qu'un environnement est identifié
+            print(f"🔍 DEBUG: Vérification environnement - current_environment_id = '{self.current_environment_id}'")
+            print(f"🔍 DEBUG: Type = {type(self.current_environment_id)}")
+            print(f"🔍 DEBUG: Booléen = {bool(self.current_environment_id)}")
+
             if not self.current_environment_id:
+                print("❌ DEBUG: Condition 'not self.current_environment_id' = True")
                 self.add_chat_message(
                     "system",
                     "❌ ERREUR CRITIQUE: Aucun environnement ComfyUI identifié !\n\n"
@@ -8015,6 +8166,8 @@ Analysé le {datetime.now().strftime("%d/%m/%Y à %H:%M:%S")}
                 )
                 self.chat_status_label.config(text="❌ Environnement requis")
                 return
+            else:
+                print(f"✅ DEBUG: Environnement OK = '{self.current_environment_id}'")
 
             # Mettre à jour le gestionnaire RAG avec l'environnement actuel
             if self.rag_manager.environment_id != self.current_environment_id:
@@ -8063,9 +8216,16 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
 
     def add_chat_message(self, sender_type: str, message: str):
         """Ajouter un message à l'historique du chat"""
+        print(f"🔧 DEBUG: add_chat_message appelé - type={sender_type}, message={message[:50]}...")
         try:
+            # Vérifier que l'interface chat existe
+            if not hasattr(self, 'chat_history') or not self.chat_history:
+                print("❌ DEBUG: chat_history n'existe pas")
+                return
+
             # Activer l'édition temporairement
             self.chat_history.config(state=tk.NORMAL)
+            print("✅ DEBUG: Chat activé pour édition")
 
             # Ajouter le timestamp
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -8090,9 +8250,12 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
 
             # Faire défiler vers le bas
             self.chat_history.see(tk.END)
+            print("✅ DEBUG: Message ajouté au chat avec succès")
 
         except Exception as e:
             print(f"❌ Erreur ajout message chat: {e}")
+            import traceback
+            traceback.print_exc()
 
     def send_chat_message(self):
         """Envoyer un message dans le chat"""
@@ -8147,6 +8310,15 @@ N'hésitez pas à me poser vos questions ! Cliquez sur ℹ️ pour plus d'infos 
 
             # Détecter le type de demande
             message_lower = user_message.lower()
+
+            # Commandes de test RAG
+            if user_message.startswith("/test-rag"):
+                self.handle_rag_test_command(user_message)
+                return
+
+            if user_message.startswith("/quick-test"):
+                self.handle_quick_test_command()
+                return
 
             # Commandes spéciales
             if "contrainte" in message_lower and ("ajouter" in message_lower or "nouveau" in message_lower):
@@ -10823,6 +10995,401 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
         except Exception as e:
             self.add_chat_message("error", f"❌ Erreur test efficacité: {e}")
 
+    # ===== MÉTHODES DE TEST RAG =====
+
+    def run_rag_test_suite(self):
+        """Lancer la suite complète de tests RAG"""
+        if not self.rag_tester:
+            self.add_chat_message("error", "❌ Testeur RAG non disponible")
+            return
+
+        # VALIDATION CRITIQUE: Vérifier qu'un environnement est identifié (comme dans le chat)
+        print(f"🔍 DEBUG BOUTON: Vérification environnement - current_environment_id = '{self.current_environment_id}'")
+        print(f"🔍 DEBUG BOUTON: Type = {type(self.current_environment_id)}")
+        print(f"🔍 DEBUG BOUTON: Booléen = {bool(self.current_environment_id)}")
+
+        if not self.current_environment_id:
+            print("❌ DEBUG BOUTON: Condition 'not self.current_environment_id' = True")
+            self.add_chat_message(
+                "system",
+                "❌ ERREUR CRITIQUE: Aucun environnement ComfyUI identifié !\n\n"
+                "Le système RAG nécessite un environnement identifié pour fonctionner.\n"
+                "🔍 Allez dans l'onglet ComfyUI et cliquez sur 'Identifier l'environnement'."
+            )
+            return
+        else:
+            print(f"✅ DEBUG BOUTON: Environnement OK = '{self.current_environment_id}'")
+
+        # Synchroniser le RAG Manager avec l'environnement actuel
+        if hasattr(self, 'rag_manager') and self.rag_manager:
+            if self.rag_manager.environment_id != self.current_environment_id:
+                print(f"🔄 Mise à jour RAG bouton: {self.rag_manager.environment_id} -> {self.current_environment_id}")
+                self.rag_manager.environment_id = self.current_environment_id
+                self.rag_manager._initialize_components()
+                self.add_chat_message("system", f"🔄 RAG synchronisé avec l'environnement: {self.current_environment_id}")
+
+        self.add_chat_message("system", "🧪 Lancement de la suite complète de tests RAG...")
+
+        # DEBUG: Vérifier l'état avant les tests
+        debug_info = []
+        debug_info.append(f"🔍 Current environment ID: {self.current_environment_id}")
+        if hasattr(self, 'rag_manager') and self.rag_manager:
+            debug_info.append(f"🧠 RAG Manager environment: {self.rag_manager.environment_id}")
+            debug_info.append(f"📊 RAG disponible: {self.rag_manager.is_available()}")
+        if hasattr(self, 'rag_tester') and self.rag_tester:
+            debug_info.append(f"🧪 RAG Tester environment: {self.rag_tester.environment_id}")
+
+        print("🔍 DEBUG TESTS RAG:")
+        for info in debug_info:
+            print(f"   {info}")
+
+        def run_tests():
+            print("🧪 Thread de test démarré...")
+            try:
+                print(f"   📍 Environment ID: {self.current_environment_id}")
+                print(f"   🧠 RAG Manager disponible: {bool(self.rag_manager)}")
+                print(f"   🧪 RAG Tester disponible: {bool(self.rag_tester)}")
+
+                print("   ⏳ Appel de run_complete_test_suite()...")
+                results = self.rag_tester.run_complete_test_suite()
+
+                print(f"   ✅ Tests terminés, résultats reçus: {bool(results)}")
+                if results:
+                    print(f"      Keys: {list(results.keys())}")
+
+                # Afficher les résultats dans le chat (thread-safe)
+                print("   📤 Programmation de l'affichage des résultats...")
+                self.root.after(0, lambda: self.display_test_results(results))
+
+            except Exception as e:
+                print(f"   ❌ Exception dans run_tests: {e}")
+                import traceback
+                traceback.print_exc()
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur lors des tests: {e}"))
+
+        # Lancer les tests en arrière-plan
+        threading.Thread(target=run_tests, daemon=True).start()
+
+    def run_quick_rag_test(self):
+        """Lancer un test rapide du RAG"""
+        if not self.rag_tester:
+            self.add_chat_message("error", "❌ Testeur RAG non disponible")
+            return
+
+        # VALIDATION: Vérifier l'environnement (même que le test complet)
+        if not self.current_environment_id:
+            self.add_chat_message(
+                "system",
+                "❌ ERREUR CRITIQUE: Aucun environnement ComfyUI identifié !\n\n"
+                "Le système RAG nécessite un environnement identifié pour fonctionner.\n"
+                "🔍 Allez dans l'onglet ComfyUI et cliquez sur 'Identifier l'environnement'."
+            )
+            return
+
+        # Synchroniser le RAG Manager
+        if hasattr(self, 'rag_manager') and self.rag_manager:
+            if self.rag_manager.environment_id != self.current_environment_id:
+                self.rag_manager.environment_id = self.current_environment_id
+                self.rag_manager._initialize_components()
+
+        self.add_chat_message("system", "⚡ Lancement du test rapide RAG...")
+
+        def run_test():
+            print("⚡ Thread de test rapide démarré...")
+            try:
+                print(f"   📍 Environment ID: {self.current_environment_id}")
+                print(f"   🧠 RAG Manager disponible: {bool(self.rag_manager)}")
+                print(f"   🧪 RAG Tester disponible: {bool(self.rag_tester)}")
+
+                print("   ⏳ Appel de run_quick_test()...")
+                results = self.rag_tester.run_quick_test()
+
+                print(f"   ✅ Test rapide terminé, résultats reçus: {bool(results)}")
+                if results:
+                    print(f"      Keys: {list(results.keys())}")
+
+                # Afficher les résultats dans le chat (thread-safe)
+                print("   📤 Programmation de l'affichage des résultats...")
+                self.root.after(0, lambda: self.display_quick_test_results(results))
+
+            except Exception as e:
+                print(f"   ❌ Exception dans run_test: {e}")
+                import traceback
+                traceback.print_exc()
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur lors du test rapide: {e}"))
+
+        # Lancer le test en arrière-plan
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def handle_rag_test_command(self, command: str):
+        """Gérer les commandes de test RAG depuis le chat"""
+        parts = command.split()
+
+        if len(parts) == 1:
+            # /test-rag simple
+            self.run_rag_test_suite()
+        elif len(parts) == 2:
+            test_type = parts[1].lower()
+            if test_type == "quick":
+                self.run_quick_rag_test()
+            elif test_type == "indexing":
+                self.test_rag_indexing()
+            elif test_type == "learning":
+                self.test_rag_learning()
+            elif test_type == "performance":
+                self.test_rag_performance()
+            else:
+                self.add_chat_message("error", f"❌ Type de test inconnu: {test_type}")
+                self.show_test_help()
+        else:
+            self.show_test_help()
+
+    def handle_quick_test_command(self):
+        """Gérer la commande /quick-test"""
+        self.run_quick_rag_test()
+
+    def test_rag_indexing(self):
+        """Tester spécifiquement l'indexation RAG"""
+        if not self.rag_tester:
+            self.add_chat_message("error", "❌ Testeur RAG non disponible")
+            return
+
+        self.add_chat_message("system", "📚 Test de l'indexation RAG...")
+
+        def run_test():
+            try:
+                result = self.rag_tester._test_new_data_indexing()
+                message = f"📚 **Test d'indexation:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
+                message += f"📊 Documents indexés: {result.get('documents_after', 0) - result.get('documents_before', 0)}\n"
+                message += f"🔍 Recherche fonctionnelle: {'Oui' if result.get('immediate_search_found') else 'Non'}"
+
+                self.root.after(0, lambda: self.add_chat_message("assistant", message))
+
+            except Exception as e:
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test indexation: {e}"))
+
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def test_rag_learning(self):
+        """Tester spécifiquement l'apprentissage RAG"""
+        if not self.rag_tester:
+            self.add_chat_message("error", "❌ Testeur RAG non disponible")
+            return
+
+        self.add_chat_message("system", "🧠 Test de l'apprentissage RAG...")
+
+        def run_test():
+            try:
+                result = self.rag_tester._test_chat_learning()
+                message = f"🧠 **Test d'apprentissage:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
+                message += f"💬 Conversations testées: {result.get('conversations_tested', 0)}\n"
+                message += f"🎯 Mémorisation: {'Bonne' if result.get('memory_working') else 'Problématique'}"
+
+                self.root.after(0, lambda: self.add_chat_message("assistant", message))
+
+            except Exception as e:
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test apprentissage: {e}"))
+
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def test_rag_performance(self):
+        """Tester spécifiquement les performances RAG"""
+        if not self.rag_tester:
+            self.add_chat_message("error", "❌ Testeur RAG non disponible")
+            return
+
+        self.add_chat_message("system", "⚡ Test des performances RAG...")
+
+        def run_test():
+            try:
+                result = self.rag_tester._test_performance()
+                message = f"⚡ **Test de performance:** {'✅ Bon' if result.get('status') == 'success' else '❌ Dégradé'}\n"
+                message += f"🕒 Temps de recherche: {result.get('avg_search_time', 0):.2f}s\n"
+                message += f"📊 Qualité des résultats: {result.get('result_quality', 'Inconnue')}"
+
+                self.root.after(0, lambda: self.add_chat_message("assistant", message))
+
+            except Exception as e:
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test performance: {e}"))
+
+        threading.Thread(target=run_test, daemon=True).start()
+
+    def display_test_results(self, results: dict):
+        """Afficher les résultats complets des tests dans le chat"""
+        print(f"🖥️ DEBUG display_test_results appelé avec: {type(results)}")
+        print(f"   Keys disponibles: {results.keys() if results else 'None'}")
+
+        if not results:
+            self.add_chat_message("error", "❌ Aucun résultat de test reçu")
+            return
+
+        # En-tête avec environnement
+        env_id = results.get('environment_id', 'inconnu')
+        message = f"🧪 **RÉSULTATS COMPLETS DES TESTS RAG**\n"
+        message += f"🏷️  Environnement: `{env_id}`\n\n"
+
+        # Résumé global (nouvelle structure)
+        summary = results.get('summary', {})
+        if summary:
+            success_rate = summary.get('success_rate_percent', 0)
+            overall_rating = summary.get('overall_rating', 'unknown')
+
+            # Emoji de statut basé sur l'évaluation
+            rating_emoji = {
+                'excellent': '✅',
+                'good': '👍',
+                'fair': '⚠️',
+                'poor': '❌'
+            }.get(overall_rating, '❓')
+
+            message += f"📊 **Score global:** {success_rate}% {rating_emoji}\n"
+            message += f"🏆 **Évaluation:** {overall_rating.title()}\n\n"
+
+            # Stats détaillées
+            total = summary.get('total_tests', 0)
+            success = summary.get('successful_tests', 0)
+            errors = summary.get('error_tests', 0)
+            skipped = summary.get('skipped_tests', 0)
+
+            message += f"� **Statistiques:**\n"
+            message += f"   • Total: {total} tests\n"
+            message += f"   • Réussis: {success} ✅\n"
+            if errors > 0:
+                message += f"   • Erreurs: {errors} ❌\n"
+            if skipped > 0:
+                message += f"   • Ignorés: {skipped} ⏭️\n"
+            message += "\n"
+
+        # Détail par test
+        tests = results.get('tests', {})
+        if tests:
+            message += "📋 **Détail des tests:**\n"
+            for test_name, test_result in tests.items():
+                status = test_result.get('status', 'unknown')
+                emoji = {
+                    'success': '✅',
+                    'error': '❌',
+                    'skipped': '⏭️'
+                }.get(status, '❓')
+
+                test_label = test_name.replace('_', ' ').title()
+                message += f"{emoji} {test_label}\n"
+
+                # Informations spécifiques selon le test
+                if status == 'success':
+                    if test_name == 'initial_state':
+                        doc_count = test_result.get('document_count', 0)
+                        message += f"   � {doc_count} documents indexés\n"
+                    elif test_name == 'new_data_indexing':
+                        indexed = test_result.get('indexing_successful', False)
+                        found = test_result.get('immediate_search_found', False)
+                        if indexed and found:
+                            message += f"   ✅ Indexation et recherche fonctionnelles\n"
+                    elif test_name == 'performance':
+                        avg_time = test_result.get('avg_search_time', 0)
+                        rating = test_result.get('performance_rating', 'unknown')
+                        message += f"   ⚡ Temps moyen: {avg_time:.3f}s ({rating})\n"
+
+                elif status == 'error':
+                    error = test_result.get('error', 'Erreur inconnue')
+                    message += f"   ⚠️ {error[:100]}\n"
+
+            message += "\n"
+
+        # Recommandations
+        recommendations = summary.get('recommendations', []) if summary else []
+        if recommendations:
+            message += "💡 **Recommandations:**\n"
+            for rec in recommendations:
+                message += f"{rec}\n"
+            message += "\n"
+
+        # Date du test
+        test_date = results.get('test_date', '')
+        if test_date:
+            message += f"🕐 Test effectué: {test_date}\n"
+
+        print(f"📤 Envoi du message de résultats ({len(message)} caractères)")
+        self.add_chat_message("assistant", message)
+
+    def display_quick_test_results(self, results: dict):
+        """Afficher les résultats du test rapide dans le chat"""
+        print(f"🖥️ DEBUG display_quick_test_results appelé avec: {type(results)}")
+        print(f"   Keys disponibles: {results.keys() if results else 'None'}")
+
+        if not results:
+            self.add_chat_message("error", "❌ Aucun résultat de test rapide reçu")
+            return
+
+        success = results.get('success', False)
+        status_emoji = "✅" if success else "❌"
+        status_text = "Fonctionnel" if success else "Problème détecté"
+
+        message = f"⚡ **TEST RAPIDE RAG:** {status_emoji} {status_text}\n\n"
+
+        # Vérifications
+        indexing = results.get('indexing_works')
+        search = results.get('search_works')
+        performance = results.get('performance_ok')
+
+        message += "**Vérifications:**\n"
+
+        if indexing is not None:
+            emoji = "✅" if indexing else "❌"
+            message += f"{emoji} Indexation: {'OK' if indexing else 'Échec'}\n"
+
+        if search is not None:
+            emoji = "✅" if search else "❌"
+            message += f"{emoji} Recherche: {'OK' if search else 'Échec'}\n"
+
+        if performance is not None:
+            emoji = "✅" if performance else "⚠️"
+            message += f"{emoji} Performance: {'Acceptable' if performance else 'Dégradée'}\n"
+
+        # Durée du test
+        duration = results.get('test_duration')
+        if duration:
+            message += f"\n⏱️ Durée: {duration}s\n"
+
+        # Détails supplémentaires
+        details = results.get('details')
+        if details:
+            message += f"\n📝 {details}\n"
+
+        # Erreur si présente
+        error = results.get('error')
+        if error:
+            message += f"\n❌ **Erreur:** {error}\n"
+
+        # Timestamp
+        timestamp = results.get('timestamp')
+        if timestamp:
+            message += f"\n� Test effectué: {timestamp}\n"
+
+        print(f"📤 Envoi du message de test rapide ({len(message)} caractères)")
+        self.add_chat_message("assistant", message)
+
+    def show_test_help(self):
+        """Afficher l'aide pour les commandes de test"""
+        help_message = """🧪 **COMMANDES DE TEST RAG DISPONIBLES:**
+
+**Commandes principales:**
+• `/test-rag` - Suite complète de tests
+• `/quick-test` - Test rapide de fonctionnement
+
+**Tests spécifiques:**
+• `/test-rag indexing` - Test de l'indexation
+• `/test-rag learning` - Test de l'apprentissage
+• `/test-rag performance` - Test des performances
+
+**Boutons interface:**
+• 🧪 Test RAG - Lance la suite complète
+• ⚡ Test rapide - Vérification basique
+
+Les tests vérifient que le RAG apprend correctement de vos échanges et des nouveaux logs indexés."""
+
+        self.add_chat_message("system", help_message)
+
     # ===== FIN MÉTHODES TERMINAL =====
 
 
@@ -10995,11 +11562,17 @@ class EnvironmentDialog:
             )
             return
 
+        # Créer le résultat sous forme de dictionnaire
         self.result = {
             "id": env_id,
             "name": name,
             "path": path
         }
+        
+        print(f"✅ DEBUG EnvironmentDialog: Validation réussie")
+        print(f"   self.result = {self.result}")
+        print(f"   Type: {type(self.result)}")
+        
         self.dialog.destroy()
 
     def _save_identified_environment(self, environment_info: dict):

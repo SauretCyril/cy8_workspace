@@ -67,10 +67,19 @@ class RAGManager:
             if self.environment_id:
                 # Vérifier si la méthode existe dans db_manager
                 if hasattr(self.db_manager, 'get_environment_analyses_directory'):
-                    analyses_dir = self.db_manager.get_environment_analyses_directory(self.environment_id)
+                    try:
+                        analyses_dir = self.db_manager.get_environment_analyses_directory(self.environment_id)
+                    except Exception as e:
+                        print(f"⚠️ Erreur récupération répertoire analyses: {e}")
+                        # Fallback: utiliser le répertoire de la base
+                        db_path = self.db_manager.db_path if hasattr(self.db_manager, 'db_path') else None
+                        if db_path:
+                            analyses_dir = os.path.join(os.path.dirname(db_path), "analyses", self.environment_id)
+                        else:
+                            analyses_dir = os.path.join(os.getcwd(), "data", "analyses", self.environment_id)
                 else:
                     # Fallback: utiliser le répertoire de la base
-                    db_path = self.db_manager.get_database_path() if hasattr(self.db_manager, 'get_database_path') else None
+                    db_path = self.db_manager.db_path if hasattr(self.db_manager, 'db_path') else None
                     if db_path:
                         analyses_dir = os.path.join(os.path.dirname(db_path), "analyses", self.environment_id)
                     else:

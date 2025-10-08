@@ -1163,19 +1163,3 @@ class cy8_database_manager:
         except Exception as e:
             print(f"Erreur lors de la suppression de l'action: {e}")
             return False
-
-    def get_environment_analyses_directory(self, environment_id):
-        """Obtenir le répertoire d'analyses pour un environnement"""
-        try:
-            # Récupérer le chemin de l'environnement
-            self.cursor.execute(
-                "SELECT path FROM environnements WHERE id = ?", (environment_id,)
-            )
-            result = self.cursor.fetchone()
-            if result:
-                env_path = result[0]
-                return os.path.join(env_path, "analyses")
-            return None
-        except Exception as e:
-            print(f"Erreur lors de la récupération du répertoire analyses: {e}")
-            return None
