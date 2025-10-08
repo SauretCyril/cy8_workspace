@@ -46,7 +46,8 @@ def detect_virtual_env():
     """Détecter et retourner le chemin de l'environnement virtuel s'il existe"""
     log_with_timestamp("Détection de l'environnement virtuel...", "STEP")
 
-    project_root = Path(__file__).parent.absolute()
+    # Le script est maintenant dans tests/, donc on remonte d'un niveau
+    project_root = Path(__file__).parent.parent.absolute()
 
     # Vérifier si on est déjà dans un venv
     in_venv = hasattr(sys, "real_prefix") or (
@@ -157,8 +158,12 @@ def check_imports():
     """Vérifier que tous les imports cy8 fonctionnent"""
     log_with_timestamp("Vérification des imports cy8...", "STEP")
 
-    project_root = Path(__file__).parent.absolute()
-    sys.path.insert(0, str(project_root / "src"))
+    # Le script est maintenant dans tests/, donc on remonte d'un niveau
+    project_root = Path(__file__).parent.parent.absolute()
+    src_path = project_root / "src"
+    
+    if src_path not in [Path(p) for p in sys.path]:
+        sys.path.insert(0, str(src_path))
 
     modules = [
         "cy8_database_manager",
@@ -187,7 +192,9 @@ def run_critical_tests():
     """Exécuter les tests critiques pour vérifier le bon fonctionnement"""
     log_with_timestamp("Exécution de tests critiques...", "TEST")
 
-    project_root = Path(__file__).parent.absolute()
+    # Le script est maintenant dans tests/, donc on remonte d'un niveau
+    project_root = Path(__file__).parent.parent.absolute()
+    tests_dir = project_root / "tests"
     python_cmd = detect_virtual_env()
 
     # Tests critiques uniquement
@@ -198,7 +205,7 @@ def run_critical_tests():
 
     success_count = 0
     for i, (test_file, description) in enumerate(critical_tests, 1):
-        test_path = project_root / "tests" / test_file
+        test_path = tests_dir / test_file
 
         if test_path.exists():
             log_with_timestamp(f"Test critique {i}/{len(critical_tests)}: {description}")
