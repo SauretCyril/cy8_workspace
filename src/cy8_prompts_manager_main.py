@@ -4405,6 +4405,8 @@ WORKFLOW:
 
     def open_images_folder(self):
         """Ouvrir le dossier d'images par défaut"""
+        from tkinter import filedialog
+
         try:
             images_path = os.getenv("IMAGES_COLLECTE")
             if not images_path:
@@ -4422,10 +4424,81 @@ WORKFLOW:
                         ]
                     )
             else:
-                messagebox.showwarning(
+                # Proposer de choisir un nouveau dossier
+                result = messagebox.askyesno(
                     "Dossier introuvable",
-                    f"Le dossier d'images n'existe pas:\n{images_path}",
+                    f"Le dossier d'images n'existe pas:\n{images_path}\n\n"
+                    f"Voulez-vous choisir un autre dossier d'images ?",
+                    icon='warning'
                 )
+
+                if result:
+                    # Ouvrir le sélecteur de dossier
+                    new_path = filedialog.askdirectory(
+                        title="Sélectionner le dossier d'images",
+                        initialdir=os.path.expanduser("~")
+                    )
+
+                    if new_path:
+                        # Ouvrir le nouveau dossier
+                        if os.name == "nt":  # Windows
+                            os.startfile(new_path)
+                        elif os.name == "posix":  # macOS et Linux
+                            subprocess.call(
+                                [
+                                    "open" if os.uname().sysname == "Darwin" else "xdg-open",
+                                    new_path,
+                                ]
+                            )
+
+                        # Proposer de sauvegarder ce chemin
+                        save_result = messagebox.askyesno(
+                            "Sauvegarder le chemin",
+                            f"Voulez-vous définir ce dossier comme dossier d'images par défaut ?\n\n"
+                            f"Dossier: {new_path}\n\n"
+                            f"(Ceci créera/modifiera la variable d'environnement IMAGES_COLLECTE)",
+                            icon='question'
+                        )
+
+                        if save_result:
+                            # Sauvegarder dans le fichier .env s'il existe
+                            try:
+                                env_file = os.path.join(os.getcwd(), ".env")
+                                env_content = ""
+
+                                # Lire le contenu existant si le fichier existe
+                                if os.path.exists(env_file):
+                                    with open(env_file, "r", encoding="utf-8") as f:
+                                        lines = f.readlines()
+                                        # Remplacer ou ajouter IMAGES_COLLECTE
+                                        found = False
+                                        for i, line in enumerate(lines):
+                                            if line.startswith("IMAGES_COLLECTE="):
+                                                lines[i] = f"IMAGES_COLLECTE={new_path}\n"
+                                                found = True
+                                        if not found:
+                                            lines.append(f"IMAGES_COLLECTE={new_path}\n")
+                                        env_content = "".join(lines)
+                                else:
+                                    env_content = f"IMAGES_COLLECTE={new_path}\n"
+
+                                # Écrire le fichier .env
+                                with open(env_file, "w", encoding="utf-8") as f:
+                                    f.write(env_content)
+
+                                # Mettre à jour la variable d'environnement pour cette session
+                                os.environ["IMAGES_COLLECTE"] = new_path
+
+                                messagebox.showinfo(
+                                    "Succès",
+                                    f"Le dossier d'images par défaut a été défini sur:\n{new_path}\n\n"
+                                    f"Sauvegardé dans: {env_file}"
+                                )
+                            except Exception as save_error:
+                                messagebox.showwarning(
+                                    "Avertissement",
+                                    f"Le dossier a été ouvert mais n'a pas pu être sauvegardé:\n{str(save_error)}"
+                                )
 
         except Exception as e:
             messagebox.showerror(
