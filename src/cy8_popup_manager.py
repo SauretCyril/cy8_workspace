@@ -66,7 +66,7 @@ class cy8_popup_manager:
         if mode == "edit" and prompt_id:
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = (
+                name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = (
                     data
                 )
                 name_var.set(name or "")

@@ -1339,8 +1339,10 @@ class cy8_prompts_manager:
         )
         file_frame = ttk.Frame(info_frame)
         file_frame.grid(row=row, column=1, sticky="ew", padx=10)
-        ttk.Entry(file_frame, textvariable=self.file_var, width=40, state="readonly").pack(side="left", fill="x", expand=True)
-        ttk.Button(file_frame, text="📂", width=3, command=lambda: self.copy_path_to_clipboard(self.file_var.get())).pack(side="left", padx=(5, 0))
+        file_entry = ttk.Entry(file_frame, textvariable=self.file_var, width=40, state="readonly")
+        file_entry.pack(side="left", fill="x", expand=True)
+        file_button = ttk.Button(file_frame, text="📂", width=3, command=lambda: self.copy_path_to_clipboard(self.file_var.get()))
+        file_button.pack(side="left", padx=(5, 0))
         row += 1
 
         info_frame.grid_columnconfigure(1, weight=1)
@@ -3336,7 +3338,7 @@ class cy8_prompts_manager:
                 self.comment_var.set(comment or "")
                 self.model_var.set(model or "")
                 self.status_var.set(status or "new")
-                
+
                 # Nouveaux champs
                 if hasattr(self, "file_var"):
                     self.file_var.set(file or "")
@@ -3490,7 +3492,7 @@ class cy8_prompts_manager:
                 )
                 return
 
-            name, prompt_values, workflow, url, parent, model, comment, status = data
+            name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = data
 
             # Utiliser le même nom que le prompt parent
             new_name = name
@@ -3505,6 +3507,8 @@ class cy8_prompts_manager:
                 "new",
                 f"Hérité de: {name}",
                 parent=self.selected_prompt_id,
+                file=None,  # Pas de fichier exporté pour l'héritage
+                id_env=id_env,  # Garder le même environnement
             )
 
             # Recharger et sélectionner le nouveau prompt (en respectant les filtres)
@@ -3642,7 +3646,7 @@ class cy8_prompts_manager:
                 )
                 return
 
-            name, prompt_values, workflow, url, parent, model, comment, status = data
+            name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = data
 
             # Ajouter à la pile d'exécution
             execution_id = f"exec_{int(time.time())}"
@@ -3680,7 +3684,7 @@ class cy8_prompts_manager:
                 )
                 return
 
-            name, prompt_values_json, workflow_json, url, model, comment, status = data
+            name, prompt_values_json, workflow_json, url, parent, model, comment, status, file, id_env = data
 
             # Mettre à jour le statut
             self.update_execution_stack_status(
@@ -3903,7 +3907,7 @@ class cy8_prompts_manager:
             # Récupérer les données actuelles
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
-                name, prompt_values, workflow, url, model, comment, _ = data
+                name, prompt_values, workflow, url, parent, model, comment, _, file, id_env = data
 
                 # Mettre à jour avec le nouveau statut
                 self.db_manager.update_prompt(
@@ -3976,7 +3980,7 @@ class cy8_prompts_manager:
         try:
             data = self.db_manager.get_prompt_by_id(self.selected_prompt_id)
             if data:
-                name, prompt_values, workflow, url, parent, model, comment, status = (
+                name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = (
                     data
                 )
 
@@ -3990,6 +3994,8 @@ INFORMATIONS GÉNÉRALES:
 - Modèle: {model or 'Non défini'}
 - URL: {url or 'Non définie'}
 - Commentaire: {comment or 'Aucun'}
+- Environnement: {id_env or 'Non défini'}
+- Fichier exporté: {file or 'Non exporté'}
 
 PROMPT VALUES:
 {'-'*20}
@@ -4520,7 +4526,7 @@ WORKFLOW:
 
             # Statistiques par statut
             status_counts = {}
-            for _, _, _, _, _, status, _ in prompts:
+            for _, _, _, _, _, status, _, _ in prompts:
                 status_counts[status] = status_counts.get(status, 0) + 1
 
             stats_text = f"Total prompts: {total_prompts}"
@@ -4848,14 +4854,14 @@ WORKFLOW:
             # Créer les fichiers temporaires
             import tempfile
             temp_dir = tempfile.gettempdir()
-            
+
             tmp_values_file = os.path.join(temp_dir, "tmp_values.json")
             tmp_workflow_file = os.path.join(temp_dir, "tmp_workflow.json")
 
             # Écrire les fichiers temporaires
             with open(tmp_values_file, "w", encoding="utf-8") as f:
                 f.write(prompt_values)
-            
+
             with open(tmp_workflow_file, "w", encoding="utf-8") as f:
                 f.write(workflow)
 
