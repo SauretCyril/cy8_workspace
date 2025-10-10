@@ -9,27 +9,8 @@ from datetime import datetime
 from PIL import Image, ImageTk
 from typing import List, Dict, Optional
 
-def center_window(window, width=None, height=None):
-    """Centrer une fenêtre sur l'écran"""
-    # Mettre à jour la fenêtre pour obtenir les bonnes dimensions
-    window.update_idletasks()
-
-    # Obtenir les dimensions de la fenêtre
-    if width is None:
-        width = window.winfo_reqwidth()
-    if height is None:
-        height = window.winfo_reqheight()
-
-    # Obtenir les dimensions de l'écran
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-
-    # Calculer la position pour centrer
-    x = (screen_width - width) // 2
-    y = (screen_height - height) // 2
-
-    # Appliquer la géométrie
-    window.geometry(f"{width}x{height}+{x}+{y}")
+# Import des utilitaires UI partagés (Phase 1 consolidation audit)
+from cy8_ui_utils import center_window
 
 # Import du gestionnaire RAG
 try:
@@ -3955,7 +3936,7 @@ class cy8_prompts_manager:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.popup_manager.center_window(popup, 600, 400)
+        center_window(popup, 600, 400)
 
         main_frame = ttk.Frame(popup, padding="10")
         main_frame.pack(fill="both", expand=True)
@@ -4635,7 +4616,7 @@ WORKFLOW:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.popup_manager.center_window(popup, 500, 300)
+        center_window(popup, 500, 300)
 
         main_frame = ttk.Frame(popup, padding="20")
         main_frame.pack(fill="both", expand=True)

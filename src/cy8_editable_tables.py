@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 
+# Import des utilitaires UI partagés (Phase 1 consolidation audit)
+from cy8_ui_utils import center_window
+
 
 class cy8_editable_tables:
     """Gestionnaire des tableaux éditables pour prompt_values et workflow - Version cy8"""
@@ -416,7 +419,7 @@ class cy8_editable_tables:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.popup_manager.center_window(popup, 500, 600)
+        center_window(popup, 500, 600)
 
         main_frame = ttk.Frame(popup, padding="10")
         main_frame.pack(fill="both", expand=True)
@@ -494,7 +497,7 @@ class cy8_editable_tables:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.popup_manager.center_window(popup, 600, 600)
+        center_window(popup, 600, 600)
 
         main_frame = ttk.Frame(popup, padding="10")
         main_frame.pack(fill="both", expand=True)
@@ -600,7 +603,7 @@ class cy8_editable_tables:
             edit_popup.title(f"CY8-POPUP-008 | Éditer {attr}")
             edit_popup.transient(popup)
             edit_popup.grab_set()
-            self.popup_manager.center_window(edit_popup, 400, 600)
+            center_window(edit_popup, 400, 600)
 
             frame = ttk.Frame(edit_popup, padding="10")
             frame.pack(fill="both", expand=True)

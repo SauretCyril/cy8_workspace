@@ -3,6 +3,9 @@ from tkinter import ttk, filedialog, messagebox
 import json
 import os
 
+# Import des utilitaires UI partagés (Phase 1 consolidation audit)
+from cy8_ui_utils import center_window, close_dialog
+
 
 class cy8_popup_manager:
     """Gestionnaire des popups et formulaires - Version cy8"""
@@ -10,15 +13,6 @@ class cy8_popup_manager:
     def __init__(self, root, database_manager):
         self.root = root
         self.db_manager = database_manager
-
-    def center_window(self, window, width=700, height=520):
-        """Centrer une fenêtre sur l'écran"""
-        window.update_idletasks()
-        screen_width = window.winfo_screenwidth()
-        screen_height = window.winfo_screenheight()
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        window.geometry(f"{width}x{height}+{x}+{y}")
 
     def load_json_to_text(self, text_widget):
         """Charger un fichier JSON dans un widget texte"""
@@ -53,7 +47,7 @@ class cy8_popup_manager:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.center_window(popup, width=700, height=700)
+        center_window(popup, width=700, height=700)
 
         name_var = tk.StringVar()
         url_var = tk.StringVar()
@@ -323,7 +317,7 @@ class cy8_popup_manager:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.center_window(popup, width=600, height=400)
+        center_window(popup, width=600, height=400)
 
         main_frame = ttk.Frame(popup, padding="10")
         main_frame.pack(fill="both", expand=True)
@@ -404,7 +398,7 @@ class cy8_popup_manager:
             add_popup.title("CY8-POPUP-003 | Ajouter Lora")
             add_popup.transient(popup)
             add_popup.grab_set()
-            self.center_window(add_popup, 400, 200)
+            center_window(add_popup, 400, 200)
 
             frame = ttk.Frame(add_popup, padding="10")
             frame.pack(fill="both", expand=True)
@@ -459,7 +453,7 @@ class cy8_popup_manager:
             edit_popup.title("CY8-POPUP-004 | Modifier Lora")
             edit_popup.transient(popup)
             edit_popup.grab_set()
-            self.center_window(edit_popup, 400, 200)
+            center_window(edit_popup, 400, 200)
 
             frame = ttk.Frame(edit_popup, padding="10")
             frame.pack(fill="both", expand=True)
@@ -557,7 +551,7 @@ class cy8_popup_manager:
         popup.transient(self.root)
         popup.grab_set()
 
-        self.center_window(popup, width=800, height=600)
+        center_window(popup, width=800, height=600)
 
         main_frame = ttk.Frame(popup, padding="10")
         main_frame.pack(fill="both", expand=True)
