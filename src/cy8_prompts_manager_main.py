@@ -3757,7 +3757,7 @@ class cy8_prompts_manager:
                 )
 
                 # Étape 3: Génération en cours avec vérification progressive
-                max_wait_time = 600  # 10 minutes max
+                max_wait_time = 1200  # 10 minutes max
                 start_time = time.time()
                 progress_step = 75
                 check_count = 0
@@ -3776,9 +3776,9 @@ class cy8_prompts_manager:
                         return
 
                     # Mise à jour progressive du statut (75% -> 95%)
-                    if elapsed_time > 5:  # Après 5 secondes, on augmente le progrès
+                    if elapsed_time > 60*5:  # Après 5 secondes, on augmente le progrès
                         progress_increment = min(
-                            20, int(elapsed_time / 10) * 5
+                            20, int(elapsed_time / 10) * 60
                         )  # 5% toutes les 10 secondes
                         progress_step = min(95, 75 + progress_increment)
                         self.update_execution_stack_status(
