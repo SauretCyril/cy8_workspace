@@ -46,9 +46,12 @@ L'audit complet du code source de cy8_workspace a été réalisé avec succès. 
 
 ## 🔴 TOP 5 PROBLÈMES CRITIQUES
 
-**Note:** Après analyse détaillée, 3 des 29 "doublons" sont en fait une architecture MVC correcte (add_environment, delete_environment, delete_prompt) où la fonction UI appelle la fonction DB. **Vrais doublons: 26**
+**Note:** Après analyse approfondie de chaque doublon ([voir validation complète](CODE_AUDIT_VALIDATION.md)):
+- **29 détectés** → **12 faux positifs (41%)** + **17 vrais doublons (59%)**
+- **Faux positifs:** Architecture MVC, wrappers compatibilité, conventions unittest, portées locales
+- **Gain réel estimé:** -154 lignes (-0.72%)
 
-### 1. `cancel` - 4 définitions
+### 1. `cancel` - 4 définitions 🔴 PRIORITÉ CRITIQUE
 **Localisation:**
 - `cy8_popup_manager.py:304`
 - `cy8_popup_manager.py:543`

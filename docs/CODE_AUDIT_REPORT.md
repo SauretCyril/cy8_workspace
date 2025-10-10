@@ -12,9 +12,15 @@
 
 ## 🔄 FONCTIONS EN DOUBLON
 ----------------------------------------------------------------------
-⚠️  29 fonctions définies plusieurs fois:
+⚠️  29 fonctions détectées | ✅ 12 faux positifs (41%) | 🔴 17 vrais doublons (59%)
 
-**Note importante:** Certains "doublons" sont en fait une **architecture MVC correcte** où une fonction UI appelle une fonction DB du même nom. Ces cas sont marqués ✅ **FAUX POSITIF**.
+**Note importante:** Une analyse approfondie a révélé que **41% des "doublons" sont légitimes**:
+- Architecture MVC (UI vs DB)
+- Wrappers pour compatibilité
+- Conventions unittest
+- Fonctions internes à portée locale
+
+**📋 Voir analyse complète:** [CODE_AUDIT_VALIDATION.md](CODE_AUDIT_VALIDATION.md)
 
 ### `add_environment` (2 définitions) ✅ **FAUX POSITIF - Architecture correcte**
    - src\cy8_database_manager.py:1000 - Fonction DB (insert SQL)
