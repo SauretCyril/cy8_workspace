@@ -123,7 +123,8 @@ class cy8_prompts_manager:
             self.workflow_queue,
             status_callback=self.update_execution_stack_status,
             images_callback=self.add_output_images_to_database,
-            prompt_status_callback=self.update_prompt_status_after_execution_wrapper
+            prompt_status_callback=self.update_prompt_status_after_execution_wrapper,
+            server_failure_callback=self.handle_server_failure
         )
         print("📋 Système de gestion des workflows initialisé")
 
@@ -3664,6 +3665,25 @@ class cy8_prompts_manager:
         import time
 
         try:
+            # Vérification préalable du serveur ComfyUI
+            print(f"🔍 Vérification du serveur ComfyUI avant exécution...")
+            self.update_execution_stack_status(
+                execution_id, "Vérification serveur ComfyUI", 5
+            )
+
+            from cy6_websocket_api_client import get_queue_status
+            if get_queue_status() is None:
+                error_msg = "❌ Serveur ComfyUI inaccessible"
+                print(error_msg)
+                self.update_execution_stack_status(execution_id, error_msg, 0)
+                self.root.after(
+                    0,
+                    lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
+                )
+                return
+
+            print(f"✅ Serveur ComfyUI accessible")
+
             # Récupérer les données du prompt
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if not data:
@@ -3838,6 +3858,28 @@ class cy8_prompts_manager:
             print(f"❌ DEBUG: Erreur lors de la mise à jour du statut: {e}")
             import traceback
             traceback.print_exc()
+
+    def handle_server_failure(self):
+        """Gérer une panne du serveur ComfyUI"""
+        def _handle_in_main_thread():
+            print("🚨 PANNE SERVEUR COMFYUI DÉTECTÉE")
+            print("   📋 Arrêt automatique du monitoring des workflows")
+            print("   🔄 Redémarrage possible quand le serveur sera de nouveau accessible")
+            
+            # Optionnel: Afficher une notification à l'utilisateur
+            try:
+                import tkinter.messagebox as messagebox
+                messagebox.showwarning(
+                    "Panne Serveur ComfyUI", 
+                    "Le serveur ComfyUI n'est plus accessible.\n\n"
+                    "Le monitoring des workflows a été arrêté automatiquement.\n\n"
+                    "Vérifiez que ComfyUI est démarré et relancez un workflow pour reprendre la surveillance."
+                )
+            except Exception as e:
+                print(f"⚠️ Impossible d'afficher la notification: {e}")
+        
+        # Exécuter dans le thread principal pour l'UI
+        self.root.after(0, _handle_in_main_thread)
 
     def open_prompt_analysis(self):
         """

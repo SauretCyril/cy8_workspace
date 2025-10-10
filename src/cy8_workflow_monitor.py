@@ -96,16 +96,22 @@ class WorkflowMonitor:
     def __init__(self, workflow_queue: WorkflowQueue,
                  status_callback: Callable = None,
                  images_callback: Callable = None,
-                 prompt_status_callback: Callable = None):
+                 prompt_status_callback: Callable = None,
+                 server_failure_callback: Callable = None):
         self.workflow_queue = workflow_queue
         self.status_callback = status_callback
         self.images_callback = images_callback
         self.prompt_status_callback = prompt_status_callback  # Nouveau callback pour mettre à jour le statut des prompts
+        self.server_failure_callback = server_failure_callback  # Callback pour gérer les pannes serveur
         self.running = False
         self.thread = None
         self.check_interval = 3  # Vérifier toutes les 3 secondes
 
-    def start(self):
+        # Gestion des pannes serveur
+        self.server_error_count = 0
+        self.max_server_errors = 3  # Arrêt après 3 erreurs consécutives
+        self.last_server_check = 0
+        self.server_check_interval = 10  # Vérification serveur toutes les 10s    def start(self):
         """Démarrer le thread de surveillance"""
         if not self.running:
             self.running = True
@@ -121,12 +127,96 @@ class WorkflowMonitor:
                 self.thread.join(timeout=5)
             print("⏹️ Thread de surveillance des workflows arrêté")
 
+    def _should_check_server(self) -> bool:
+        """Vérifier s'il faut tester le serveur"""
+        import time
+        now = time.time()
+        if now - self.last_server_check >= self.server_check_interval:
+            self.last_server_check = now
+            return True
+        return False
+
+    def _check_server_health(self) -> bool:
+        """Vérifier si le serveur ComfyUI est accessible"""
+        try:
+            from cy6_websocket_api_client import get_queue_status
+
+            status = get_queue_status()
+            if status is None:
+                self.server_error_count += 1
+                print(f"⚠️ Serveur ComfyUI inaccessible ({self.server_error_count}/{self.max_server_errors})")
+
+                if self.server_error_count >= self.max_server_errors:
+                    print(f"🚨 PANNE SERVEUR DÉTECTÉE - Arrêt du monitoring")
+                    self._handle_server_failure()
+                    return False
+            else:
+                # Serveur accessible, reset compteur d'erreurs
+                if self.server_error_count > 0:
+                    print(f"✅ Serveur ComfyUI redevenu accessible")
+                    self.server_error_count = 0
+
+            return True
+
+        except Exception as e:
+            self.server_error_count += 1
+            print(f"❌ Erreur vérification serveur ({self.server_error_count}/{self.max_server_errors}): {e}")
+
+            if self.server_error_count >= self.max_server_errors:
+                print(f"🚨 PANNE SERVEUR DÉTECTÉE - Arrêt du monitoring")
+                self._handle_server_failure()
+                return False
+
+            return True
+
+    def _handle_server_failure(self):
+        """Gérer une panne serveur"""
+        print("🛑 GESTION PANNE SERVEUR:")
+        print("   📋 Marquage de tous les workflows en erreur")
+        print("   🧹 Vidage de la pile de surveillance")
+
+        # Marquer tous les workflows actifs comme en erreur
+        tasks = self.workflow_queue.get_all_tasks()
+        for comfyui_prompt_id, task in tasks.items():
+            if task.status in [WorkflowStatus.QUEUED, WorkflowStatus.RUNNING, WorkflowStatus.COMPLETED]:
+                self.workflow_queue.update_task_status(
+                    comfyui_prompt_id,
+                    WorkflowStatus.FAILED,
+                    error_message="Panne serveur ComfyUI"
+                )
+
+                # Callback pour l'interface
+                if self.status_callback:
+                    self.status_callback(task.execution_id, "Panne serveur ComfyUI", 0)
+
+                # Callback pour le statut du prompt
+                if self.prompt_status_callback:
+                    self.prompt_status_callback(task.prompt_id, "nok")
+
+        # Vider la pile
+        self.workflow_queue.clear()
+        print("✅ Gestion de panne serveur terminée")
+
+        # Notifier l'application principale
+        if self.server_failure_callback:
+            try:
+                self.server_failure_callback()
+                print("📞 Application principale notifiée de la panne serveur")
+            except Exception as e:
+                print(f"⚠️ Erreur notification panne serveur: {e}")
+
     def _monitor_loop(self):
         """Boucle principale de surveillance"""
         print("👁️ Démarrage de la boucle de surveillance des workflows")
 
         while self.running:
             try:
+                # Vérification périodique du serveur
+                if self._should_check_server():
+                    if not self._check_server_health():
+                        print("🛑 Arrêt du monitoring suite à panne serveur")
+                        break
+
                 self._check_workflows()
                 time.sleep(self.check_interval)
             except Exception as e:
@@ -134,6 +224,7 @@ class WorkflowMonitor:
                 time.sleep(self.check_interval)
 
         print("👁️ Arrêt de la boucle de surveillance des workflows")
+        self.running = False
 
     def _check_workflows(self):
         """Vérifier tous les workflows en cours"""
