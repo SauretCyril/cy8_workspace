@@ -13,12 +13,12 @@ def test_with_real_model():
     """Test avec un modèle réel du serveur"""
     print("🧪 TEST AVEC MODÈLE RÉEL")
     print("=" * 25)
-    
+
     try:
         # Récupérer un modèle disponible
         import requests
         response = requests.get("http://127.0.0.1:8188/object_info", timeout=5)
-        
+
         if response.status_code == 200:
             data = response.json()
             checkpoints = []
@@ -27,14 +27,14 @@ def test_with_real_model():
                 if "input" in checkpoint_info and "required" in checkpoint_info["input"]:
                     if "ckpt_name" in checkpoint_info["input"]["required"]:
                         checkpoints = checkpoint_info["input"]["required"]["ckpt_name"][0]
-            
+
             if not checkpoints:
                 print("❌ Aucun modèle disponible")
                 return False
-                
+
             selected_model = checkpoints[0]
             print(f"🎯 Modèle sélectionné: {selected_model}")
-            
+
             # Créer un workflow avec le modèle valide
             workflow = {
                 "1": {
@@ -46,7 +46,7 @@ def test_with_real_model():
                     "inputs": {"text": "a simple test image", "clip": ["1", 1]}
                 },
                 "3": {
-                    "class_type": "CLIPTextEncode", 
+                    "class_type": "CLIPTextEncode",
                     "inputs": {"text": "bad quality", "clip": ["1", 1]}
                 },
                 "4": {
@@ -70,29 +70,29 @@ def test_with_real_model():
                     "inputs": {"filename_prefix": "test_confirm", "images": ["6", 0]}
                 }
             }
-            
+
             values = {}
-            
+
             # Test avec le système de confirmation
             from cy6_task_comfyui import comfyui_task
             import tempfile
             import json
-            
+
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as wf:
                 json.dump(workflow, wf)
                 workflow_file = wf.name
-                
+
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as vf:
                 json.dump(values, vf)
                 values_file = vf.name
-            
+
             try:
                 print("📋 Lancement avec popup de confirmation...")
                 print("✅ Cliquez 'Exécuter le Workflow' pour confirmer")
-                
+
                 task = comfyui_task()
                 result = task.addToQueue(workflow_file, values_file)
-                
+
                 if result is None:
                     print("❌ Workflow annulé par l'utilisateur")
                     return False
@@ -100,7 +100,7 @@ def test_with_real_model():
                     print(f"🎉 Workflow confirmé et lancé avec ID: {result}")
                     print("✅ Le système de confirmation fonctionne!")
                     return True
-                    
+
             finally:
                 try:
                     os.unlink(workflow_file)
@@ -110,7 +110,7 @@ def test_with_real_model():
         else:
             print("❌ Serveur ComfyUI inaccessible")
             return False
-            
+
     except Exception as e:
         print(f"❌ Erreur: {e}")
         return False
@@ -118,11 +118,11 @@ def test_with_real_model():
 if __name__ == "__main__":
     print("🎯 TEST CONFIRMATION AVEC MODÈLE RÉEL")
     print("=" * 40)
-    
+
     success = test_with_real_model()
-    
+
     print(f"\n📊 RÉSULTAT: {'✅ SUCCÈS' if success else '❌ ÉCHEC'}")
-    
+
     if success:
         print("\n🎉 POPUP DE CONFIRMATION OPÉRATIONNELLE!")
         print("📋 La popup s'affiche avant chaque exécution")

@@ -5694,6 +5694,7 @@ WORKFLOW:
         """Identifier l'environnement avec le custom node ExtraPathReader"""
         import logging
         import time
+        import json  # Import manquant pour json.JSONDecodeError
 
         logger = logging.getLogger(__name__)
 
