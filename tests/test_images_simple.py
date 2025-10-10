@@ -9,7 +9,7 @@ import tempfile
 import shutil
 
 # Ajouter le chemin src au PYTHONPATH
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cy8_prompts_manager_main import cy8_prompts_manager
 import tkinter as tk
@@ -36,10 +36,14 @@ def test_images_collecte_configuration():
             assert current_path is not None, "IMAGES_COLLECTE doit être défini"
 
             # Test 2: Vérifier que la variable d'interface est correcte
-            assert hasattr(app, 'images_path_var'), "La variable images_path_var doit exister"
+            assert hasattr(
+                app, "images_path_var"
+            ), "La variable images_path_var doit exister"
             interface_path = app.images_path_var.get()
             print(f"   🖥️ Chemin dans l'interface: {interface_path}")
-            assert interface_path == current_path, "L'interface doit refléter la variable d'environnement"
+            assert (
+                interface_path == current_path
+            ), "L'interface doit refléter la variable d'environnement"
 
             # Test 3: Tester le changement de répertoire
             app.images_path_var.set(test_images_dir)
@@ -48,7 +52,9 @@ def test_images_collecte_configuration():
             # Vérifier que la variable d'environnement a été mise à jour
             new_env_path = os.getenv("IMAGES_COLLECTE")
             print(f"   ✅ Nouveau chemin IMAGES_COLLECTE: {new_env_path}")
-            assert new_env_path == test_images_dir, "La variable d'environnement doit être mise à jour"
+            assert (
+                new_env_path == test_images_dir
+            ), "La variable d'environnement doit être mise à jour"
 
             # Test 4: Tester la création du répertoire
             app.create_images_directory()
@@ -85,7 +91,9 @@ def test_preferences_storage():
             # Vérifier que c'est sauvé dans les préférences
             saved_path = app.user_prefs.get_preference("images_collecte_path")
             print(f"   💾 Chemin sauvé dans les préférences: {saved_path}")
-            assert saved_path == test_images_dir, "Le chemin doit être sauvé dans les préférences"
+            assert (
+                saved_path == test_images_dir
+            ), "Le chemin doit être sauvé dans les préférences"
 
             print("✅ Test de sauvegarde des préférences réussi !")
             return True

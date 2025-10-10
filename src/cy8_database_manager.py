@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+from datetime import datetime
 from cy8_paths import normalize_path, ensure_dir, get_default_db_path
 
 
@@ -46,8 +47,71 @@ class cy8_database_manager:
                 )
             """
             )
+
+            # Créer la table prompt_image pour stocker les images générées
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    environment_id TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            # Créer la table environnements
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS environnements (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    last_analysis TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Créer la table resultats_analyses
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS resultats_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    fichier TEXT,
+                    type TEXT,
+                    niveau TEXT,
+                    message TEXT,
+                    details TEXT,
+                    timestamp_analyse TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            # Créer la table env_action pour les actions par environnement
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS env_action (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    short_desc TEXT NOT NULL,
+                    action_cmd TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             self.conn.commit()
             self.ensure_additional_columns()
+            self.add_default_environments()
             self.add_default_basic_prompt()
         else:  # mode == "dev"
             # Mode dev: Crée la base si elle n'existe pas
@@ -55,7 +119,9 @@ class cy8_database_manager:
             self.cursor = self.conn.cursor()
 
             # Vérifier si la table prompts existe déjà
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+            )
             table_exists = self.cursor.fetchone() is not None
 
             if table_exists:
@@ -71,7 +137,9 @@ class cy8_database_manager:
                             print(f"Structure corrigée: {fix_message}")
                         else:
                             print(f"Erreur lors de la correction: {fix_message}")
-                            raise Exception(f"Impossible de corriger la structure de la base: {fix_message}")
+                            raise Exception(
+                                f"Impossible de corriger la structure de la base: {fix_message}"
+                            )
                     else:
                         # Table manquante, la créer normalement
                         self.cursor.execute(
@@ -89,8 +157,22 @@ class cy8_database_manager:
                             )
                         """
                         )
+
+                        # Créer la table prompt_image
+                        self.cursor.execute(
+                            """
+                            CREATE TABLE IF NOT EXISTS prompt_image (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                prompt_id INTEGER NOT NULL,
+                                image_path TEXT NOT NULL,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                            )
+                        """
+                        )
+
                         self.conn.commit()
-                        print("Table 'prompts' créée avec succès")
+                        print("Tables 'prompts' et 'prompt_image' créées avec succès")
                 else:
                     print(f"Structure de la base validée: {message}")
             else:
@@ -110,10 +192,25 @@ class cy8_database_manager:
                     )
                 """
                 )
+
+                # Créer la table prompt_image
+                self.cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS prompt_image (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_id INTEGER NOT NULL,
+                        image_path TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                    )
+                """
+                )
+
                 self.conn.commit()
-                print("Table 'prompts' créée avec succès")
+                print("Tables 'prompts' et 'prompt_image' créées avec succès")
 
             self.ensure_additional_columns()
+            self.ensure_environment_tables()
 
     def ensure_additional_columns(self):
         """Assurer que toutes les colonnes additionnelles existent"""
@@ -141,7 +238,13 @@ class cy8_database_manager:
             if comment_missing:
                 alterations.append("ALTER TABLE prompts ADD COLUMN comment TEXT")
             if status_missing:
-                alterations.append("ALTER TABLE prompts ADD COLUMN status TEXT DEFAULT 'new'")
+                alterations.append(
+                    "ALTER TABLE prompts ADD COLUMN status TEXT DEFAULT 'new'"
+                )
+            if "file" not in columns:
+                alterations.append("ALTER TABLE prompts ADD COLUMN file TEXT")
+            if "id_env" not in columns:
+                alterations.append("ALTER TABLE prompts ADD COLUMN id_env TEXT")
 
             for statement in alterations:
                 self.cursor.execute(statement)
@@ -152,10 +255,43 @@ class cy8_database_manager:
             # Mise à jour des valeurs par défaut pour le statut
             if status_missing:
                 try:
-                    self.cursor.execute("UPDATE prompts SET status='new' WHERE status IS NULL OR TRIM(status)=''")
+                    self.cursor.execute(
+                        "UPDATE prompts SET status='new' WHERE status IS NULL OR TRIM(status)=''"
+                    )
                     self.conn.commit()
                 except sqlite3.OperationalError:
                     pass
+
+            # S'assurer que la table prompt_image existe avec environment_id
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompt_image'"
+            )
+            if not self.cursor.fetchone():
+                self.cursor.execute(
+                    """
+                    CREATE TABLE prompt_image (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_id INTEGER NOT NULL,
+                        image_path TEXT NOT NULL,
+                        environment_id TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                    )
+                """
+                )
+                self.conn.commit()
+                print("Table 'prompt_image' créée avec succès")
+            else:
+                # Vérifier si la colonne environment_id existe et l'ajouter si nécessaire
+                self.cursor.execute("PRAGMA table_info(prompt_image)")
+                image_columns = [row[1] for row in self.cursor.fetchall()]
+
+                if "environment_id" not in image_columns:
+                    self.cursor.execute(
+                        "ALTER TABLE prompt_image ADD COLUMN environment_id TEXT"
+                    )
+                    self.conn.commit()
+                    print("Colonne 'environment_id' ajoutée à la table 'prompt_image'")
 
         except sqlite3.OperationalError as e:
             print(f"Erreur lors de l'ajout des colonnes : {e}")
@@ -197,6 +333,19 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table prompt_image
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             # Migrer les données
             select_parts = []
             for column in desired_columns:
@@ -209,7 +358,9 @@ class cy8_database_manager:
 
             insert_columns = ", ".join(desired_columns)
             select_clause = ", ".join(select_parts)
-            self.cursor.execute(f"INSERT INTO prompts ({insert_columns}) SELECT {select_clause} FROM prompts_old")
+            self.cursor.execute(
+                f"INSERT INTO prompts ({insert_columns}) SELECT {select_clause} FROM prompts_old"
+            )
             self.cursor.execute("DROP TABLE prompts_old")
             self.conn.commit()
 
@@ -350,37 +501,43 @@ class cy8_database_manager:
 
     def get_all_prompts(self):
         """Récupérer tous les prompts avec toutes les colonnes"""
-        self.cursor.execute("SELECT id, name, parent, model, workflow, status, comment FROM prompts")
+        self.cursor.execute(
+            "SELECT id, name, parent, model, workflow, status, comment, id_env FROM prompts"
+        )
         results = []
         for row in self.cursor.fetchall():
-            prompt_id, name, parent, model, workflow, status, comment = row
+            prompt_id, name, parent, model, workflow, status, comment, id_env = row
             # Dériver le modèle si vide
             if not model and workflow:
                 model = self.derive_model_from_workflow(workflow)
-            results.append((prompt_id, name, parent, model, workflow, status, comment))
+            results.append((prompt_id, name, parent, model, workflow, status, comment, id_env))
         return results
 
     def get_prompt_by_id(self, prompt_id):
         """Récupérer un prompt par son ID"""
         self.cursor.execute(
-            "SELECT name, prompt_values, workflow, url, model, comment, status FROM prompts WHERE id=?",
+            "SELECT name, prompt_values, workflow, url, parent, model, comment, status, file, id_env FROM prompts WHERE id=?",
             (prompt_id,),
         )
         return self.cursor.fetchone()
 
-    def update_prompt(self, prompt_id, name, prompt_values, workflow, url, model, comment, status):
+    def update_prompt(
+        self, prompt_id, name, prompt_values, workflow, url, model, comment, status, file=None, id_env=None
+    ):
         """Mettre à jour un prompt complet"""
         self.cursor.execute(
-            "UPDATE prompts SET name=?, prompt_values=?, workflow=?, url=?, model=?, comment=?, status=? WHERE id=?",
-            (name, prompt_values, workflow, url, model, comment, status, prompt_id),
+            "UPDATE prompts SET name=?, prompt_values=?, workflow=?, url=?, model=?, comment=?, status=?, file=?, id_env=? WHERE id=?",
+            (name, prompt_values, workflow, url, model, comment, status, file, id_env, prompt_id),
         )
         self.conn.commit()
 
-    def create_prompt(self, name, prompt_values, workflow, url, model, status, comment, parent=None):
+    def create_prompt(
+        self, name, prompt_values, workflow, url, model, status, comment, parent=None, file=None, id_env=None
+    ):
         """Créer un nouveau prompt"""
         self.cursor.execute(
-            "INSERT INTO prompts (name, prompt_values, workflow, url, model, status, comment, parent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (name, prompt_values, workflow, url, model, status, comment, parent),
+            "INSERT INTO prompts (name, prompt_values, workflow, url, model, status, comment, parent, file, id_env) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (name, prompt_values, workflow, url, model, status, comment, parent, file, id_env),
         )
         self.conn.commit()
         return self.cursor.lastrowid
@@ -399,7 +556,9 @@ class cy8_database_manager:
         """Valider la structure de la base de données"""
         try:
             # Vérifier que la table prompts existe
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'")
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='prompts'"
+            )
             if not self.cursor.fetchone():
                 return False, "Table 'prompts' manquante"
 
@@ -476,6 +635,19 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table prompt_image
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS prompt_image (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    image_path TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE
+                )
+            """
+            )
+
             # Restaurer les données si possible
             if backup_data:
                 for row in backup_data:
@@ -528,7 +700,470 @@ class cy8_database_manager:
         except Exception as e:
             return False, f"Erreur lors de la correction: {e}"
 
+    def add_prompt_image(self, prompt_id, image_path, environment_id=None):
+        """Ajouter une image à un prompt avec l'ID d'environnement"""
+        try:
+            self.cursor.execute(
+                "INSERT INTO prompt_image (prompt_id, image_path, environment_id) VALUES (?, ?, ?)",
+                (prompt_id, image_path, environment_id),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout de l'image : {e}")
+            return False
+
+    def get_prompt_images(self, prompt_id):
+        """Récupérer toutes les images d'un prompt"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, image_path, environment_id, created_at
+                FROM prompt_image
+                WHERE prompt_id = ?
+                ORDER BY created_at DESC
+                """,
+                (prompt_id,),
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des images : {e}")
+            return []
+
+    def get_images_by_environment(self, environment_id):
+        """Récupérer toutes les images d'un environnement spécifique"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT pi.id, pi.prompt_id, pi.image_path, pi.created_at, p.name as prompt_name
+                FROM prompt_image pi
+                JOIN prompts p ON pi.prompt_id = p.id
+                WHERE pi.environment_id = ?
+                ORDER BY pi.created_at DESC
+                """,
+                (environment_id,),
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des images par environnement : {e}")
+            return []
+
+    def delete_prompt_image(self, image_id):
+        """Supprimer une image"""
+        try:
+            self.cursor.execute("DELETE FROM prompt_image WHERE id = ?", (image_id,))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression de l'image : {e}")
+            return False
+
+    def delete_prompt_images(self, prompt_id):
+        """Supprimer toutes les images d'un prompt"""
+        try:
+            self.cursor.execute(
+                "DELETE FROM prompt_image WHERE prompt_id = ?", (prompt_id,)
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression des images : {e}")
+            return False
+
     def close(self):
         """Fermer la connexion"""
         if self.conn:
             self.conn.close()
+
+    def ensure_environment_tables(self):
+        """S'assurer que les tables d'environnement existent"""
+        try:
+            # Créer la table environnements si elle n'existe pas
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS environnements (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    description TEXT,
+                    last_analysis TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Créer la table resultats_analyses si elle n'existe pas
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS resultats_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    fichier TEXT,
+                    type TEXT,
+                    niveau TEXT,
+                    message TEXT,
+                    details TEXT,
+                    timestamp_analyse TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            # Créer la table env_action pour les actions par environnement
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS env_action (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    environment_id TEXT NOT NULL,
+                    short_desc TEXT NOT NULL,
+                    action_cmd TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (environment_id) REFERENCES environnements (id) ON DELETE CASCADE
+                )
+            """
+            )
+
+            self.conn.commit()
+            print("Tables d'environnement créées/vérifiées avec succès")
+
+            # Ajouter les environnements par défaut si la table est vide
+            self.cursor.execute("SELECT COUNT(*) FROM environnements")
+            if self.cursor.fetchone()[0] == 0:
+                self.add_default_environments()
+
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la création des tables d'environnement : {e}")
+
+    def add_default_environments(self):
+        """Ajouter les 5 environnements par défaut"""
+        default_environments = [
+            ("G11_01", "G11_01", "H:\\comfyui\\G11_01", "Environnement ComfyUI G11_01"),
+            ("G11_02", "G11_02", "H:\\comfyui\\G11_02", "Environnement ComfyUI G11_02"),
+            ("G11_03", "G11_03", "H:\\comfyui\\G11_03", "Environnement ComfyUI G11_03"),
+            ("G11_04", "G11_04", "H:\\comfyui\\G11_04", "Environnement ComfyUI G11_04"),
+            ("G11_05", "G11_05", "H:\\comfyui\\G11_05", "Environnement ComfyUI G11_05"),
+        ]
+
+        try:
+            for env_id, name, path, description in default_environments:
+                self.cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO environnements (id, name, path, description)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    (env_id, name, path, description),
+                )
+            self.conn.commit()
+            print("Environnements par défaut ajoutés avec succès")
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout des environnements par défaut : {e}")
+
+    def get_all_environments(self):
+        """Récupérer tous les environnements"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, description, last_analysis, created_at, updated_at
+                FROM environnements
+                ORDER BY name
+            """
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des environnements : {e}")
+            return []
+
+    def update_environment_analysis(self, environment_id):
+        """Mettre à jour la date de dernière analyse d'un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                UPDATE environnements
+                SET last_analysis = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """,
+                (environment_id,),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la mise à jour de l'environnement : {e}")
+            return False
+
+    def clear_analysis_results(self, environment_id=None):
+        """Effacer les résultats d'analyse (tous ou pour un environnement spécifique)"""
+        try:
+            if environment_id:
+                self.cursor.execute(
+                    "DELETE FROM resultats_analyses WHERE environment_id = ?",
+                    (environment_id,),
+                )
+            else:
+                self.cursor.execute("DELETE FROM resultats_analyses")
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'effacement des résultats d'analyse : {e}")
+            return False
+
+    def get_environment_analyses_directory(self, environment_id):
+        """Récupérer le répertoire d'analyses pour un environnement"""
+        try:
+            self.cursor.execute(
+                "SELECT path FROM environnements WHERE id = ?",
+                (environment_id,),
+            )
+            result = self.cursor.fetchone()
+            if result and result[0]:
+                # Créer le chemin du répertoire analyses
+                analyses_dir = os.path.join(result[0], "analyses")
+                # Créer le répertoire s'il n'existe pas
+                os.makedirs(analyses_dir, exist_ok=True)
+                return analyses_dir
+            else:
+                # Répertoire par défaut si l'environnement n'est pas trouvé
+                default_dir = f"g:/temp/analyses/{environment_id}"
+                os.makedirs(default_dir, exist_ok=True)
+                return default_dir
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération du répertoire analyses : {e}")
+            # Répertoire par défaut en cas d'erreur
+            default_dir = f"g:/temp/analyses/{environment_id}"
+            os.makedirs(default_dir, exist_ok=True)
+            return default_dir
+
+    def add_analysis_result(
+        self, environment_id, fichier, type_result, niveau, message, details=""
+    ):
+        """Ajouter un résultat d'analyse"""
+        try:
+            self.cursor.execute(
+                """
+                INSERT INTO resultats_analyses
+                (environment_id, fichier, type, niveau, message, details)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (environment_id, fichier, type_result, niveau, message, details),
+            )
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout du résultat d'analyse : {e}")
+            return False
+
+    def get_analysis_results(self, environment_id=None):
+        """Récupérer les résultats d'analyse (tous ou pour un environnement spécifique)"""
+        try:
+            if environment_id:
+                self.cursor.execute(
+                    """
+                    SELECT id, environment_id, fichier, type, niveau, message, details, timestamp_analyse
+                    FROM resultats_analyses
+                    WHERE environment_id = ?
+                    ORDER BY timestamp_analyse DESC
+                """,
+                    (environment_id,),
+                )
+            else:
+                self.cursor.execute(
+                    """
+                    SELECT id, environment_id, fichier, type, niveau, message, details, timestamp_analyse
+                    FROM resultats_analyses
+                    ORDER BY timestamp_analyse DESC
+                """
+                )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération des résultats d'analyse : {e}")
+            return []
+
+    def get_environment_by_id(self, environment_id):
+        """Récupérer un environnement par son ID"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, description, last_analysis, created_at, updated_at
+                FROM environnements
+                WHERE id = ?
+            """,
+                (environment_id,),
+            )
+            return self.cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la récupération de l'environnement : {e}")
+            return None
+
+    # === MÉTHODES CRUD POUR LES ENVIRONNEMENTS ===
+
+    def add_environment(self, env_id, name, path, description=""):
+        """Ajouter un nouvel environnement"""
+        try:
+            current_time = datetime.now().isoformat()
+            self.cursor.execute(
+                """
+                INSERT INTO environnements (id, name, path, description, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+                (env_id, name, path, description, current_time, current_time),
+            )
+            self.conn.commit()
+            print(f"Environnement '{name}' ajouté avec succès (ID: {env_id})")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de l'ajout de l'environnement : {e}")
+            return False
+
+    def update_environment(self, old_env_id, new_env_id, name, path, description=""):
+        """Mettre à jour un environnement existant"""
+        try:
+            current_time = datetime.now().isoformat()
+
+            # Si l'ID change, on doit mettre à jour toutes les références
+            if old_env_id != new_env_id:
+                # Mettre à jour les analyses liées (si la table existe)
+                try:
+                    self.cursor.execute(
+                        "UPDATE analyses SET environment_id = ? WHERE environment_id = ?",
+                        (new_env_id, old_env_id)
+                    )
+                except sqlite3.OperationalError:
+                    # Table analyses n'existe pas, on continue
+                    pass
+
+                # Mettre à jour les images liées (si la table existe)
+                try:
+                    self.cursor.execute(
+                        "UPDATE prompt_images SET environment_id = ? WHERE environment_id = ?",
+                        (new_env_id, old_env_id)
+                    )
+                except sqlite3.OperationalError:
+                    # Table prompt_images n'existe pas, on continue
+                    pass
+
+            # Mettre à jour l'environnement
+            self.cursor.execute(
+                """
+                UPDATE environnements
+                SET id = ?, name = ?, path = ?, description = ?, updated_at = ?
+                WHERE id = ?
+            """,
+                (new_env_id, name, path, description, current_time, old_env_id),
+            )
+
+            self.conn.commit()
+            print(f"Environnement mis à jour avec succès (ID: {new_env_id})")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la mise à jour de l'environnement : {e}")
+            return False
+
+    def delete_environment(self, env_id):
+        """Supprimer un environnement et toutes ses données associées"""
+        try:
+            # Supprimer les analyses liées (si la table existe)
+            try:
+                self.cursor.execute(
+                    "DELETE FROM analyses WHERE environment_id = ?",
+                    (env_id,)
+                )
+            except sqlite3.OperationalError:
+                # Table analyses n'existe pas, on continue
+                pass
+
+            # Supprimer les images liées (si la table existe)
+            try:
+                self.cursor.execute(
+                    "DELETE FROM prompt_images WHERE environment_id = ?",
+                    (env_id,)
+                )
+            except sqlite3.OperationalError:
+                # Table prompt_images n'existe pas, on continue
+                pass
+
+            # Supprimer l'environnement
+            self.cursor.execute(
+                "DELETE FROM environnements WHERE id = ?",
+                (env_id,)
+            )
+
+            self.conn.commit()
+            print(f"Environnement '{env_id}' et toutes ses données supprimés avec succès")
+            return True
+        except sqlite3.Error as e:
+            print(f"Erreur lors de la suppression de l'environnement : {e}")
+            return False
+
+    # === MÉTHODES CRUD POUR LES ACTIONS D'ENVIRONNEMENT ===
+
+    def get_env_actions(self, environment_id):
+        """Récupérer toutes les actions pour un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, environment_id, short_desc, action_cmd, created_at, updated_at
+                FROM env_action
+                WHERE environment_id = ?
+                ORDER BY created_at DESC
+                """,
+                (environment_id,)
+            )
+            rows = self.cursor.fetchall()
+            return [
+                {
+                    "id": row[0],
+                    "environment_id": row[1],
+                    "short_desc": row[2],
+                    "action_cmd": row[3],
+                    "created_at": row[4],
+                    "updated_at": row[5]
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            print(f"Erreur lors de la récupération des actions: {e}")
+            return []
+
+    def add_env_action(self, environment_id, short_desc, action_cmd=""):
+        """Ajouter une nouvelle action pour un environnement"""
+        try:
+            self.cursor.execute(
+                """
+                INSERT INTO env_action (environment_id, short_desc, action_cmd)
+                VALUES (?, ?, ?)
+                """,
+                (environment_id, short_desc, action_cmd)
+            )
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except Exception as e:
+            print(f"Erreur lors de l'ajout de l'action: {e}")
+            return None
+
+    def update_env_action(self, action_id, short_desc, action_cmd):
+        """Mettre à jour une action existante"""
+        try:
+            self.cursor.execute(
+                """
+                UPDATE env_action
+                SET short_desc = ?, action_cmd = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (short_desc, action_cmd, action_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            print(f"Erreur lors de la mise à jour de l'action: {e}")
+            return False
+
+    def delete_env_action(self, action_id):
+        """Supprimer une action"""
+        try:
+            self.cursor.execute("DELETE FROM env_action WHERE id = ?", (action_id,))
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except Exception as e:
+            print(f"Erreur lors de la suppression de l'action: {e}")
+            return False

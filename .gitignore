@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+data/
 # Distribution / packaging
 .Python
 build/
@@ -81,3 +81,4 @@ data/output/
 
 # Configuration locale
 config.local.json
+data/analyses/vector_db/chroma.sqlite3

@@ -1,21 +1,27 @@
 import sys
 import json
 import os
-#sys.path.append('G:/G_WCS/Comfyui_api')
-from cy6_file import log_json
-from  cy6_websocket_api_client import update_workflow,socket_queue_prompt,server_connect,workflow_is_running,socket_get_images
 
-#seed aleatoire
+# sys.path.append('G:/G_WCS/Comfyui_api')
+from cy6_file import log_json
+from cy6_websocket_api_client import (
+    update_workflow,
+    socket_queue_prompt,
+    server_connect,
+    workflow_is_running,
+    socket_get_images,
+)
+
+
+# seed aleatoire
 class comfyui_task:
-    name="Default"
+    name = "Default"
 
     def update_values(self, values):
         self.values = values
 
-
-
     def log_values(self):
-        log_json('02_value_to_update',self.values)
+        log_json("02_value_to_update", self.values)
 
     def addToQueue(self, fileworkflow, filevalues):
         """
@@ -28,7 +34,7 @@ class comfyui_task:
 
         # Soumettre le prompt à ComfyUI
         response = socket_queue_prompt(json)
-        prompt_id = response['prompt_id']
+        prompt_id = response["prompt_id"]
 
         # Établir la connexion WebSocket pour le suivi
         try:

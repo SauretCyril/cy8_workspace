@@ -18,6 +18,53 @@ Le **cy8_prompts_manager** est une application de bureau Python moderne construi
 
 ## 🏗️ Architecture
 
+### 📂 Structure du projet
+
+```
+cy8_workspace/
+├── 📄 main.py                  # Point d'entrée principal
+├── 📄 requirements.txt         # Dépendances Python
+├── 📄 README.md               # Ce fichier
+│
+├── 📂 src/                    # Code source principal
+│   ├── cy8_prompts_manager_main.py
+│   ├── cy8_database_manager.py
+│   ├── cy8_rag_manager.py
+│   ├── cy8_mistral.py
+│   └── ... (autres modules)
+│
+├── 📂 tests/                  # Tests unitaires et d'intégration
+│   ├── test_*.py
+│   └── run_tests.py
+│
+├── 📂 scripts/                # Scripts utilitaires
+│   ├── activate.*             # Activation venv
+│   ├── start.*                # Démarrage application
+│   └── install_*.*
+│
+├── 📂 debugs/                 # Scripts de diagnostic
+│   ├── debug_*.py
+│   └── diagnostic_*.py
+│
+├── 📂 demos/                  # Exemples et démos
+│   ├── demo_*.py
+│   └── guide_*.py
+│
+├── 📂 docs/                   # Documentation complète
+│   ├── INDEX.md               # Index de la documentation
+│   ├── STRUCTURE.md           # Architecture détaillée
+│   └── ... (45+ documents)
+│
+├── 📂 data/                   # Données de l'application
+│   ├── Workflows/
+│   └── prompts_manager.db
+│
+└── 📂 logs/                   # Fichiers de logs
+```
+
+📖 **Documentation complète** : Voir [docs/INDEX.md](docs/INDEX.md)
+🏗️ **Architecture détaillée** : Voir [docs/STRUCTURE.md](docs/STRUCTURE.md)
+
 ### Modules principaux
 
 - **`cy8_prompts_manager_main.py`** : Gestionnaire principal et interface utilisateur
@@ -51,31 +98,98 @@ pip install -r requirements.txt
 
 ### Lancement de l'application
 
+**Méthode recommandée (avec scripts) :**
+```bash
+# Windows
+scripts\start_with_venv.bat
+
+# Unix/Linux/Mac
+bash scripts/start.sh
+```
+
 **Méthode simple :**
+```bash
+python main.py
+```
+
+**Méthode directe :**
 ```bash
 python src/cy8_prompts_manager_main.py
 ```
 
-**Méthode avec scripts de démarrage :**
-```bash
-# Windows
-start.bat
-
-# Unix/Linux/Mac
-./start.sh
-```
-
-**Point d'entrée principal :**
-```bash
-python main.py  # Point d'entrée avec gestion d'erreurs
-```
-
 ### Scripts utilitaires
 
-- **`validate_ci.py`** : Validation complète du code (tests, style, dépendances)
-- **`install_hooks.py`** : Installation des hooks Git pre-push
-- **`start.bat/sh`** : Scripts de démarrage avec vérifications
+📂 Tous les scripts sont dans le répertoire `scripts/`
+
 - **`activate.bat/sh`** : Activation rapide de l'environnement virtuel
+- **`start_with_venv.bat/start.sh`** : Démarrage avec vérifications
+- **`ci_setup.bat/sh`** : Configuration CI/CD
+- **`install_hooks.py`** : Installation des hooks Git
+- **`install_rust_optimization.bat/sh`** : Optimisations Rust pour images
+
+📖 **Guide complet** : Voir [scripts/README.md](scripts/README.md)
+
+### 🧪 Tests
+
+Le projet inclut une suite de tests complète dans le répertoire `tests/`.
+
+#### Exécution des tests
+
+```bash
+# Exécuter tous les tests
+python tests/run_all_tests.py
+
+# Avec pytest
+pytest tests/ -v
+
+# Test spécifique
+python tests/test_comfyui_connection.py
+```
+
+#### Tests disponibles
+
+- Tests d'application : `test_app_*.py`
+- Tests ComfyUI : `test_comfyui_*.py`
+- Tests RAG : `test_rag_*.py`
+- Tests d'environnement : `test_environment_*.py`
+- Tests de base de données : `test_db_*.py`
+- Et bien d'autres...
+
+📖 **Guide complet des tests** : Voir [tests/README.md](tests/README.md)
+
+### 🐛 Debug et Diagnostic
+
+Scripts de diagnostic disponibles dans `debugs/` :
+
+```bash
+# Diagnostic environnement
+python debugs/debug_environment.py
+
+# Diagnostic RAG
+python debugs/diagnostic_rag_simple.py
+
+# Vérification base de données
+python tests/check_environments_db.py
+```
+
+📖 **Guide de diagnostic** : Voir [debugs/README.md](debugs/README.md)
+
+### 🎨 Démos et Exemples
+
+Exemples d'utilisation dans `demos/` :
+
+```bash
+# Démo système d'images
+python demos/demo_images.py
+
+# Démo système RAG
+python demos/demo_rag_system.py
+
+# Guide de test RAG
+python demos/guide_test_rag.py
+```
+
+📖 **Liste complète des démos** : Voir [demos/README.md](demos/README.md)
 
 ## 🎮 Guide d'utilisation
 
