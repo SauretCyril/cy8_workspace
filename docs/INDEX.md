@@ -2,6 +2,32 @@
 
 Index complet de toute la documentation du projet cy8_workspace.
 
+## 🔍 AUDIT ET QUALITÉ DU CODE
+
+### 🔍 [CODE_AUDIT_REPORT.md](CODE_AUDIT_REPORT.md) 🆕
+**Rapport d'audit complet du code source**
+- 📊 Statistiques détaillées (23 fichiers, 21,285 lignes)
+- 🔄 29 fonctions en doublon identifiées
+- 👻 401 fonctions orphelines détectées
+- 📁 Analyse par fichier
+- Date: 2025-10-10
+
+### 📋 [CODE_AUDIT_RECOMMENDATIONS.md](CODE_AUDIT_RECOMMENDATIONS.md) 🆕
+**Recommandations et plan d'action**
+- 🎯 Résumé exécutif
+- 🔴 Problèmes critiques prioritaires
+- 🟢 Plan d'action sur 4 semaines
+- 🛠️ Outils recommandés
+- 📊 Métriques de qualité
+- Date: 2025-10-10
+
+### 📊 [code_audit_data.json](code_audit_data.json) 🆕
+**Données brutes d'audit en format JSON**
+- Statistiques complètes
+- Liste des doublons
+- Fonctions orphelines
+- Informations par fichier
+
 ## 🏗️ Structure et Organisation
 
 ### 📋 [STRUCTURE.md](STRUCTURE.md)

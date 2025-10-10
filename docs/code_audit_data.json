@@ -1,0 +1,14 @@
+{
+  "statistics": {
+    "total_files": 0,
+    "total_lines": 0,
+    "total_functions": 0,
+    "total_classes": 0,
+    "unique_function_names": 0,
+    "unique_class_names": 0
+  },
+  "duplicates": {},
+  "class_duplicates": {},
+  "orphans": {},
+  "files": {}
+}
