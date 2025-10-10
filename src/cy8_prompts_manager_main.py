@@ -23,15 +23,7 @@ except ImportError:
     print("⚠️ RAGManager non disponible")
 
 # Import du gestionnaire d'identifiants de popups
-try:
-    from cy8_popup_id_manager import popup_manager, get_popup_id, close_popup
-except ImportError:
-    # Fallback en cas d'absence du module
-    def get_popup_id(title, popup_type="dialog"):
-        return f"popup_{id(title)}", title
-    def close_popup(popup_id):
-        pass
-    popup_manager = None
+from cy8_popup_id_manager import popup_manager, get_popup_id, close_popup
 
 # Import conditionnel de safetensors (optionnel)
 try:
@@ -3424,23 +3416,34 @@ class cy8_prompts_manager:
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde: {e}")
 
+    def _create_prompt_save_callback(self, mode="new", prompt_id=None):
+        """Helper pour créer des callbacks on_save standardisés pour les formulaires de prompts"""
+        def on_save():
+            if mode == "new":
+                # Pour nouveau prompt : vérifier filtres actifs
+                old_has_filters = self.has_active_filters()
+                self.refresh_prompts_display()
+
+                # Si des filtres étaient actifs, informer l'utilisateur
+                if old_has_filters:
+                    messagebox.showinfo(
+                        "Information",
+                        "Nouveau prompt créé avec succès !\n\n"
+                        "Il se peut que le nouveau prompt ne soit pas visible "
+                        "avec les filtres actuels. Vous pouvez modifier les filtres "
+                        "ou les réinitialiser pour le voir."
+                    )
+            elif mode == "edit":
+                # Pour édition : refresh + reload détails
+                self.refresh_prompts_display()
+                if prompt_id:
+                    self.load_prompt_details(prompt_id)
+
+        return on_save
+
     def new_prompt(self):
         """0.5) Créer un nouveau prompt"""
-
-        def on_save():
-            old_has_filters = self.has_active_filters()
-            self.refresh_prompts_display()
-
-            # Si des filtres étaient actifs, informer l'utilisateur
-            if old_has_filters:
-                messagebox.showinfo(
-                    "Information",
-                    "Nouveau prompt créé avec succès !\n\n"
-                    "Il se peut que le nouveau prompt ne soit pas visible "
-                    "avec les filtres actuels. Vous pouvez modifier les filtres "
-                    "ou les réinitialiser pour le voir.",
-                )
-
+        on_save = self._create_prompt_save_callback("new")
         self.popup_manager.prompt_form("new", None, on_save)
 
     def edit_prompt(self):
@@ -3449,10 +3452,7 @@ class cy8_prompts_manager:
             messagebox.showwarning("Attention", "Sélectionnez un prompt à éditer.")
             return
 
-        def on_save():
-            self.refresh_prompts_display()
-            self.load_prompt_details(self.selected_prompt_id)
-
+        on_save = self._create_prompt_save_callback("edit", self.selected_prompt_id)
         self.popup_manager.prompt_form("edit", self.selected_prompt_id, on_save)
 
     def inherit_prompt(self):
@@ -11190,6 +11190,46 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
         except Exception as e:
             self.add_chat_message("error", f"❌ Erreur test efficacité: {e}")
 
+    # ===== FONCTIONS HELPER POUR TESTS RAG =====
+
+    def _run_rag_test_threaded(self, test_name: str, test_method_name: str, success_callback=None):
+        """
+        Helper générique pour exécuter un test RAG en arrière-plan
+
+        Args:
+            test_name: Nom affiché du test (ex: "Test rapide RAG")
+            test_method_name: Nom de la méthode à appeler sur rag_tester
+            success_callback: Fonction appelée avec les résultats en cas de succès
+        """
+        def run_test():
+            try:
+                print(f"🧪 Thread {test_name} démarré...")
+                print(f"   📍 Environment ID: {self.current_environment_id}")
+                print(f"   🧠 RAG Manager disponible: {bool(self.rag_manager)}")
+                print(f"   🧪 RAG Tester disponible: {bool(self.rag_tester)}")
+
+                print(f"   ⏳ Appel de {test_method_name}()...")
+                test_method = getattr(self.rag_tester, test_method_name)
+                results = test_method()
+
+                print(f"   ✅ {test_name} terminé, résultats reçus: {bool(results)}")
+                if results and isinstance(results, dict):
+                    print(f"      Keys: {list(results.keys())}")
+
+                # Afficher les résultats dans le chat (thread-safe)
+                if success_callback:
+                    print(f"   📤 Programmation du callback de succès...")
+                    self.root.after(0, lambda: success_callback(results))
+
+            except Exception as e:
+                print(f"   ❌ Exception dans {test_name}: {e}")
+                import traceback
+                traceback.print_exc()
+                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur lors du {test_name.lower()}: {e}"))
+
+        # Lancer le test en arrière-plan
+        threading.Thread(target=run_test, daemon=True).start()
+
     # ===== MÉTHODES DE TEST RAG =====
 
     def run_rag_test_suite(self):
@@ -11289,32 +11329,12 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
 
         self.add_chat_message("system", "⚡ Lancement du test rapide RAG...")
 
-        def run_test():
-            print("⚡ Thread de test rapide démarré...")
-            try:
-                print(f"   📍 Environment ID: {self.current_environment_id}")
-                print(f"   🧠 RAG Manager disponible: {bool(self.rag_manager)}")
-                print(f"   🧪 RAG Tester disponible: {bool(self.rag_tester)}")
-
-                print("   ⏳ Appel de run_quick_test()...")
-                results = self.rag_tester.run_quick_test()
-
-                print(f"   ✅ Test rapide terminé, résultats reçus: {bool(results)}")
-                if results:
-                    print(f"      Keys: {list(results.keys())}")
-
-                # Afficher les résultats dans le chat (thread-safe)
-                print("   📤 Programmation de l'affichage des résultats...")
-                self.root.after(0, lambda: self.display_quick_test_results(results))
-
-            except Exception as e:
-                print(f"   ❌ Exception dans run_test: {e}")
-                import traceback
-                traceback.print_exc()
-                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur lors du test rapide: {e}"))
-
-        # Lancer le test en arrière-plan
-        threading.Thread(target=run_test, daemon=True).start()
+        # Utilisation de la fonction helper générique
+        self._run_rag_test_threaded(
+            test_name="Test rapide RAG",
+            test_method_name="run_quick_test",
+            success_callback=self.display_quick_test_results
+        )
 
     def handle_rag_test_command(self, command: str):
         """Gérer les commandes de test RAG depuis le chat"""
@@ -11351,19 +11371,19 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
 
         self.add_chat_message("system", "📚 Test de l'indexation RAG...")
 
-        def run_test():
-            try:
-                result = self.rag_tester._test_new_data_indexing()
-                message = f"📚 **Test d'indexation:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
-                message += f"📊 Documents indexés: {result.get('documents_after', 0) - result.get('documents_before', 0)}\n"
-                message += f"🔍 Recherche fonctionnelle: {'Oui' if result.get('immediate_search_found') else 'Non'}"
+        # Callback spécialisé pour le test d'indexation
+        def display_indexation_results(result):
+            message = f"📚 **Test d'indexation:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
+            message += f"📊 Documents indexés: {result.get('documents_after', 0) - result.get('documents_before', 0)}\n"
+            message += f"🔍 Recherche fonctionnelle: {'Oui' if result.get('immediate_search_found') else 'Non'}"
+            self.add_chat_message("assistant", message)
 
-                self.root.after(0, lambda: self.add_chat_message("assistant", message))
-
-            except Exception as e:
-                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test indexation: {e}"))
-
-        threading.Thread(target=run_test, daemon=True).start()
+        # Utilisation de la fonction helper générique
+        self._run_rag_test_threaded(
+            test_name="Test indexation RAG",
+            test_method_name="_test_new_data_indexing",
+            success_callback=display_indexation_results
+        )
 
     def test_rag_learning(self):
         """Tester spécifiquement l'apprentissage RAG"""
@@ -11373,19 +11393,19 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
 
         self.add_chat_message("system", "🧠 Test de l'apprentissage RAG...")
 
-        def run_test():
-            try:
-                result = self.rag_tester._test_chat_learning()
-                message = f"🧠 **Test d'apprentissage:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
-                message += f"💬 Conversations testées: {result.get('conversations_tested', 0)}\n"
-                message += f"🎯 Mémorisation: {'Bonne' if result.get('memory_working') else 'Problématique'}"
+        # Callback spécialisé pour le test d'apprentissage
+        def display_learning_results(result):
+            message = f"🧠 **Test d'apprentissage:** {'✅ Réussi' if result.get('status') == 'success' else '❌ Échoué'}\n"
+            message += f"💬 Conversations testées: {result.get('conversations_tested', 0)}\n"
+            message += f"🎯 Mémorisation: {'Bonne' if result.get('memory_working') else 'Problématique'}"
+            self.add_chat_message("assistant", message)
 
-                self.root.after(0, lambda: self.add_chat_message("assistant", message))
-
-            except Exception as e:
-                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test apprentissage: {e}"))
-
-        threading.Thread(target=run_test, daemon=True).start()
+        # Utilisation de la fonction helper générique
+        self._run_rag_test_threaded(
+            test_name="Test apprentissage RAG",
+            test_method_name="_test_chat_learning",
+            success_callback=display_learning_results
+        )
 
     def test_rag_performance(self):
         """Tester spécifiquement les performances RAG"""
@@ -11395,19 +11415,19 @@ Tapez vos commandes ci-dessous. Utilisez ↑/↓ pour naviguer dans l'historique
 
         self.add_chat_message("system", "⚡ Test des performances RAG...")
 
-        def run_test():
-            try:
-                result = self.rag_tester._test_performance()
-                message = f"⚡ **Test de performance:** {'✅ Bon' if result.get('status') == 'success' else '❌ Dégradé'}\n"
-                message += f"🕒 Temps de recherche: {result.get('avg_search_time', 0):.2f}s\n"
-                message += f"📊 Qualité des résultats: {result.get('result_quality', 'Inconnue')}"
+        # Callback spécialisé pour le test de performance
+        def display_performance_results(result):
+            message = f"⚡ **Test de performance:** {'✅ Bon' if result.get('status') == 'success' else '❌ Dégradé'}\n"
+            message += f"🕒 Temps de recherche: {result.get('avg_search_time', 0):.2f}s\n"
+            message += f"📊 Qualité des résultats: {result.get('result_quality', 'Inconnue')}"
+            self.add_chat_message("assistant", message)
 
-                self.root.after(0, lambda: self.add_chat_message("assistant", message))
-
-            except Exception as e:
-                self.root.after(0, lambda: self.add_chat_message("error", f"❌ Erreur test performance: {e}"))
-
-        threading.Thread(target=run_test, daemon=True).start()
+        # Utilisation de la fonction helper générique
+        self._run_rag_test_threaded(
+            test_name="Test performance RAG",
+            test_method_name="_test_performance",
+            success_callback=display_performance_results
+        )
 
     def display_test_results(self, results: dict):
         """Afficher les résultats complets des tests dans le chat"""

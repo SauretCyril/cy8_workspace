@@ -1105,185 +1105,6 @@ Fournis une analyse experte en te basant sur les patterns observés dans l'histo
 
     # === MÉTHODES TODO/FOCUS ===
 
-    def process_todo_command(self, query: str, chat_history: List = None) -> Dict[str, Any]:
-        """Traiter les commandes TODO dans le chat"""
-        try:
-            if not self.todo_manager:
-                return {
-                    "success": False,
-                    "response": "❌ Gestionnaire TODO non disponible. Vérifiez l'initialisation du RAG.",
-                    "mode": "todo_error"
-                }
-
-            query = query.strip().lower()
-
-            # Commande /todo list
-            if query in ['/todo list', '/todo', '/list']:
-                todos = self.todo_manager.get_todos()
-                if not todos:
-                    response = "📝 Aucune tâche en cours"
-                else:
-                    response = "📋 **Tâches TODO:**\n"
-                    for todo in todos:
-                        status_icon = "✅" if todo['status'] == 'completed' else "⏳"
-                        priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(todo['priority'], "⚪")
-                        response += f"{status_icon} {priority_icon} **{todo['id'][:8]}**: {todo['title']} ({todo['status']})\n"
-
-                return {
-                    "success": True,
-                    "response": response,
-                    "mode": "todo_list",
-                    "todos": todos
-                }
-
-            # Commande /todo add <titre>
-            if query.startswith('/todo add '):
-                title = query[10:].strip()
-                if not title:
-                    return {
-                        "success": False,
-                        "response": "❌ Usage: /todo add <titre de la tâche>",
-                        "mode": "todo_error"
-                    }
-
-                todo_id = self.todo_manager.add_todo(title)
-                return {
-                    "success": True,
-                    "response": f"✅ Tâche ajoutée avec ID: **{todo_id[:8]}**\n📝 {title}",
-                    "mode": "todo_added",
-                    "todo_id": todo_id
-                }
-
-            # Commande /todo done <id>
-            if query.startswith('/todo done '):
-                todo_id = query[11:].strip()
-                if not todo_id:
-                    return {
-                        "success": False,
-                        "response": "❌ Usage: /todo done <id>",
-                        "mode": "todo_error"
-                    }
-
-                success = self.todo_manager.complete_todo(todo_id)
-                if success:
-                    return {
-                        "success": True,
-                        "response": f"✅ Tâche **{todo_id[:8]}** marquée comme terminée !",
-                        "mode": "todo_completed"
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "response": f"❌ Tâche **{todo_id[:8]}** non trouvée",
-                        "mode": "todo_error"
-                    }
-
-            # Commande /focus <id>
-            if query.startswith('/focus '):
-                todo_id = query[7:].strip()
-                if not todo_id:
-                    return {
-                        "success": False,
-                        "response": "❌ Usage: /focus <id>",
-                        "mode": "todo_error"
-                    }
-
-                # Sauvegarder l'historique avant focus
-                if chat_history:
-                    self.todo_manager.start_focus(todo_id, chat_history)
-                else:
-                    self.todo_manager.start_focus(todo_id, [])
-
-                todo = self.todo_manager.get_todo_by_id(todo_id)
-                if todo:
-                    return {
-                        "success": True,
-                        "response": f"🎯 **MODE FOCUS ACTIVÉ**\n\n📝 **Focus sur:** {todo['title']}\n💡 Historique sauvegardé. Utilisez `/restore` pour revenir.",
-                        "mode": "focus_started",
-                        "todo": todo,
-                        "clear_history": True
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "response": f"❌ Tâche **{todo_id[:8]}** non trouvée",
-                        "mode": "todo_error"
-                    }
-
-            # Commande /end-focus
-            if query in ['/end-focus', '/endfocus']:
-                self.todo_manager.end_focus()
-                return {
-                    "success": True,
-                    "response": "🔄 **Mode focus terminé**\n💡 Vous pouvez utiliser `/restore` pour récupérer l'historique.",
-                    "mode": "focus_ended"
-                }
-
-            # Commande /restore
-            if query in ['/restore', '/back']:
-                backup = self.todo_manager.restore_chat_history()
-                if backup:
-                    return {
-                        "success": True,
-                        "response": "🔄 **Historique restauré**\n📚 Conversation précédente récupérée.",
-                        "mode": "history_restored",
-                        "restore_history": backup
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "response": "❌ Aucun historique à restaurer",
-                        "mode": "todo_error"
-                    }
-
-            # Commande /help ou commande inconnue
-            return {
-                "success": True,
-                "response": """🆘 **Commandes TODO disponibles:**
-
-📋 **Gestion des tâches:**
-• `/todo list` - Afficher toutes les tâches
-• `/todo add <titre>` - Ajouter une nouvelle tâche
-• `/todo done <id>` - Marquer une tâche comme terminée
-
-🎯 **Mode Focus:**
-• `/focus <id>` - Activer le mode focus sur une tâche
-• `/end-focus` - Terminer le mode focus
-• `/restore` - Restaurer l'historique précédent
-
-💡 **Le mode focus efface l'historique pour vous concentrer sur UNE seule tâche.**""",
-                "mode": "todo_help"
-            }
-
-        except Exception as e:
-            self.logger.error(f"Erreur commande TODO: {e}")
-            return {
-                "success": False,
-                "response": f"❌ Erreur lors du traitement de la commande: {e}",
-                "mode": "todo_error"
-            }
-
-    def is_todo_command(self, query: str) -> bool:
-        """Vérifier si une query est une commande TODO"""
-        if not query:
-            return False
-
-        query = query.strip().lower()
-
-        # Commandes simples
-        simple_commands = ['/todo', '/todo list', '/list', '/help', '/end-focus',
-                          '/endfocus', '/restore', '/back']
-        if query in simple_commands:
-            return True
-
-        # Vérifier les commandes avec paramètres
-        if (query.startswith('/todo add ') or
-            query.startswith('/todo done ') or
-            query.startswith('/focus ')):
-            return True
-
-        return False
-
     def get_current_focus(self) -> Optional[str]:
         """Obtenir l'ID de la tâche en focus actuel"""
         if self.todo_manager:
@@ -1483,14 +1304,14 @@ class RAGManagerStats:
 
             # Commande /end-focus
             if query in ['/end-focus', '/end', '/unfocus']:
-                if not self.todo_manager.current_focus_id:
+                if not self.get_current_focus():
                     return {
                         "success": False,
                         "response": "❌ Aucun focus actif à terminer.",
                         "mode": "todo_error"
                     }
 
-                focused_id = self.todo_manager.current_focus_id
+                focused_id = self.get_current_focus()
                 success = self.todo_manager.end_focus()
                 if success:
                     return {
@@ -1513,7 +1334,7 @@ class RAGManagerStats:
                 success = self.todo_manager.update_todo_status(todo_id, "completed")
                 if success:
                     # Si on termine la tâche en focus, terminer le focus aussi
-                    if self.todo_manager.current_focus_id == todo_id:
+                    if self.get_current_focus() == todo_id:
                         self.todo_manager.end_focus("Tâche terminée")
 
                     return {
@@ -1540,7 +1361,7 @@ class RAGManagerStats:
 
             # Commande /status
             if query in ['/status', '/focus-status']:
-                if self.todo_manager.current_focus_id:
+                if self.get_current_focus():
                     return {
                         "success": True,
                         "response": self.todo_manager.get_focus_context(),

@@ -16,15 +16,6 @@ class cy8_editable_tables:
         self.workflow_data = {}
         self.save_callback = None  # Callback pour la sauvegarde
 
-    def edit_inputs_popup(self, node_id, inputs_str, workflow_tree, on_change_callback):
-        """
-        Popup pour éditer les inputs du workflow
-        1.2.2) Clic sur inputs -> tableau éditable attribut:valeur
-        POPUP-ID: CY8-POPUP-007
-        """
-        popup = tk.Toplevel(self.root)
-        popup.title(f"CY8-POPUP-007 | Édition Inputs - Node {node_id}")
-
     def create_prompt_values_table(self, parent_frame, on_change_callback=None):
         """
         Créer le tableau pour les prompt_values
