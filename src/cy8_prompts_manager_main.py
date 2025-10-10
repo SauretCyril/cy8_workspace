@@ -3748,6 +3748,19 @@ class cy8_prompts_manager:
                 comfyui_prompt_id = tsk1.addToQueue(
                     workflow_file_path, prompt_values_file_path
                 )
+
+                # Vérifier si l'utilisateur a annulé
+                if comfyui_prompt_id is None:
+                    print(f"❌ Exécution annulée par l'utilisateur")
+                    self.update_execution_stack_status(
+                        execution_id, "Annulé par l'utilisateur", 0
+                    )
+                    self.root.after(
+                        0,
+                        lambda: self.update_prompt_status_after_execution(prompt_id, "cancelled"),
+                    )
+                    return
+
                 print(f"📋 ComfyUI prompt ID obtenu: {comfyui_prompt_id}")
 
                 # Créer une tâche dans la pile de surveillance
@@ -3865,19 +3878,19 @@ class cy8_prompts_manager:
             print("🚨 PANNE SERVEUR COMFYUI DÉTECTÉE")
             print("   📋 Arrêt automatique du monitoring des workflows")
             print("   🔄 Redémarrage possible quand le serveur sera de nouveau accessible")
-            
+
             # Optionnel: Afficher une notification à l'utilisateur
             try:
                 import tkinter.messagebox as messagebox
                 messagebox.showwarning(
-                    "Panne Serveur ComfyUI", 
+                    "Panne Serveur ComfyUI",
                     "Le serveur ComfyUI n'est plus accessible.\n\n"
                     "Le monitoring des workflows a été arrêté automatiquement.\n\n"
                     "Vérifiez que ComfyUI est démarré et relancez un workflow pour reprendre la surveillance."
                 )
             except Exception as e:
                 print(f"⚠️ Impossible d'afficher la notification: {e}")
-        
+
         # Exécuter dans le thread principal pour l'UI
         self.root.after(0, _handle_in_main_thread)
 

@@ -111,7 +111,9 @@ class WorkflowMonitor:
         self.server_error_count = 0
         self.max_server_errors = 3  # Arrêt après 3 erreurs consécutives
         self.last_server_check = 0
-        self.server_check_interval = 10  # Vérification serveur toutes les 10s    def start(self):
+        self.server_check_interval = 10  # Vérification serveur toutes les 10s
+
+    def start(self):
         """Démarrer le thread de surveillance"""
         if not self.running:
             self.running = True
