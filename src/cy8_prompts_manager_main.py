@@ -116,6 +116,17 @@ class cy8_prompts_manager:
             f"🖼️ Processeur d'images: {self.fast_processor.get_performance_info()['backend']}"
         )
 
+        # NOUVEAU: Système de gestion des workflows avec thread d'écoute
+        from cy8_workflow_monitor import WorkflowQueue, WorkflowMonitor
+        self.workflow_queue = WorkflowQueue()
+        self.workflow_monitor = WorkflowMonitor(
+            self.workflow_queue,
+            status_callback=self.update_execution_stack_status,
+            images_callback=self.add_output_images_to_database,
+            prompt_status_callback=self.update_prompt_status_after_execution_wrapper
+        )
+        print("📋 Système de gestion des workflows initialisé")
+
         # Connecter le callback de sauvegarde
         self.table_manager.set_save_callback(self.save_current_info)
 
@@ -3649,8 +3660,8 @@ class cy8_prompts_manager:
             )
 
     def _execute_workflow_task(self, prompt_id, execution_id):
-        """Tâche d'exécution du workflow (en thread séparé)"""
-        import time  # Import au début de la fonction pour éviter les problèmes de scope
+        """Tâche d'exécution du workflow (nouvelle version avec pile)"""
+        import time
 
         try:
             # Récupérer les données du prompt
@@ -3659,7 +3670,7 @@ class cy8_prompts_manager:
                 self.update_execution_stack_status(
                     execution_id, "Erreur: Prompt introuvable", 0
                 )
-                print(f"🔴 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='nok') - Prompt introuvable")
+                print(f"🔴 Prompt introuvable pour l'ID: {prompt_id}")
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -3668,9 +3679,9 @@ class cy8_prompts_manager:
 
             name, prompt_values_json, workflow_json, url, parent, model, comment, status, file, id_env = data
 
-            # Mettre à jour le statut
+            # Mettre à jour le statut de préparation
             self.update_execution_stack_status(
-                execution_id, f"Préparation des données", 25
+                execution_id, "Préparation des données", 25
             )
 
             # Créer le répertoire data/Workflows s'il n'existe pas
@@ -3688,203 +3699,91 @@ class cy8_prompts_manager:
             with open(prompt_values_file_path, "w", encoding="utf-8") as pv_file:
                 pv_file.write(prompt_values_json)
 
-            # Mettre à jour le statut
-            self.update_execution_stack_status(execution_id, f"Connexion à ComfyUI", 50)
-
-            # Vérifier les fichiers générés
-            print(f"DEBUG: Workflow file: {workflow_file_path}")
-            print(f"DEBUG: Values file: {prompt_values_file_path}")
-
-            # Vérifier le contenu JSON
+            # Vérifier que les fichiers JSON sont valides
             try:
-                import json
-
                 with open(workflow_file_path, "r", encoding="utf-8") as f:
                     workflow_data = json.load(f)
-                    print(f"DEBUG: Workflow JSON valide, {len(workflow_data)} nodes")
+                    print(f"✅ Workflow JSON valide, {len(workflow_data)} nodes")
 
                 with open(prompt_values_file_path, "r", encoding="utf-8") as f:
                     values_data = json.load(f)
-                    print(f"DEBUG: Values JSON valide, {len(values_data)} entrées")
+                    print(f"✅ Values JSON valide, {len(values_data)} entrées")
             except json.JSONDecodeError as e:
                 self.update_execution_stack_status(execution_id, f"Erreur JSON: {e}", 0)
                 return
-            except Exception as e:
-                self.update_execution_stack_status(
-                    execution_id, f"Erreur fichiers: {e}", 0
-                )
-                return
 
-            # Exécuter le workflow avec ComfyUI
+            # Mettre à jour le statut de connexion
+            self.update_execution_stack_status(execution_id, "Connexion à ComfyUI", 50)
+
+            # Exécuter le workflow avec ComfyUI et obtenir l'ID
             try:
-                from cy6_websocket_api_client import (
-                    workflow_is_running,
-                    is_prompt_in_queue,
-                )
-
+                from cy6_wkf001_Basic import comfyui_basic_task
                 tsk1 = comfyui_basic_task()
 
-                # Étape 1: Ajout à la queue (50% -> 60%)
+                # Ajouter à la queue ComfyUI
                 self.update_execution_stack_status(
                     execution_id, "Ajout à la queue ComfyUI", 60
                 )
+
                 comfyui_prompt_id = tsk1.addToQueue(
                     workflow_file_path, prompt_values_file_path
                 )
-                print(f"DEBUG: ComfyUI prompt ID: {comfyui_prompt_id}")
+                print(f"📋 ComfyUI prompt ID obtenu: {comfyui_prompt_id}")
 
-                # Étape 2: Workflow en queue (60% -> 75%)
-                self.update_execution_stack_status(
-                    execution_id, f"En queue (ID: {comfyui_prompt_id})", 75
+                # Créer une tâche dans la pile de surveillance
+                from cy8_workflow_monitor import WorkflowTask, WorkflowStatus
+
+                workflow_task = WorkflowTask(
+                    prompt_id=prompt_id,
+                    execution_id=execution_id,
+                    comfyui_prompt_id=comfyui_prompt_id,
+                    status=WorkflowStatus.QUEUED,
+                    prompt_name=name,
+                    timestamp=time.time(),
+                    progress=60,
+                    comfyui_task_instance=tsk1  # Passer l'instance avec la connexion WebSocket
                 )
 
-                # Étape 3: Génération en cours avec vérification progressive
-                max_wait_time = 1200  # 10 minutes max
-                start_time = time.time()
-                progress_step = 75
-                check_count = 0
+                # Ajouter à la pile de surveillance
+                self.workflow_queue.add_task(workflow_task)
 
-                while True:
-                    elapsed_time = time.time() - start_time
-                    check_count += 1
-
-                    if elapsed_time > max_wait_time:
-                        self.update_execution_stack_status(
-                            execution_id, "Timeout - Workflow trop long", 0
-                        )
-                        print(
-                            f"DEBUG: Timeout après {elapsed_time:.1f}s pour prompt {comfyui_prompt_id}"
-                        )
-                        return
-
-                    # Mise à jour progressive du statut (75% -> 95%)
-                    if elapsed_time > 60*5:  # Après 5 secondes, on augmente le progrès
-                        progress_increment = min(
-                            20, int(elapsed_time / 10) * 60
-                        )  # 5% toutes les 10 secondes
-                        progress_step = min(95, 75 + progress_increment)
-                        self.update_execution_stack_status(
-                            execution_id,
-                            f"Génération en cours ({int(elapsed_time)}s)",
-                            progress_step,
-                        )
-
-                    # Vérifier si le workflow est toujours en cours
-                    workflow_finished = False
-                    websocket_says_finished = False
-                    queue_says_running = False
-
-                    # Méthode 1: Vérification WebSocket
-                    try:
-                        if hasattr(tsk1, "ws") and tsk1.ws:
-                            is_running = workflow_is_running(tsk1.ws, comfyui_prompt_id)
-                            print(
-                                f"DEBUG: Check {check_count}: workflow_is_running = {is_running}"
-                            )
-                            if not is_running:
-                                websocket_says_finished = True
-                        else:
-                            print("DEBUG: Pas de connexion WebSocket active")
-                    except Exception as ws_error:
-                        print(f"DEBUG: Erreur WebSocket check: {ws_error}")
-
-                    # Méthode 2: Vérification via API HTTP de la queue
-                    try:
-                        queue_says_running = is_prompt_in_queue(comfyui_prompt_id)
-                        print(
-                            f"DEBUG: Check {check_count}: is_prompt_in_queue = {queue_says_running}"
-                        )
-                    except Exception as queue_error:
-                        print(f"DEBUG: Erreur queue check: {queue_error}")
-
-                    # Décision basée sur les deux méthodes
-                    if websocket_says_finished and not queue_says_running:
-                        print(
-                            f"DEBUG: Workflow terminé après {elapsed_time:.1f}s (WebSocket ET Queue confirment)"
-                        )
-                        workflow_finished = True
-                    elif not queue_says_running and elapsed_time > 10:
-                        # Si la queue ne contient plus le prompt et que ça fait plus de 10s, c'est probablement fini
-                        print(
-                            f"DEBUG: Workflow probablement terminé après {elapsed_time:.1f}s (Plus dans la queue)"
-                        )
-                        workflow_finished = True
-                    elif elapsed_time > max_wait_time:
-                        print(f"DEBUG: Timeout général après {elapsed_time:.1f}s")
-                        workflow_finished = True
-
-                    if workflow_finished:
-                        break
-
-                    time.sleep(3)  # Vérifier toutes les 3 secondes
-
-                # Étape 4: Récupération des images (95% -> 100%)
+                # Mettre à jour le statut
                 self.update_execution_stack_status(
-                    execution_id, "Récupération des images", 95
+                    execution_id, f"En surveillance (ID: {comfyui_prompt_id})", 75
                 )
+
+                print(f"✅ Workflow {comfyui_prompt_id} ajouté à la pile de surveillance")
+                print(f"👁️ Le thread de surveillance va maintenant gérer l'exécution")
 
             except Exception as comfy_error:
-                print(f"DEBUG: Erreur ComfyUI: {comfy_error}")
+                print(f"❌ Erreur ComfyUI: {comfy_error}")
                 self.update_execution_stack_status(
                     execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0
                 )
-                return
-
-            # Récupérer les images générées
-            try:
-                output_images = tsk1.GetImages(comfyui_prompt_id)
-            except Exception as img_error:
-                print(f"DEBUG: Erreur récupération images: {img_error}")
-                self.update_execution_stack_status(
-                    execution_id, f"Erreur images: {str(img_error)}", 0
-                )
-                return
-
-            if output_images:
-                # Ajouter les images à la base de données
-                images_added = self.add_output_images_to_database(
-                    prompt_id, output_images
-                )
-
-                self.update_execution_stack_status(
-                    execution_id,
-                    f"Terminé avec succès - {len(output_images)} images générées ({images_added} ajoutées)",
-                    100,
-                )
-
-                # Actualiser la liste d'images si c'est le prompt actuellement sélectionné
-                if self.selected_prompt_id == prompt_id:
-                    self.root.after(0, self.refresh_images_list)
-
-                print(f"🟢 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='ok') - Avec images")
                 self.root.after(
                     0,
-                    lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
+                    lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
                 )
-            else:
-                self.update_execution_stack_status(
-                    execution_id, "Terminé - Aucune image générée", 100
-                )
-                print(f"🟡 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='ok') - Sans images")
-                self.root.after(
-                    0,
-                    lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
-                )
+                return
 
         except Exception as e:
-            error_msg = f"Erreur ComfyUI: {str(e)}"
+            error_msg = f"Erreur préparation workflow: {str(e)}"
+            print(f"❌ {error_msg}")
             self.update_execution_stack_status(execution_id, error_msg, 0)
-            print(f"🔴 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='nok') - Exception générale")
             self.root.after(
                 0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok")
             )
-            print(f"Erreur dans _execute_workflow_task: {e}")
 
         finally:
             # Nettoyer l'ID d'environnement d'exécution
             if hasattr(self, "current_execution_environment_id"):
                 delattr(self, "current_execution_environment_id")
                 print("🧹 Environment ID d'exécution nettoyé")
+
+    def update_prompt_status_after_execution_wrapper(self, prompt_id, status):
+        """Wrapper pour appeler update_prompt_status_after_execution depuis le thread principal"""
+        # Utiliser root.after pour exécuter depuis le thread principal (thread-safe)
+        self.root.after(0, lambda: self.update_prompt_status_after_execution(prompt_id, status))
 
     def update_prompt_status_after_execution(self, prompt_id, status):
         """Mettre à jour le statut du prompt après exécution"""
@@ -5113,11 +5012,21 @@ WORKFLOW:
 
     def run(self):
         """Démarrer l'application"""
+        # Démarrer le thread de surveillance des workflows
+        if hasattr(self, 'workflow_monitor'):
+            self.workflow_monitor.start()
+            print("🚀 Thread de surveillance des workflows démarré")
+
         self.root.mainloop()
 
     def on_closing(self):
         """Gestionnaire de fermeture"""
         try:
+            # Arrêter le thread de surveillance des workflows
+            if hasattr(self, 'workflow_monitor'):
+                self.workflow_monitor.stop()
+                print("⏹️ Thread de surveillance des workflows arrêté")
+
             # Sauvegarder la géométrie de la fenêtre
             geometry = self.root.geometry()
             self.user_prefs.set_window_geometry(geometry)
@@ -5840,14 +5749,34 @@ WORKFLOW:
                     # Le custom node doit retourner les données dans le résultat directement
                     # Nous devons récupérer la sortie du custom node via l'API ComfyUI
                     try:
+                        print(f"🔍 DEBUG: Tentative de récupération avec prompt_id={prompt_id}, node_id='1'")
                         extra_paths_data = caller.get_custom_node_output(prompt_id, "1")
+
+                        print(f"🔍 DEBUG: Données brutes reçues: {type(extra_paths_data)}")
+                        print(f"🔍 DEBUG: Données brutes (50 premiers chars): {str(extra_paths_data)[:50] if extra_paths_data else 'None/Empty'}")
+
                         if extra_paths_data and isinstance(extra_paths_data, str):
                             # Le custom node retourne un JSON string, le parser
                             import json
+                            print("🔍 DEBUG: Tentative de parsing JSON...")
                             extra_paths_data = json.loads(extra_paths_data)
                             print("✅ Données du custom node récupérées et parsées")
+                        elif extra_paths_data and isinstance(extra_paths_data, dict):
+                            print("✅ Données du custom node déjà au format dict")
+                        elif extra_paths_data and isinstance(extra_paths_data, list):
+                            print(f"🔍 DEBUG: Données reçues en liste de {len(extra_paths_data)} éléments")
+                            if extra_paths_data:
+                                extra_paths_data = extra_paths_data[0]  # Prendre le premier élément
+                                print(f"🔍 DEBUG: Premier élément: {type(extra_paths_data)}")
+                            else:
+                                raise Exception("Liste vide retournée par le custom node")
                         else:
+                            print(f"❌ DEBUG: Données non valides - Type: {type(extra_paths_data)}, Contenu: {extra_paths_data}")
                             raise Exception("Données du custom node non valides ou vides")
+                    except json.JSONDecodeError as json_error:
+                        print(f"❌ Erreur parsing JSON: {json_error}")
+                        print(f"🔍 DEBUG: Données qui ont causé l'erreur: {extra_paths_data}")
+                        raise Exception(f"Erreur parsing JSON du custom node: {json_error}")
                     except Exception as e:
                         print(f"❌ Impossible de récupérer les données du custom node: {e}")
                         raise Exception(f"Custom node non fonctionnel: {e}")
@@ -7840,7 +7769,7 @@ Message: {message}
 
         # Question par défaut
         default_question = (
-            "Proposes moi des solutions pour les erreurs dans le fichier log"
+            ""
         )
         question_text.insert("1.0", default_question)  # Séparateur
         ttk.Separator(analysis_frame, orient="horizontal").pack(fill="x", pady=10)
