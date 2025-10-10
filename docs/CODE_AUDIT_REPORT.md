@@ -14,9 +14,12 @@
 ----------------------------------------------------------------------
 ⚠️  29 fonctions définies plusieurs fois:
 
-### `add_environment` (2 définitions)
-   - src\cy8_database_manager.py:1000
-   - src\cy8_prompts_manager_main.py:7117
+**Note importante:** Certains "doublons" sont en fait une **architecture MVC correcte** où une fonction UI appelle une fonction DB du même nom. Ces cas sont marqués ✅ **FAUX POSITIF**.
+
+### `add_environment` (2 définitions) ✅ **FAUX POSITIF - Architecture correcte**
+   - src\cy8_database_manager.py:1000 - Fonction DB (insert SQL)
+   - src\cy8_prompts_manager_main.py:7117 - Fonction UI (dialogue + appelle DB)
+   - **Note:** Séparation des responsabilités (MVC) - Les deux sont utilisées
 
 ### `cancel` (4 définitions)
    - src\cy8_popup_manager.py:304
@@ -41,13 +44,15 @@
    - src\cy8_popup_id_manager.py:106
    - src\cy8_prompts_manager_main.py:51
 
-### `delete_environment` (2 définitions)
-   - src\cy8_database_manager.py:1062
-   - src\cy8_prompts_manager_main.py:7238
+### `delete_environment` (2 définitions) ✅ **FAUX POSITIF - Architecture correcte**
+   - src\cy8_database_manager.py:1062 - Fonction DB (DELETE SQL)
+   - src\cy8_prompts_manager_main.py:7238 - Fonction UI (confirmation + appelle DB)
+   - **Note:** Même pattern MVC que add_environment - Les deux sont utilisées
 
-### `delete_prompt` (2 définitions)
-   - src\cy8_database_manager.py:545
-   - src\cy8_prompts_manager_main.py:3580
+### `delete_prompt` (2 définitions) ✅ **FAUX POSITIF - Architecture correcte**
+   - src\cy8_database_manager.py:545 - Fonction DB (DELETE SQL)
+   - src\cy8_prompts_manager_main.py:3580 - Fonction UI (menu + bouton)
+   - **Note:** Pattern MVC - Les deux sont utilisées
 
 ### `edit_inputs_popup` (2 définitions)
    - src\cy8_editable_tables.py:16
@@ -153,6 +158,8 @@
 ### src\cy6_task_comfyui.py
    - `log_values` (ligne 23)
 
+### Les fonctions cy6_websocket_api_client doivent restée
+### pour une utilisation future
 ### src\cy6_websocket_api_client.py
    - `get_image` (ligne 39)
    - `get_history` (ligne 48)
@@ -166,6 +173,8 @@
 ### src\cy6_wkf001_Basic.py
    - `run_now` (ligne 17)
 
+### Les fonctions cy8_comfyui_customNode_call doivent restée
+### pour une utilisation future
 ### src\cy8_comfyui_customNode_call.py
    - `get_custom_nodes_info` (ligne 50)
    - `get_available_custom_node_types` (ligne 69)
