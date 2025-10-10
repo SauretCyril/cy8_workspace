@@ -3659,6 +3659,7 @@ class cy8_prompts_manager:
                 self.update_execution_stack_status(
                     execution_id, "Erreur: Prompt introuvable", 0
                 )
+                print(f"🔴 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='nok') - Prompt introuvable")
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -3855,6 +3856,7 @@ class cy8_prompts_manager:
                 if self.selected_prompt_id == prompt_id:
                     self.root.after(0, self.refresh_images_list)
 
+                print(f"🟢 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='ok') - Avec images")
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
@@ -3863,6 +3865,7 @@ class cy8_prompts_manager:
                 self.update_execution_stack_status(
                     execution_id, "Terminé - Aucune image générée", 100
                 )
+                print(f"🟡 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='ok') - Sans images")
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "ok"),
@@ -3871,6 +3874,7 @@ class cy8_prompts_manager:
         except Exception as e:
             error_msg = f"Erreur ComfyUI: {str(e)}"
             self.update_execution_stack_status(execution_id, error_msg, 0)
+            print(f"🔴 DEBUG: Planification update_prompt_status_after_execution(prompt_id={prompt_id}, status='nok') - Exception générale")
             self.root.after(
                 0, lambda: self.update_prompt_status_after_execution(prompt_id, "nok")
             )
@@ -3884,11 +3888,13 @@ class cy8_prompts_manager:
 
     def update_prompt_status_after_execution(self, prompt_id, status):
         """Mettre à jour le statut du prompt après exécution"""
+        print(f"🔄 DEBUG: update_prompt_status_after_execution appelée - prompt_id={prompt_id}, status={status}")
         try:
             # Récupérer les données actuelles
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if data:
                 name, prompt_values, workflow, url, parent, model, comment, _, file, id_env = data
+                print(f"📝 DEBUG: Données prompt récupérées - name='{name}', ancien statut, nouveau statut='{status}'")
 
                 # Mettre à jour avec le nouveau statut
                 self.db_manager.update_prompt(
@@ -3901,25 +3907,38 @@ class cy8_prompts_manager:
                     comment,
                     status,
                 )
+                print(f"💾 DEBUG: Statut mis à jour en base de données")
 
                 # Mettre à jour l'affichage
                 if str(prompt_id) in [
                     self.prompts_tree.item(item, "values")[0]
                     for item in self.prompts_tree.get_children()
                 ]:
+                    print(f"🔄 DEBUG: Mise à jour de l'affichage du TreeView")
                     for item in self.prompts_tree.get_children():
                         if self.prompts_tree.item(item, "values")[0] == str(prompt_id):
                             values = list(self.prompts_tree.item(item, "values"))
+                            old_status = values[2]
                             values[2] = status  # Colonne statut
                             self.prompts_tree.item(item, values=values)
+                            print(f"✅ DEBUG: TreeView mis à jour - ancien statut: '{old_status}' -> nouveau: '{status}'")
                             break
+                else:
+                    print(f"⚠️ DEBUG: Prompt {prompt_id} non trouvé dans le TreeView")
 
                 # Si c'est le prompt sélectionné, mettre à jour aussi les détails
                 if self.selected_prompt_id == prompt_id:
+                    print(f"🎯 DEBUG: Mise à jour du prompt sélectionné - status_var: '{status}'")
                     self.status_var.set(status)
+                else:
+                    print(f"ℹ️ DEBUG: Prompt {prompt_id} non sélectionné (actuel: {self.selected_prompt_id})")
+
+                print(f"✅ DEBUG: update_prompt_status_after_execution terminée avec succès")
 
         except Exception as e:
-            print(f"Erreur lors de la mise à jour du statut: {e}")
+            print(f"❌ DEBUG: Erreur lors de la mise à jour du statut: {e}")
+            import traceback
+            traceback.print_exc()
 
     def open_prompt_analysis(self):
         """
@@ -5920,22 +5939,41 @@ WORKFLOW:
 
                             messagebox.showinfo(
                                 "Environnement identifié",
-                                f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI",
+                                f"ID de configuration ComfyUI détecté:\n\n🆔 {config_id}\n\nSource: Extra paths ComfyUI\n\n✅ Chat et RAG synchronisés automatiquement !",
                             )
+
+                            # Mettre à jour immédiatement la barre de statut pour confirmer la synchronisation
+                            self.update_status(f"✅ Environnement {config_id} identifié et synchronisé avec le chat/RAG")
 
                             # Définir l'environnement actuel pour l'onglet Log
                             self.set_current_environment(config_id)
 
-                            # NOUVEAU: Ajouter un message dans le chat pour informer l'utilisateur
+                            # NOUVEAU: Notification immédiate dans le chat AVEC synchronisation visible
                             if hasattr(self, 'add_chat_message'):
+                                # Ajouter le message d'identification dans le chat
                                 self.add_chat_message(
                                     "system",
-                                    f"✅ **ENVIRONNEMENT IDENTIFIÉ AVEC SUCCÈS**\n\n"
-                                    f"🆔 **ID:** {config_id}\n"
-                                    f"🧠 **RAG:** Synchronisé automatiquement\n"
+                                    f"🚀 **IDENTIFICATION D'ENVIRONNEMENT DÉCLENCHÉE**\n\n"
+                                    f"🆔 **Environnement détecté:** {config_id}\n"
+                                    f"🔄 **Synchronisation RAG:** En cours...\n"
                                     f"💾 **Sauvegarde:** Environnement persisté\n\n"
-                                    f"Le système RAG est maintenant opérationnel pour cet environnement !"
+                                    f"✅ Le système est maintenant synchronisé avec l'environnement {config_id} !"
                                 )
+
+                                # Afficher automatiquement l'onglet Chat pour que l'utilisateur voie la notification
+                                try:
+                                    # Sélectionner l'onglet Chat automatiquement
+                                    if hasattr(self, 'notebook') and self.notebook:
+                                        chat_tab_index = None
+                                        for i in range(self.notebook.index("end")):
+                                            if "Chat" in self.notebook.tab(i, "text"):
+                                                chat_tab_index = i
+                                                break
+                                        if chat_tab_index is not None:
+                                            self.notebook.select(chat_tab_index)
+                                            print(f"🔄 Onglet Chat sélectionné automatiquement (index {chat_tab_index})")
+                                except Exception as tab_error:
+                                    print(f"⚠️ Impossible de sélectionner l'onglet Chat automatiquement: {tab_error}")
 
                             # *** NOUVEAU: Détecter automatiquement le Python embedded ***
                             print("🐍 Détection automatique du Python embedded...")
