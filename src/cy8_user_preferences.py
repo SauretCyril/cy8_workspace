@@ -58,6 +58,8 @@ class cy8_user_preferences:
             "created_at": "",
             "last_updated": "",
             "error_solutions_directory": "g:/temp",
+            "default_comfyui_output_path": "C:/ComfyUI/output",
+            "images_collecte_path": "",  # Chemin vers le répertoire IMAGES_COLLECTE
         }
 
     def _load_cookies(self):

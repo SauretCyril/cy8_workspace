@@ -124,7 +124,9 @@ class cy8_prompts_manager:
             status_callback=self.update_execution_stack_status,
             images_callback=self.add_output_images_to_database,
             prompt_status_callback=self.update_prompt_status_after_execution_wrapper,
-            server_failure_callback=self.handle_server_failure
+            server_failure_callback=self.handle_server_failure,
+            root_widget=self.root,  # Passer la référence root pour thread-safety
+            log_callback=self.add_monitoring_log  # Callback pour les logs
         )
         print("📋 Système de gestion des workflows initialisé")
 
@@ -148,6 +150,11 @@ class cy8_prompts_manager:
 
         # NOUVEAU: Restaurer l'environnement sauvegardé
         self.restore_saved_environment()
+
+        # Démarrer le monitoring des workflows
+        print("🚀 Démarrage du monitoring des workflows...")
+        self.workflow_monitor.start()
+        print("✅ Monitoring des workflows actif")
 
         # Initialiser le tableau des environnements après la création de l'interface
         self.root.after(100, self.refresh_environments)
@@ -197,14 +204,28 @@ class cy8_prompts_manager:
 
     def init_images_paths(self):
         """Initialiser le chemin du répertoire d'images depuis les préférences ou .env"""
-        # Essayer de récupérer depuis les préférences utilisateur
+        # Priorité 1: Valeur depuis les préférences utilisateur
+        user_images_path = self.user_prefs.get_preference("images_collecte_path", "")
+
+        # Priorité 2: Variable d'environnement .env
+        env_images_path = os.getenv("IMAGES_COLLECTE", "")
+
+        # Priorité 3: Chemin ComfyUI par défaut depuis les préférences
         default_comfyui_path = self.user_prefs.get_preference(
             "default_comfyui_output_path",
             "C:/ComfyUI/output"  # Valeur par défaut générique
         )
 
-        # IMAGES_COLLECTE depuis .env (ou valeur par défaut des préférences)
-        images_path = os.getenv("IMAGES_COLLECTE") or default_comfyui_path
+        # Déterminer le chemin final (par ordre de priorité)
+        if user_images_path and os.path.exists(user_images_path):
+            images_path = user_images_path
+            print(f"📁 IMAGES_COLLECTE depuis préférences: {images_path}")
+        elif env_images_path and os.path.exists(env_images_path):
+            images_path = env_images_path
+            print(f"📁 IMAGES_COLLECTE depuis .env: {images_path}")
+        else:
+            images_path = default_comfyui_path
+            print(f"📁 IMAGES_COLLECTE par défaut: {images_path}")
 
         # S'assurer que la variable d'environnement est définie
         os.environ["IMAGES_COLLECTE"] = images_path
@@ -478,6 +499,27 @@ class cy8_prompts_manager:
             width=12,
         ).grid(row=0, column=1, padx=1, pady=1)
 
+        # Séparateur vertical
+        ttk.Separator(main_ribbon, orient="vertical").pack(
+            side="left", fill="y", padx=5
+        )
+
+        # === GROUPE PRÉFÉRENCES ===
+        prefs_group = ttk.LabelFrame(main_ribbon, text="Préférences", padding="5")
+        prefs_group.pack(side="left", fill="y", padx=2)
+
+        prefs_buttons_frame = ttk.Frame(prefs_group)
+        prefs_buttons_frame.pack()
+
+        # Préférences utilisateur
+        ttk.Button(
+            prefs_buttons_frame,
+            text="⚙️ Paramètres",
+            command=self.open_user_preferences,
+            style="RibbonButton.TButton",
+            width=16,
+        ).grid(row=0, column=0, pady=1)
+
         # Espace flexible pour pousser les éléments à droite
         spacer_frame = ttk.Frame(main_ribbon)
         spacer_frame.pack(side="left", fill="x", expand=True)
@@ -529,6 +571,233 @@ class cy8_prompts_manager:
             "pour ComfyUI avec interface moderne.\n\n"
             "© 2025 - Développé avec Python & Tkinter",
         )
+
+    def open_user_preferences(self):
+        """Ouvrir la popup de gestion des préférences utilisateur"""
+        try:
+            # Créer une nouvelle fenêtre popup pour les préférences
+            prefs_window = tk.Toplevel(self.root)
+            prefs_window.title("Préférences Utilisateur")
+            prefs_window.geometry("800x600")
+            prefs_window.resizable(True, True)
+
+            # Centrer la fenêtre
+            center_window(prefs_window, 800, 600)
+
+            # Rendre la fenêtre modale
+            prefs_window.transient(self.root)
+            prefs_window.grab_set()
+
+            # Configuration du contenu
+            main_frame = ttk.Frame(prefs_window, padding="10")
+            main_frame.pack(fill="both", expand=True)
+
+            # Titre
+            title_label = ttk.Label(
+                main_frame,
+                text="⚙️ Gestion des Préférences Utilisateur",
+                style="Title.TLabel"
+            )
+            title_label.pack(pady=(0, 10))
+
+            # Frame pour la table des préférences
+            table_frame = ttk.LabelFrame(main_frame, text="Préférences", padding="10")
+            table_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+            # Créer le Treeview pour afficher les préférences
+            columns = ("variable", "valeur", "description")
+            prefs_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+
+            # Configuration des colonnes
+            prefs_tree.heading("variable", text="Variable")
+            prefs_tree.heading("valeur", text="Valeur")
+            prefs_tree.heading("description", text="Description")
+
+            prefs_tree.column("variable", width=200, minwidth=150)
+            prefs_tree.column("valeur", width=300, minwidth=200)
+            prefs_tree.column("description", width=250, minwidth=200)
+
+            # Scrollbars
+            v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=prefs_tree.yview)
+            h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=prefs_tree.xview)
+            prefs_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+            # Pack des éléments
+            prefs_tree.grid(row=0, column=0, sticky="nsew")
+            v_scrollbar.grid(row=0, column=1, sticky="ns")
+            h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+            table_frame.grid_columnconfigure(0, weight=1)
+            table_frame.grid_rowconfigure(0, weight=1)
+
+            # Variable pour stocker les modifications
+            prefs_data = {}
+
+            def load_preferences():
+                """Charger et afficher les préférences"""
+                # Effacer le contenu existant
+                for item in prefs_tree.get_children():
+                    prefs_tree.delete(item)
+
+                # Récupérer toutes les préférences
+                preferences = self.user_prefs.preferences.copy()
+                cookies = self.user_prefs.cookies.copy()
+
+                # Descriptions pour les préférences connues
+                descriptions = {
+                    "version": "Version des préférences",
+                    "created_at": "Date de création",
+                    "last_updated": "Dernière mise à jour",
+                    "error_solutions_directory": "Répertoire des solutions d'erreurs",
+                    "default_comfyui_output_path": "Chemin par défaut des images ComfyUI",
+                    "images_collecte_path": "Répertoire IMAGES_COLLECTE (priorité sur .env)",
+                    "last_database_path": "Dernière base de données utilisée",
+                    "window_geometry": "Géométrie de la fenêtre",
+                    "recent_databases": "Bases de données récentes"
+                }
+
+                # Ajouter les préférences générales
+                for key, value in preferences.items():
+                    if isinstance(value, (str, int, float, bool)):
+                        desc = descriptions.get(key, "Préférence utilisateur")
+                        item_id = prefs_tree.insert("", "end", values=(key, str(value), desc))
+                        prefs_data[item_id] = {"type": "preferences", "key": key, "value": value}
+
+                # Ajouter les cookies
+                for key, value in cookies.items():
+                    if isinstance(value, (str, int, float, bool)):
+                        desc = descriptions.get(key, "Cookie utilisateur")
+                        item_id = prefs_tree.insert("", "end", values=(key, str(value), desc))
+                        prefs_data[item_id] = {"type": "cookies", "key": key, "value": value}
+
+            def on_item_double_click(event):
+                """Gérer le double-clic pour éditer une valeur"""
+                item = prefs_tree.selection()[0]
+                if item in prefs_data:
+                    current_data = prefs_data[item]
+                    current_value = current_data["value"]
+
+                    # Créer une fenêtre d'édition simple
+                    edit_window = tk.Toplevel(prefs_window)
+                    edit_window.title(f"Éditer: {current_data['key']}")
+                    edit_window.geometry("400x200")
+                    center_window(edit_window, 400, 200)
+                    edit_window.transient(prefs_window)
+                    edit_window.grab_set()
+
+                    ttk.Label(edit_window, text=f"Variable: {current_data['key']}", font=("TkDefaultFont", 10, "bold")).pack(pady=10)
+
+                    ttk.Label(edit_window, text="Nouvelle valeur:").pack(pady=(10, 5))
+
+                    entry_var = tk.StringVar(value=str(current_value))
+                    entry = ttk.Entry(edit_window, textvariable=entry_var, width=50)
+                    entry.pack(pady=5)
+                    entry.focus()
+                    entry.select_range(0, tk.END)
+
+                    def save_edit():
+                        new_value = entry_var.get()
+                        # Convertir le type si nécessaire
+                        if isinstance(current_value, bool):
+                            new_value = new_value.lower() in ("true", "1", "yes", "on")
+                        elif isinstance(current_value, int):
+                            try:
+                                new_value = int(new_value)
+                            except ValueError:
+                                messagebox.showerror("Erreur", "Valeur entière requise")
+                                return
+                        elif isinstance(current_value, float):
+                            try:
+                                new_value = float(new_value)
+                            except ValueError:
+                                messagebox.showerror("Erreur", "Valeur numérique requise")
+                                return
+
+                        # Mettre à jour les données
+                        prefs_data[item]["value"] = new_value
+                        prefs_tree.item(item, values=(current_data['key'], str(new_value), prefs_tree.item(item, "values")[2]))
+                        edit_window.destroy()
+
+                    def cancel_edit():
+                        edit_window.destroy()
+
+                    # Boutons
+                    buttons_frame = ttk.Frame(edit_window)
+                    buttons_frame.pack(pady=20)
+
+                    ttk.Button(buttons_frame, text="💾 Sauvegarder", command=save_edit).pack(side="left", padx=5)
+                    ttk.Button(buttons_frame, text="❌ Annuler", command=cancel_edit).pack(side="left", padx=5)
+
+                    # Permettre la validation avec Entrée
+                    entry.bind("<Return>", lambda e: save_edit())
+                    edit_window.bind("<Escape>", lambda e: cancel_edit())
+
+            # Bind du double-clic
+            prefs_tree.bind("<Double-1>", on_item_double_click)
+
+            # Frame pour les boutons d'action
+            buttons_frame = ttk.Frame(main_frame)
+            buttons_frame.pack(fill="x", pady=(10, 0))
+
+            def save_all_preferences():
+                """Sauvegarder toutes les modifications"""
+                try:
+                    # Appliquer toutes les modifications
+                    for item_id, data in prefs_data.items():
+                        if data["type"] == "preferences":
+                            self.user_prefs.preferences[data["key"]] = data["value"]
+                        elif data["type"] == "cookies":
+                            self.user_prefs.cookies[data["key"]] = data["value"]
+
+                    # Sauvegarder sur disque
+                    self.user_prefs._save_preferences()
+                    self.user_prefs._save_cookies()
+
+                    messagebox.showinfo("Succès", "Préférences sauvegardées avec succès!")
+                    prefs_window.destroy()
+
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Erreur lors de la sauvegarde: {e}")
+
+            def reload_preferences():
+                """Recharger les préférences depuis le disque"""
+                try:
+                    self.user_prefs.preferences = self.user_prefs._load_preferences()
+                    self.user_prefs.cookies = self.user_prefs._load_cookies()
+                    load_preferences()
+                    messagebox.showinfo("Info", "Préférences rechargées depuis le disque")
+                except Exception as e:
+                    messagebox.showerror("Erreur", f"Erreur lors du rechargement: {e}")
+
+            def close_window():
+                """Fermer la fenêtre sans sauvegarder"""
+                if messagebox.askyesno("Confirmation", "Fermer sans sauvegarder les modifications?"):
+                    prefs_window.destroy()
+
+            # Boutons d'action
+            ttk.Button(buttons_frame, text="💾 Sauvegarder", command=save_all_preferences).pack(side="left", padx=5)
+            ttk.Button(buttons_frame, text="🔄 Recharger", command=reload_preferences).pack(side="left", padx=5)
+            ttk.Button(buttons_frame, text="❌ Fermer", command=close_window).pack(side="right", padx=5)
+
+            # Instructions
+            instructions_label = ttk.Label(
+                main_frame,
+                text="💡 Double-cliquez sur une ligne pour éditer la valeur",
+                foreground="gray"
+            )
+            instructions_label.pack(pady=(5, 0))
+
+            # Charger les préférences au démarrage
+            load_preferences()
+
+            # Gérer la fermeture de la fenêtre
+            prefs_window.protocol("WM_DELETE_WINDOW", close_window)
+
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'ouvrir les préférences: {e}")
+            print(f"Erreur ouverture préférences: {e}")
+            import traceback
+            traceback.print_exc()
 
     def setup_prompts_table(self, parent):
         """
@@ -649,6 +918,12 @@ class cy8_prompts_manager:
         notebook.add(executions_tab, text="Exécutions")
 
         self.setup_executions_tab(executions_tab)
+
+        # Onglet Monitoring - Logs en temps réel du WorkflowMonitor
+        monitoring_tab = ttk.Frame(notebook)
+        notebook.add(monitoring_tab, text="🔍 Monitoring")
+
+        self.setup_monitoring_tab(monitoring_tab)
 
         # Onglet Images - Explorateur d'images générées
         images_tab = ttk.Frame(notebook)
@@ -2216,7 +2491,7 @@ class cy8_prompts_manager:
         tree_frame.pack(fill="both", expand=True, pady=(0, 5))
 
         # TreeView pour afficher les exécutions
-        columns = ("id", "prompt", "status", "progress", "timestamp")
+        columns = ("id", "prompt", "status", "progress", "timestamp", "monitor")
         self.executions_tree = ttk.Treeview(
             tree_frame, columns=columns, show="headings", height=10
         )
@@ -2227,13 +2502,15 @@ class cy8_prompts_manager:
         self.executions_tree.heading("status", text="Statut")
         self.executions_tree.heading("progress", text="Progression")
         self.executions_tree.heading("timestamp", text="Démarré à")
+        self.executions_tree.heading("monitor", text="Monitoring")
 
         # Largeurs des colonnes
         self.executions_tree.column("id", width=100)
-        self.executions_tree.column("prompt", width=200)
-        self.executions_tree.column("status", width=200)
-        self.executions_tree.column("progress", width=100)
-        self.executions_tree.column("timestamp", width=150)
+        self.executions_tree.column("prompt", width=180)
+        self.executions_tree.column("status", width=180)
+        self.executions_tree.column("progress", width=80)
+        self.executions_tree.column("timestamp", width=120)
+        self.executions_tree.column("monitor", width=100)
 
         # Scrollbars pour le TreeView
         exec_v_scrollbar = ttk.Scrollbar(
@@ -2278,6 +2555,162 @@ class cy8_prompts_manager:
 
         # Bind pour la sélection
         self.executions_tree.bind("<<TreeviewSelect>>", self.on_execution_select)
+
+    def setup_monitoring_tab(self, parent):
+        """Configuration de l'onglet monitoring avec logs en temps réel"""
+        # Frame principal
+        main_frame = ttk.Frame(parent, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        # Titre et statut
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill="x", pady=(0, 10))
+
+        title_label = ttk.Label(header_frame, text="🔍 Monitoring des Workflows",
+                               font=("TkDefaultFont", 12, "bold"))
+        title_label.pack(side="left")
+
+        # Statut du monitoring
+        self.monitoring_status_var = tk.StringVar()
+        self.monitoring_status_var.set("⏹️ Arrêté")
+        status_label = ttk.Label(header_frame, textvariable=self.monitoring_status_var,
+                                font=("TkDefaultFont", 10))
+        status_label.pack(side="right")
+
+        # Boutons de contrôle
+        control_frame = ttk.Frame(main_frame)
+        control_frame.pack(fill="x", pady=(0, 10))
+
+        ttk.Button(control_frame, text="🧹 Clear Logs",
+                  command=self.clear_monitoring_logs).pack(side="left", padx=(0, 5))
+        ttk.Button(control_frame, text="📊 Statistiques",
+                  command=self.show_monitoring_stats).pack(side="left", padx=(0, 5))
+        ttk.Button(control_frame, text="⏸️ Pause/▶️ Resume",
+                  command=self.toggle_monitoring_logging).pack(side="left", padx=(0, 5))
+
+        # Zone de logs
+        logs_frame = ttk.Frame(main_frame)
+        logs_frame.pack(fill="both", expand=True)
+
+        # Créer la zone de texte pour les logs
+        self.monitoring_logs = tk.Text(logs_frame, wrap="word", font=("Consolas", 9),
+                                      state="disabled", bg="#f8f8f8")
+
+        # Scrollbar pour les logs
+        logs_scrollbar = ttk.Scrollbar(logs_frame, orient="vertical",
+                                      command=self.monitoring_logs.yview)
+        self.monitoring_logs.configure(yscrollcommand=logs_scrollbar.set)
+
+        self.monitoring_logs.pack(side="left", fill="both", expand=True)
+        logs_scrollbar.pack(side="right", fill="y")
+
+        # Variables pour le monitoring
+        self.monitoring_logs_enabled = True
+        self.monitoring_logs_count = 0
+
+        # Ajouter un message initial
+        self.add_monitoring_log("🚀 Monitoring démarré - Logs des workflows en temps réel")
+
+        # Démarrer la mise à jour périodique du statut
+        self._update_monitoring_status()
+
+    def add_monitoring_log(self, message):
+        """Ajouter un message aux logs de monitoring"""
+        if not self.monitoring_logs_enabled:
+            return
+
+        try:
+            timestamp = time.strftime("%H:%M:%S")
+            log_entry = f"[{timestamp}] {message}\n"
+
+            self.monitoring_logs.config(state="normal")
+            self.monitoring_logs.insert("end", log_entry)
+            self.monitoring_logs.see("end")  # Auto-scroll
+            self.monitoring_logs.config(state="disabled")
+
+            self.monitoring_logs_count += 1
+
+            # Limiter le nombre de lignes (garder seulement les 1000 dernières)
+            if self.monitoring_logs_count > 1000:
+                self.monitoring_logs.config(state="normal")
+                self.monitoring_logs.delete("1.0", "2.0")  # Supprimer la première ligne
+                self.monitoring_logs.config(state="disabled")
+                self.monitoring_logs_count -= 1
+
+        except Exception as e:
+            print(f"⚠️ Erreur ajout log monitoring: {e}")
+
+    def clear_monitoring_logs(self):
+        """Effacer tous les logs de monitoring"""
+        try:
+            self.monitoring_logs.config(state="normal")
+            self.monitoring_logs.delete("1.0", "end")
+            self.monitoring_logs.config(state="disabled")
+            self.monitoring_logs_count = 0
+            self.add_monitoring_log("🧹 Logs effacés")
+        except Exception as e:
+            print(f"⚠️ Erreur effacement logs: {e}")
+
+    def toggle_monitoring_logging(self):
+        """Activer/désactiver l'enregistrement des logs"""
+        self.monitoring_logs_enabled = not self.monitoring_logs_enabled
+        status = "activé" if self.monitoring_logs_enabled else "désactivé"
+        self.add_monitoring_log(f"📝 Enregistrement des logs {status}")
+
+    def show_monitoring_stats(self):
+        """Afficher les statistiques de monitoring"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                stats = self.workflow_monitor.get_monitor_status()
+                debug_info = self.workflow_monitor.get_debug_info()
+
+                stats_msg = f"📊 STATISTIQUES MONITORING:\n"
+                stats_msg += f"   🔄 Statut: {stats['status']}\n"
+                stats_msg += f"   📈 Workflows traités: {stats['workflows_processed']}\n"
+                stats_msg += f"   📸 Images récupérées: {stats['total_images_retrieved']}\n"
+                stats_msg += f"   📋 Tâches actives: {stats['active_tasks']}\n"
+                stats_msg += f"   ❌ Erreurs serveur: {stats['server_error_count']}\n"
+                stats_msg += f"   📝 Messages de log: {self.monitoring_logs_count}"
+
+                self.add_monitoring_log(stats_msg)
+
+                if debug_info['tasks_details']:
+                    self.add_monitoring_log("📋 TÂCHES ACTIVES:")
+                    for task in debug_info['tasks_details']:
+                        task_msg = f"   • {task['comfyui_prompt_id']}: {task['status']} ({task['elapsed_seconds']}s, {task['progress']}%)"
+                        self.add_monitoring_log(task_msg)
+            else:
+                self.add_monitoring_log("⚠️ WorkflowMonitor non disponible")
+
+        except Exception as e:
+            self.add_monitoring_log(f"❌ Erreur récupération stats: {e}")
+
+    def _update_monitoring_status(self):
+        """Mettre à jour le statut du monitoring affiché"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                stats = self.workflow_monitor.get_monitor_status()
+                status = stats['status']
+                active_tasks = stats['active_tasks']
+
+                if status == "Actif":
+                    if active_tasks > 0:
+                        status_text = f"🔄 Actif ({active_tasks} tâche{'s' if active_tasks > 1 else ''})"
+                    else:
+                        status_text = "✅ Actif (en attente)"
+                elif status == "Panne serveur":
+                    status_text = "🚨 Panne serveur"
+                else:
+                    status_text = "⏹️ Arrêté"
+
+                self.monitoring_status_var.set(status_text)
+            else:
+                self.monitoring_status_var.set("❓ Non initialisé")
+        except Exception as e:
+            self.monitoring_status_var.set("❌ Erreur")
+
+        # Programmer la prochaine mise à jour
+        self.root.after(2000, self._update_monitoring_status)  # Toutes les 2 secondes
 
     def setup_images_tab(self, parent):
         """Configuration de l'onglet explorateur d'images avec sous-onglets"""
@@ -4049,6 +4482,7 @@ WORKFLOW:
             "timestamp": time.time(),
             "formatted_time": time.strftime("%H:%M:%S", time.localtime()),
             "details": [],
+            "monitor_status": "🔄 En attente",  # Statut de monitoring spécifique à cette exécution
         }
         self.execution_stack.append(execution_item)
         self.update_execution_display()
@@ -4061,12 +4495,34 @@ WORKFLOW:
                 item["message"] = message
                 if progress is not None:
                     item["progress"] = progress
+
+                # Mettre à jour le statut de monitoring basé sur le message
+                if "En attente" in message:
+                    item["monitor_status"] = "🔄 En attente"
+                elif "Génération en cours" in message:
+                    item["monitor_status"] = "⚡ En cours"
+                elif "Terminé" in message:
+                    item["monitor_status"] = "📸 Images"
+                elif "Récupération" in message:
+                    item["monitor_status"] = "📸 Images"
+                elif "Terminé avec succès" in message or "Exécution terminée" in message:
+                    item["monitor_status"] = "✅ Terminé"
+                elif "Erreur" in message or "Panne" in message:
+                    item["monitor_status"] = "❌ Erreur"
+                else:
+                    item["monitor_status"] = "🔄 Actif"
+
                 # Ajouter aux détails
                 detail_entry = f"[{time.strftime('%H:%M:%S')}] {message}"
                 item["details"].append(detail_entry)
                 break
         self.update_execution_display()
         self.update_executions_tree()
+
+        # Démarrer le timer de mise à jour automatique si pas encore fait
+        if not hasattr(self, '_timer_started'):
+            self._timer_started = True
+            self._start_auto_update_timer()
 
     def update_execution_display(self):
         """Mettre à jour l'affichage des exécutions dans la barre de statut"""
@@ -4081,6 +4537,47 @@ WORKFLOW:
             self.execution_text.set(display_text)
         else:
             self.execution_text.set("")
+
+    def _start_auto_update_timer(self):
+        """Démarrer le timer de mise à jour automatique du temps écoulé"""
+        def update_elapsed_time():
+            try:
+                # Mettre à jour les temps écoulés pour les exécutions en cours
+                current_time = time.time()
+                updated = False
+
+                for item in self.execution_stack:
+                    # Si l'exécution est en cours, mettre à jour le temps écoulé dans le message
+                    if any(keyword in item["message"].lower() for keyword in ["en cours", "génération", "récupération"]):
+                        elapsed = current_time - item["timestamp"]
+
+                        # Extraire le message de base (sans le temps)
+                        base_message = item["message"]
+                        if "⏱️" in base_message:
+                            base_message = base_message.split("(⏱️")[0].strip()
+
+                        # Reconstruire le message avec le temps à jour
+                        new_message = f"{base_message} (⏱️ {elapsed:.1f}s)"
+
+                        if item["message"] != new_message:
+                            item["message"] = new_message
+                            updated = True
+
+                # Mettre à jour l'affichage si nécessaire
+                if updated:
+                    self.update_execution_display()
+                    self.update_executions_tree()
+
+                # Programmer la prochaine mise à jour
+                self.root.after(1000, update_elapsed_time)  # Toutes les secondes
+
+            except Exception as e:
+                print(f"⚠️ Erreur mise à jour timer: {e}")
+                # Reprogrannmer quand même
+                self.root.after(1000, update_elapsed_time)
+
+        # Démarrer le timer
+        self.root.after(1000, update_elapsed_time)
 
     def update_executions_tree(self):
         """Mettre à jour le TreeView des exécutions"""
@@ -4097,6 +4594,9 @@ WORKFLOW:
                 f"{execution['progress']}%" if execution["progress"] > 0 else "-"
             )
 
+            # Utiliser le statut de monitoring spécifique à cette exécution
+            monitor_status = execution.get("monitor_status", "❓ Inconnu")
+
             self.executions_tree.insert(
                 "",
                 "end",
@@ -4106,8 +4606,31 @@ WORKFLOW:
                     execution["message"],
                     progress_display,
                     execution["formatted_time"],
+                    monitor_status,
                 ),
             )
+
+    def get_monitor_status_display(self):
+        """Obtenir l'affichage du statut du monitoring"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                status_info = self.workflow_monitor.get_monitor_status()
+                status = status_info['status']
+                active_tasks = status_info['active_tasks']
+
+                if status == "Actif":
+                    if active_tasks > 0:
+                        return f"🔄 Actif ({active_tasks})"
+                    else:
+                        return "✅ Actif"
+                elif status == "Panne serveur":
+                    return "🚨 Panne"
+                else:
+                    return "⏹️ Arrêté"
+            else:
+                return "❓ Non init."
+        except Exception as e:
+            return "❌ Erreur"
 
     def clear_execution_history(self):
         """Effacer l'historique des exécutions"""
@@ -4151,8 +4674,27 @@ WORKFLOW:
             details_text += f"Progression: {execution['progress']}%\n"
             details_text += f"Statut actuel: {execution['message']}\n\n"
 
+            # Ajouter les informations du monitoring
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                try:
+                    monitor_info = self.workflow_monitor.get_monitor_status()
+                    details_text += "=== MONITORING ===\n"
+                    details_text += f"Statut monitoring: {monitor_info['status']}\n"
+                    details_text += f"Thread actif: {'Oui' if monitor_info['running'] else 'Non'}\n"
+                    details_text += f"Tâches actives: {monitor_info['active_tasks']}\n"
+                    details_text += f"Workflows traités: {monitor_info['workflows_processed']}\n"
+                    details_text += f"Images récupérées: {monitor_info['total_images_retrieved']}\n"
+                    details_text += f"Erreurs serveur: {monitor_info['server_error_count']}/{monitor_info['max_server_errors']}\n"
+
+                    # Dernière activité
+                    import datetime
+                    last_activity = datetime.datetime.fromtimestamp(monitor_info['last_activity'])
+                    details_text += f"Dernière activité: {last_activity.strftime('%H:%M:%S')}\n\n"
+                except Exception as e:
+                    details_text += f"=== MONITORING ===\nErreur info monitoring: {e}\n\n"
+
             if execution["details"]:
-                details_text += "Historique:\n"
+                details_text += "=== HISTORIQUE ===\n"
                 for detail in execution["details"]:
                     details_text += f"{detail}\n"
 

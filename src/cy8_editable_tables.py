@@ -448,26 +448,108 @@ class cy8_editable_tables:
         # Insérer la valeur actuelle
         text_widget.insert("1.0", current_value)
 
+        # Variable pour suivre si le texte a été modifié et traduit
+        original_value = current_value
+        has_been_translated = False
+
         # Boutons
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill="x")
 
+        def translate_to_french():
+            """Traduire le contenu vers le français"""
+            nonlocal has_been_translated
+            current_text = text_widget.get("1.0", "end-1c")
+
+            if not current_text.strip():
+                return
+
+            try:
+                # Importer les fonctions de traduction
+                from cy8_mistral import translate_to_french
+
+                # Changer le curseur et désactiver les boutons pendant la traduction
+                popup.config(cursor="wait")
+                translate_btn.config(state="disabled", text="Traduction...")
+                popup.update()
+
+                # Effectuer la traduction
+                translated_text = translate_to_french(current_text)
+
+                if translated_text and not translated_text.startswith("❌"):
+                    # Remplacer le contenu
+                    text_widget.delete("1.0", "end")
+                    text_widget.insert("1.0", translated_text)
+                    has_been_translated = True
+                    print("✅ Traduction française effectuée")
+                else:
+                    print(f"❌ Erreur de traduction: {translated_text}")
+                    import tkinter.messagebox as messagebox
+                    messagebox.showerror("Erreur de traduction",
+                                       f"Impossible de traduire le texte:\n{translated_text}")
+
+            except ImportError:
+                import tkinter.messagebox as messagebox
+                messagebox.showerror("Erreur",
+                                   "Module de traduction non disponible.\n"
+                                   "Vérifiez que cy8_mistral.py est accessible.")
+            except Exception as e:
+                print(f"❌ Erreur lors de la traduction: {e}")
+                import tkinter.messagebox as messagebox
+                messagebox.showerror("Erreur", f"Erreur lors de la traduction:\n{str(e)}")
+            finally:
+                # Restaurer le curseur et les boutons
+                popup.config(cursor="")
+                translate_btn.config(state="normal", text="🇫🇷 Traduire")
+                popup.update()
+
         def save_value():
+            """Sauvegarder la valeur avec traduction automatique en anglais si nécessaire"""
             new_value = text_widget.get("1.0", "end-1c")
+            final_value = new_value
+
+            # Si le texte a été modifié et traduit en français,
+            # le reconvertir en anglais pour la sauvegarde
+            if has_been_translated and new_value != original_value:
+                try:
+                    from cy8_mistral import translate_to_english
+
+                    # Changer le curseur pendant la traduction
+                    popup.config(cursor="wait")
+                    popup.update()
+
+                    print("🔄 Traduction automatique vers l'anglais pour sauvegarde...")
+                    translated_back = translate_to_english(new_value)
+
+                    if translated_back and not translated_back.startswith("❌"):
+                        final_value = translated_back
+                        print("✅ Traduction anglaise pour sauvegarde effectuée")
+                    else:
+                        print(f"⚠️ Impossible de traduire en anglais, sauvegarde en français: {translated_back}")
+                        # Garder la valeur française si la traduction échoue
+
+                except Exception as e:
+                    print(f"⚠️ Erreur traduction anglaise, sauvegarde en français: {e}")
+                finally:
+                    popup.config(cursor="")
 
             # Mettre à jour l'affichage
             current_values = list(tree.item(item_id, "values"))
-            current_values[3] = new_value  # Colonne value
+            current_values[3] = final_value  # Colonne value
             tree.item(item_id, values=current_values)
 
             # Mettre à jour les données
             if item_id in self.values_data:
-                self.values_data[item_id]["value"] = new_value
+                self.values_data[item_id]["value"] = final_value
 
             if on_change_callback:
                 on_change_callback()
 
             popup.destroy()
+
+        # Bouton de traduction
+        translate_btn = ttk.Button(button_frame, text="🇫🇷 Traduire", command=translate_to_french)
+        translate_btn.pack(side="left", padx=5)
 
         ttk.Button(button_frame, text="Sauvegarder", command=save_value).pack(
             side="right", padx=5

@@ -244,3 +244,110 @@ Format de réponse souhaité:
         error_msg = f"❌ Erreur lors de l'analyse complète du log : {str(e)}"
         print(error_msg)
         return error_msg
+
+
+def translate_to_french(text):
+    """
+    Traduire un texte anglais vers le français avec Mistral AI
+
+    Args:
+        text: Texte à traduire
+
+    Returns:
+        str: Texte traduit en français ou message d'erreur
+    """
+    try:
+        role = (
+            "Tu es un traducteur professionnel spécialisé dans la traduction technique. "
+            "Tu traduis uniquement du texte anglais vers le français de manière précise et naturelle. "
+            "Conserve le formatage et la structure du texte original. "
+            "Ne traduis pas les termes techniques spécifiques à ComfyUI ou à l'IA générative. "
+            "Réponds UNIQUEMENT avec la traduction, sans commentaire."
+        )
+
+        question = (
+            "Traduis ce texte anglais vers le français en conservant le sens technique "
+            "et en gardant les termes spécialisés en anglais quand approprié:"
+        )
+
+        result = get_mistral_answer(question, role, text)
+
+        # Nettoyer la réponse si elle contient des marqueurs JSON d'erreur
+        if result and result.startswith('{"error"'):
+            return f"❌ Erreur de traduction : {result}"
+
+        return result
+
+    except Exception as e:
+        return f"❌ Erreur lors de la traduction : {str(e)}"
+
+
+def translate_to_english(text):
+    """
+    Traduire un texte français vers l'anglais avec Mistral AI
+
+    Args:
+        text: Texte à traduire
+
+    Returns:
+        str: Texte traduit en anglais ou message d'erreur
+    """
+    try:
+        role = (
+            "Tu es un traducteur professionnel spécialisé dans la traduction technique. "
+            "Tu traduis uniquement du texte français vers l'anglais de manière précise et naturelle. "
+            "Conserve le formatage et la structure du texte original. "
+            "Utilise un anglais technique approprié pour les contextes d'IA générative et ComfyUI. "
+            "Réponds UNIQUEMENT avec la traduction, sans commentaire."
+        )
+
+        question = (
+            "Traduis ce texte français vers l'anglais en utilisant un vocabulaire "
+            "technique approprié pour l'IA générative et ComfyUI:"
+        )
+
+        result = get_mistral_answer(question, role, text)
+
+        # Nettoyer la réponse si elle contient des marqueurs JSON d'erreur
+        if result and result.startswith('{"error"'):
+            return f"❌ Erreur de traduction : {result}"
+
+        return result
+
+    except Exception as e:
+        return f"❌ Erreur lors de la traduction : {str(e)}"
+
+
+def detect_language(text):
+    """
+    Détecter la langue d'un texte avec Mistral AI
+
+    Args:
+        text: Texte à analyser
+
+    Returns:
+        str: 'french', 'english' ou 'unknown'
+    """
+    try:
+        role = (
+            "Tu es un détecteur de langue. Tu analyses un texte et détermines s'il est "
+            "principalement en français ou en anglais. Réponds UNIQUEMENT avec 'french', "
+            "'english' ou 'unknown' si tu ne peux pas déterminer."
+        )
+
+        question = "Quelle est la langue principale de ce texte ?"
+
+        result = get_mistral_answer(question, role, text)
+
+        if result:
+            result = result.strip().lower()
+            if 'french' in result or 'français' in result:
+                return 'french'
+            elif 'english' in result or 'anglais' in result:
+                return 'english'
+
+        return 'unknown'
+
+    except Exception as e:
+        print(f"Erreur détection langue : {e}")
+        return 'unknown'

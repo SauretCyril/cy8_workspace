@@ -419,3 +419,76 @@ def server_get_infLora(ws, prompt):
             continue  # previews are binary data
 
     return get_history(prompt_id)[prompt_id]["outputs"]
+
+
+def listen_for_progress(ws, prompt_id, progress_callback=None, status_callback=None):
+    """
+    Écouter les messages WebSocket pour capturer la progression en temps réel
+
+    Args:
+        ws: WebSocket connecté
+        prompt_id: ID du prompt ComfyUI à surveiller
+        progress_callback: Fonction appelée avec (prompt_id, progress_percent, current_node)
+        status_callback: Fonction appelée avec (prompt_id, status, message)
+
+    Returns:
+        Dict avec les informations finales ou None si erreur
+    """
+    import time
+
+    try:
+        while True:
+            out = ws.recv()
+            if isinstance(out, str):
+                message = json.loads(out)
+                message_type = message.get("type", "")
+                data = message.get("data", {})
+
+                # Vérifier si c'est pour notre prompt
+                if data.get("prompt_id") != prompt_id:
+                    continue
+
+                if message_type == "executing":
+                    if data["node"] is None:
+                        # Workflow terminé
+                        if status_callback:
+                            status_callback(prompt_id, "completed", "Exécution terminée")
+                        print(f"📊 WebSocket: Workflow {prompt_id} terminé")
+                        break
+                    else:
+                        # Workflow en cours d'exécution
+                        current_node = data["node"]
+                        if status_callback:
+                            status_callback(prompt_id, "executing", f"Exécution du node {current_node}")
+                        print(f"📊 WebSocket: Workflow {prompt_id} exécute le node {current_node}")
+
+                elif message_type == "progress":
+                    # Message de progression
+                    progress = data.get("value", 0)
+                    max_progress = data.get("max", 100)
+                    node = data.get("node", "")
+
+                    if max_progress > 0:
+                        percent = int((progress / max_progress) * 100)
+
+                        if progress_callback:
+                            progress_callback(prompt_id, percent, node)
+
+                        print(f"📊 WebSocket: Workflow {prompt_id} progression {percent}% (node: {node})")
+
+                elif message_type == "execution_error":
+                    # Erreur d'exécution
+                    if status_callback:
+                        status_callback(prompt_id, "error", f"Erreur d'exécution: {data}")
+                    print(f"❌ WebSocket: Workflow {prompt_id} en erreur: {data}")
+                    break
+
+            # Ne pas surcharger le CPU
+            time.sleep(0.01)
+
+    except Exception as e:
+        print(f"❌ Erreur écoute WebSocket pour {prompt_id}: {e}")
+        if status_callback:
+            status_callback(prompt_id, "error", f"Erreur WebSocket: {e}")
+
+    return None
