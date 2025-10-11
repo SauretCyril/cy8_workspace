@@ -196,11 +196,14 @@ class cy8_prompts_manager:
         pass
 
     def init_images_paths(self):
-        """Initialiser le chemin du répertoire d'images depuis le fichier .env"""
-        # Charger depuis la variable d'environnement ou utiliser la valeur par défaut ComfyUI
-        default_comfyui_path = "E:/Comfyui_G11/ComfyUI/output"
+        """Initialiser le chemin du répertoire d'images depuis les préférences ou .env"""
+        # Essayer de récupérer depuis les préférences utilisateur
+        default_comfyui_path = self.user_prefs.get_preference(
+            "default_comfyui_output_path",
+            "C:/ComfyUI/output"  # Valeur par défaut générique
+        )
 
-        # IMAGES_COLLECTE depuis .env (ou valeur par défaut)
+        # IMAGES_COLLECTE depuis .env (ou valeur par défaut des préférences)
         images_path = os.getenv("IMAGES_COLLECTE") or default_comfyui_path
 
         # S'assurer que la variable d'environnement est définie
@@ -2140,7 +2143,8 @@ class cy8_prompts_manager:
         # Variable pour afficher le chemin des images (lecture seule)
         self.images_path_var = tk.StringVar()
         current_images_path = (
-            os.getenv("IMAGES_COLLECTE") or "E:/Comfyui_G11/ComfyUI/output"
+            os.getenv("IMAGES_COLLECTE") or
+            self.user_prefs.get_preference("default_comfyui_output_path", "ComfyUI/output")
         )
         self.images_path_var.set(current_images_path)
 
@@ -3641,14 +3645,64 @@ class cy8_prompts_manager:
 
             name, prompt_values, workflow, url, parent, model, comment, status, file, id_env = data
 
+            # CONFIRMATION AVANT THREAD : Afficher la popup de confirmation dans le thread principal
+            try:
+                import json
+                import tempfile
+                import os
+                from cy6_task_comfyui import comfyui_task
+
+                # Préparer les fichiers temporaires pour la prévisualisation
+                temp_dir = tempfile.gettempdir()
+                timestamp = int(time.time())
+                workflow_file_path = f"{temp_dir}/{name}_preview_workflow_{timestamp}.json"
+                prompt_values_file_path = f"{temp_dir}/{name}_preview_values_{timestamp}.json"
+
+                # Écrire les fichiers temporaires
+                with open(workflow_file_path, "w", encoding="utf-8") as wf_file:
+                    wf_file.write(workflow)
+
+                with open(prompt_values_file_path, "w", encoding="utf-8") as pv_file:
+                    pv_file.write(prompt_values)
+
+                # Utiliser comfyui_task pour prévisualiser et confirmer
+                temp_task = comfyui_task()
+                from cy6_websocket_api_client import update_workflow
+
+                # Mettre à jour le workflow avec les valeurs
+                updated_workflow, updated_values = update_workflow(prompt_values_file_path, workflow_file_path)
+
+                # Nettoyer les fichiers temporaires
+                try:
+                    os.remove(workflow_file_path)
+                    os.remove(prompt_values_file_path)
+                except:
+                    pass
+
+                # Afficher la popup de confirmation dans le thread principal
+                if not temp_task._show_workflow_confirmation_popup(updated_workflow, updated_values):
+                    print("❌ Exécution du workflow annulée par l'utilisateur")
+                    self.update_status("Exécution annulée par l'utilisateur")
+                    return
+
+                print("✅ Workflow confirmé par l'utilisateur - démarrage du thread d'exécution")
+
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la prévisualisation: {e}")
+                # En cas d'erreur, demander confirmation simple
+                if not messagebox.askyesno("Confirmation", f"Exécuter le workflow '{name}' ?"):
+                    print("❌ Exécution annulée par l'utilisateur")
+                    self.update_status("Exécution annulée par l'utilisateur")
+                    return
+
             # Ajouter à la pile d'exécution
             execution_id = f"exec_{int(time.time())}"
             self.add_to_execution_stack(execution_id, "Initialisation", name, 10)
 
-            # Créer un thread pour l'exécution
+            # Créer un thread pour l'exécution (avec confirmation déjà faite)
             thread = threading.Thread(
                 target=self._execute_workflow_task,
-                args=(self.selected_prompt_id, execution_id),
+                args=(self.selected_prompt_id, execution_id, True),  # True = déjà confirmé
             )
             thread.daemon = True
             thread.start()
@@ -3660,16 +3714,13 @@ class cy8_prompts_manager:
                 "Erreur", f"Erreur lors du démarrage de l'exécution: {e}"
             )
 
-    def _execute_workflow_task(self, prompt_id, execution_id):
+    def _execute_workflow_task(self, prompt_id, execution_id, confirmed=False):
         """Tâche d'exécution du workflow (nouvelle version avec pile)"""
         import time
 
         try:
             # Vérification préalable du serveur ComfyUI
             print(f"🔍 Vérification du serveur ComfyUI avant exécution...")
-            self.update_execution_stack_status(
-                execution_id, "Vérification serveur ComfyUI", 5
-            )
 
             from cy6_websocket_api_client import get_queue_status
             if get_queue_status() is None:
@@ -3687,10 +3738,9 @@ class cy8_prompts_manager:
             # Récupérer les données du prompt
             data = self.db_manager.get_prompt_by_id(prompt_id)
             if not data:
-                self.update_execution_stack_status(
-                    execution_id, "Erreur: Prompt introuvable", 0
-                )
+                error_msg = "Erreur: Prompt introuvable"
                 print(f"🔴 Prompt introuvable pour l'ID: {prompt_id}")
+                self.update_execution_stack_status(execution_id, error_msg, 0)
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -3698,11 +3748,6 @@ class cy8_prompts_manager:
                 return
 
             name, prompt_values_json, workflow_json, url, parent, model, comment, status, file, id_env = data
-
-            # Mettre à jour le statut de préparation
-            self.update_execution_stack_status(
-                execution_id, "Préparation des données", 25
-            )
 
             # Créer le répertoire data/Workflows s'il n'existe pas
             os.makedirs("data/Workflows", exist_ok=True)
@@ -3729,25 +3774,31 @@ class cy8_prompts_manager:
                     values_data = json.load(f)
                     print(f"✅ Values JSON valide, {len(values_data)} entrées")
             except json.JSONDecodeError as e:
-                self.update_execution_stack_status(execution_id, f"Erreur JSON: {e}", 0)
+                error_msg = f"Erreur JSON: {e}"
+                print(f"❌ {error_msg}")
+                self.update_execution_stack_status(execution_id, error_msg, 0)
                 return
-
-            # Mettre à jour le statut de connexion
-            self.update_execution_stack_status(execution_id, "Connexion à ComfyUI", 50)
 
             # Exécuter le workflow avec ComfyUI et obtenir l'ID
             try:
                 from cy6_wkf001_Basic import comfyui_basic_task
                 tsk1 = comfyui_basic_task()
 
-                # Ajouter à la queue ComfyUI
-                self.update_execution_stack_status(
-                    execution_id, "Ajout à la queue ComfyUI", 60
-                )
+                # Si déjà confirmé, modifier l'instance pour bypasser la confirmation
+                if confirmed:
+                    # Bypasser la confirmation en modifiant temporairement la méthode
+                    original_show_popup = tsk1._show_workflow_confirmation_popup
+                    tsk1._show_workflow_confirmation_popup = lambda workflow, values: True
+                    print("🔄 Confirmation bypassée (déjà validée dans le thread principal)")
 
+                # Ajouter à la queue ComfyUI
                 comfyui_prompt_id = tsk1.addToQueue(
                     workflow_file_path, prompt_values_file_path
                 )
+
+                # Restaurer la méthode originale si modifiée
+                if confirmed:
+                    tsk1._show_workflow_confirmation_popup = original_show_popup
 
                 # Vérifier si l'utilisateur a annulé
                 if comfyui_prompt_id is None:
@@ -3778,21 +3829,16 @@ class cy8_prompts_manager:
                 )
 
                 # Ajouter à la pile de surveillance
+                # Le WorkflowMonitor va maintenant gérer tous les statuts automatiquement
                 self.workflow_queue.add_task(workflow_task)
-
-                # Mettre à jour le statut
-                self.update_execution_stack_status(
-                    execution_id, f"En surveillance (ID: {comfyui_prompt_id})", 75
-                )
 
                 print(f"✅ Workflow {comfyui_prompt_id} ajouté à la pile de surveillance")
                 print(f"👁️ Le thread de surveillance va maintenant gérer l'exécution")
 
             except Exception as comfy_error:
-                print(f"❌ Erreur ComfyUI: {comfy_error}")
-                self.update_execution_stack_status(
-                    execution_id, f"Erreur ComfyUI: {str(comfy_error)}", 0
-                )
+                error_msg = f"Erreur ComfyUI: {str(comfy_error)}"
+                print(f"❌ {error_msg}")
+                self.update_execution_stack_status(execution_id, error_msg, 0)
                 self.root.after(
                     0,
                     lambda: self.update_prompt_status_after_execution(prompt_id, "nok"),
@@ -4364,8 +4410,8 @@ WORKFLOW:
         try:
             images_path = os.getenv("IMAGES_COLLECTE")
             if not images_path:
-                # Utiliser le chemin par défaut ComfyUI
-                images_path = "E:/Comfyui_G11/ComfyUI/output"
+                # Utiliser le chemin depuis les préférences utilisateur
+                images_path = self.user_prefs.get_preference("default_comfyui_output_path", "ComfyUI/output")
 
             if os.path.exists(images_path):
                 if os.name == "nt":  # Windows

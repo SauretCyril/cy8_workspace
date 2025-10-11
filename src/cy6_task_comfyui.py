@@ -63,11 +63,19 @@ class comfyui_task:
 
             print("📋 Affichage popup de confirmation workflow...")
 
-            # Créer la fenêtre popup
-            popup = tk.Toplevel()
+            # Créer une fenêtre root temporaire si nécessaire
+            temp_root = None
+            try:
+                # Essayer d'utiliser le root existant
+                popup = tk.Toplevel()
+            except tk.TclError:
+                # Si pas de root, en créer un temporaire
+                temp_root = tk.Tk()
+                temp_root.withdraw()  # Cacher la fenêtre root temporaire
+                popup = tk.Toplevel(temp_root)
+
             popup.title("🔍 Confirmation d'Exécution Workflow")
             popup.geometry("800x600")
-            popup.transient()
             popup.grab_set()
 
             # Centrer la popup
@@ -160,10 +168,12 @@ class comfyui_task:
             # Fonctions des boutons
             def on_confirm():
                 result["confirmed"] = True
+                popup.quit()  # Utiliser quit() au lieu de destroy()
                 popup.destroy()
 
             def on_cancel():
                 result["confirmed"] = False
+                popup.quit()  # Utiliser quit() au lieu de destroy()
                 popup.destroy()
 
             # Boutons
@@ -194,10 +204,14 @@ class comfyui_task:
             popup.bind("<Escape>", lambda e: on_cancel())
 
             # Attendre la réponse de l'utilisateur
-            popup.wait_window()
+            popup.mainloop()  # Utiliser mainloop() au lieu de wait_window()
 
             confirmed = result["confirmed"]
             print(f"{'✅ Workflow confirmé' if confirmed else '❌ Workflow annulé'} par l'utilisateur")
+
+            # Nettoyer le root temporaire si créé
+            if temp_root:
+                temp_root.destroy()
 
             return confirmed
 

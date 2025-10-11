@@ -1,23 +1,73 @@
-# 🧪 Tests
+# 🧪 Tests - cy8_prompts_manager
 
-Répertoire contenant tous les tests du projet cy8_workspace.
+## 📋 Organisation des Tests
 
-## 📋 Organisation
+### 📁 `unit/` - Tests Unitaires
+Tests de composants individuels isolés :
 
-### Tests d'application
-- `test_app_startup.py` - Tests de démarrage de l'application
-- `test_complete_env.py` - Tests d'environnement complet
-- `test_complete_workflow.py` - Tests de workflow complet
+- `test_correction_thread.py` - Test de sécurité des threads pour les popups
+- `test_corrections_multiples.py` - Test des corrections multiples (popup, préférences, status)
+- `test_confirmation_popup.py` - Test de la popup de confirmation de workflow
+- `test_phase1_consolidation.py` - Test de validation des fonctions UI consolidées
 
-### Tests ComfyUI
-- `test_comfyui_connection.py` - Test de connexion au serveur ComfyUI
-- `test_comfyui_quick.py` - Tests rapides ComfyUI
-- `test_comfyui_tab.py` - Tests de l'onglet ComfyUI
-- `test_direct_workflow.py` - Tests de workflows directs
+### � `integration/` - Tests d'Intégration
+Tests de l'interaction entre plusieurs composants :
 
-### Tests RAG (Retrieval-Augmented Generation)
-- `test_rag_correction.py` - Tests de correction RAG
-- `test_rag_integration.py` - Tests d'intégration RAG
+- `test_database_structure.py` - Test de vérification et réparation de la base de données
+- `test_generation_image_diagnostic.py` - Test de génération d'image ComfyUI avec diagnostic serveur
+- `test_synchronisation_chat_env.py` - Test de synchronisation chat-environnement
+
+### 📁 `system/` - Tests Système
+Tests de l'ensemble du système et du workflow complet :
+
+- `test_workflow_monitor.py` - Test du système de gestion des workflows avec pile et surveillance
+- `test_server_failure_detection.py` - Test de détection de panne serveur
+- `test_server_protection_complete.py` - Test complet de la gestion des pannes serveur
+
+## 🗑️ Fichiers Supprimés (Obsolètes)
+
+Les fichiers suivants ont été supprimés car ils n'étaient plus pertinents :
+
+- `test_confirmation_reel.py` - Test avec modèle valide (imports obsolètes)
+- `test_json_fix.py` - Test de correction JSONDecodeError (imports obsolètes)
+- `test_models_disponibles.py` - Test de listing des modèles (imports obsolètes)
+
+## 🚀 Utilisation
+
+### Exécuter tous les tests
+```bash
+python -m pytest tests/ -v
+```
+
+### Exécuter par catégorie
+```bash
+# Tests unitaires uniquement
+python -m pytest tests/unit/ -v
+
+# Tests d'intégration uniquement
+python -m pytest tests/integration/ -v
+
+# Tests système uniquement
+python -m pytest tests/system/ -v
+```
+
+### Exécuter un test spécifique
+```bash
+python -m pytest tests/unit/test_correction_thread.py -v
+```
+
+## 📝 Conventions
+
+- Tous les tests commencent par `test_`
+- Les imports pointent vers `src/` via le chemin relatif `../../src`
+- Chaque répertoire contient un `__init__.py` pour la structure Python
+- Les tests sont organisés par niveau de complexité (unitaire → intégration → système)
+
+## 🎯 Maintenance
+
+- Les tests récents (< 7 jours) avec imports valides ont été conservés
+- Les tests obsolètes ou avec imports cassés ont été supprimés
+- La structure suit les bonnes pratiques de test Python
 - `test_rag_learning_simple.py` - Tests d'apprentissage RAG
 - `test_rag_tester_sync.py` - Tests de synchronisation RAG
 
