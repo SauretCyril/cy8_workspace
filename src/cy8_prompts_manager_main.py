@@ -889,6 +889,12 @@ class cy8_prompts_manager:
         self.current_workflow_tree = self.workflow_tree
         self.table_manager._current_workflow_tree = self.workflow_tree
 
+        # 1.3) Onglet Models
+        models_tab = ttk.Frame(notebook)
+        notebook.add(models_tab, text="Models")
+
+        self.setup_models_tab(models_tab)
+
         # Onglet Informations générales
         info_tab = ttk.Frame(notebook)
         notebook.add(info_tab, text="Informations")
@@ -3689,6 +3695,419 @@ class cy8_prompts_manager:
         except Exception as e:
             print(f"Erreur copie presse-papier: {e}")
 
+    def setup_models_tab(self, parent):
+        """Configuration de l'onglet Models"""
+        try:
+            # Import du gestionnaire de modèles
+            from cy8_models_manager import ComfyUIModelsManager
+
+            # Initialiser le gestionnaire de modèles
+            self.models_manager = ComfyUIModelsManager()
+            self.current_model_filter = None
+            self.selected_prompt_id = None
+
+            # Frame principal
+            main_frame = ttk.Frame(parent)
+            main_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+            # Frame pour les boutons de filtrage par type
+            filter_frame = ttk.Frame(main_frame)
+            filter_frame.pack(fill="x", pady=(0, 10))
+
+            ttk.Label(filter_frame, text="Filtrer par type:").pack(side="left", padx=(0, 10))
+
+            # Frame pour les boutons de type (sera rempli dynamiquement)
+            self.type_buttons_frame = ttk.Frame(filter_frame)
+            self.type_buttons_frame.pack(side="left", fill="x", expand=True)
+
+            # Bouton pour actualiser les modèles
+            ttk.Button(
+                filter_frame,
+                text="🔄 Actualiser",
+                command=self.refresh_models
+            ).pack(side="right", padx=(10, 0))
+
+            # Notebook pour les sous-onglets
+            models_notebook = ttk.Notebook(main_frame)
+            models_notebook.pack(fill="both", expand=True)
+
+            # Sous-onglet "All Models"
+            all_models_frame = ttk.Frame(models_notebook)
+            models_notebook.add(all_models_frame, text="All Models")
+
+            # Table pour tous les modèles
+            self.setup_all_models_table(all_models_frame)
+
+            # Sous-onglet "Current"
+            current_models_frame = ttk.Frame(models_notebook)
+            models_notebook.add(current_models_frame, text="Current")
+
+            # Table pour les modèles du prompt sélectionné
+            self.setup_current_models_table(current_models_frame)
+
+            # Charger les modèles au démarrage
+            self.root.after(1000, self.refresh_models)  # Délai pour laisser l'interface se charger
+
+        except Exception as e:
+            print(f"❌ Erreur setup onglet Models: {e}")
+
+    def setup_all_models_table(self, parent):
+        """Configuration de la table 'All Models'"""
+        try:
+            # Frame principal avec scrollbars
+            table_frame = ttk.Frame(parent)
+            table_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+            # Colonnes pour la table des modèles
+            columns = ("ID", "Nom", "Type")
+
+            self.all_models_tree = ttk.Treeview(
+                table_frame,
+                columns=columns,
+                show="headings",
+                selectmode="browse"
+            )
+
+            # Configuration des colonnes
+            self.all_models_tree.heading("ID", text="ID")
+            self.all_models_tree.heading("Nom", text="Nom du Modèle")
+            self.all_models_tree.heading("Type", text="Type")
+
+            self.all_models_tree.column("ID", width=50, minwidth=50)
+            self.all_models_tree.column("Nom", width=300, minwidth=200)
+            self.all_models_tree.column("Type", width=150, minwidth=100)
+
+            # Scrollbars
+            all_v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.all_models_tree.yview)
+            all_h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.all_models_tree.xview)
+
+            self.all_models_tree.configure(yscrollcommand=all_v_scrollbar.set, xscrollcommand=all_h_scrollbar.set)
+
+            # Pack des éléments
+            self.all_models_tree.grid(row=0, column=0, sticky="nsew")
+            all_v_scrollbar.grid(row=0, column=1, sticky="ns")
+            all_h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+            table_frame.grid_rowconfigure(0, weight=1)
+            table_frame.grid_columnconfigure(0, weight=1)
+
+            # Double-clic pour voir les détails
+            self.all_models_tree.bind("<Double-1>", self.on_model_double_click)
+
+        except Exception as e:
+            print(f"❌ Erreur setup table All Models: {e}")
+
+    def setup_current_models_table(self, parent):
+        """Configuration de la table 'Current Models'"""
+        try:
+            # Frame principal avec informations
+            main_frame = ttk.Frame(parent)
+            main_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+            # Label informatif
+            self.current_models_label = ttk.Label(
+                main_frame,
+                text="Sélectionnez un prompt dans l'onglet 'Prompts' pour voir ses modèles",
+                font=("TkDefaultFont", 10, "italic")
+            )
+            self.current_models_label.pack(pady=10)
+
+            # Frame pour la table
+            table_frame = ttk.Frame(main_frame)
+            table_frame.pack(fill="both", expand=True)
+
+            # Colonnes identiques à All Models
+            columns = ("ID", "Nom", "Type")
+
+            self.current_models_tree = ttk.Treeview(
+                table_frame,
+                columns=columns,
+                show="headings",
+                selectmode="browse"
+            )
+
+            # Configuration des colonnes
+            self.current_models_tree.heading("ID", text="ID")
+            self.current_models_tree.heading("Nom", text="Nom du Modèle")
+            self.current_models_tree.heading("Type", text="Type")
+
+            self.current_models_tree.column("ID", width=50, minwidth=50)
+            self.current_models_tree.column("Nom", width=300, minwidth=200)
+            self.current_models_tree.column("Type", width=150, minwidth=100)
+
+            # Scrollbars
+            current_v_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.current_models_tree.yview)
+            current_h_scrollbar = ttk.Scrollbar(table_frame, orient="horizontal", command=self.current_models_tree.xview)
+
+            self.current_models_tree.configure(yscrollcommand=current_v_scrollbar.set, xscrollcommand=current_h_scrollbar.set)
+
+            # Pack des éléments
+            self.current_models_tree.grid(row=0, column=0, sticky="nsew")
+            current_v_scrollbar.grid(row=0, column=1, sticky="ns")
+            current_h_scrollbar.grid(row=1, column=0, sticky="ew")
+
+            table_frame.grid_rowconfigure(0, weight=1)
+            table_frame.grid_columnconfigure(0, weight=1)
+
+            # Double-clic pour voir les détails
+            self.current_models_tree.bind("<Double-1>", self.on_model_double_click)
+
+        except Exception as e:
+            print(f"❌ Erreur setup table Current Models: {e}")
+
+    def refresh_models(self):
+        """Actualiser la liste des modèles"""
+        try:
+            print("🔄 Actualisation des modèles...")
+
+            # Récupérer tous les modèles depuis ComfyUI
+            all_models = self.models_manager.get_all_models()
+
+            # Convertir en liste plate
+            models_list = self.models_manager.get_models_flat_list()
+
+            # Mettre à jour la base de données
+            self.db_manager.update_all_models(models_list)
+
+            # Récupérer les types uniques
+            model_types = self.models_manager.get_unique_model_types()
+
+            # Mettre à jour les boutons de filtrage
+            self.update_type_filter_buttons(model_types)
+
+            # Rafraîchir les tables
+            self.refresh_all_models_table()
+            self.refresh_current_models_table()
+
+            print(f"✅ {len(models_list)} modèles actualisés")
+
+        except Exception as e:
+            print(f"❌ Erreur actualisation modèles: {e}")
+
+    def update_type_filter_buttons(self, model_types):
+        """Mettre à jour les boutons de filtrage par type"""
+        try:
+            # Supprimer les anciens boutons
+            for widget in self.type_buttons_frame.winfo_children():
+                widget.destroy()
+
+            # Bouton "Tous"
+            all_btn = ttk.Button(
+                self.type_buttons_frame,
+                text="Tous",
+                command=lambda: self.filter_models_by_type(None)
+            )
+            all_btn.pack(side="left", padx=2)
+
+            # Boutons pour chaque type
+            for model_type in sorted(model_types):
+                if model_type:  # Éviter les types vides
+                    btn = ttk.Button(
+                        self.type_buttons_frame,
+                        text=model_type.capitalize(),
+                        command=lambda t=model_type: self.filter_models_by_type(t)
+                    )
+                    btn.pack(side="left", padx=2)
+
+        except Exception as e:
+            print(f"❌ Erreur mise à jour boutons filtrage: {e}")
+
+    def filter_models_by_type(self, model_type):
+        """Filtrer les modèles par type"""
+        try:
+            self.current_model_filter = model_type
+            self.refresh_all_models_table()
+            self.refresh_current_models_table()
+
+            if model_type:
+                print(f"🔍 Filtrage par type: {model_type}")
+            else:
+                print("🔍 Affichage de tous les modèles")
+
+        except Exception as e:
+            print(f"❌ Erreur filtrage: {e}")
+
+    def refresh_all_models_table(self):
+        """Rafraîchir la table 'All Models'"""
+        try:
+            if not hasattr(self, 'all_models_tree'):
+                return
+
+            # Vider la table
+            for item in self.all_models_tree.get_children():
+                self.all_models_tree.delete(item)
+
+            # Récupérer les modèles
+            if self.current_model_filter:
+                models = self.db_manager.get_models_by_type(self.current_model_filter)
+            else:
+                models = self.db_manager.get_all_models()
+
+            # Remplir la table
+            for model in models:
+                self.all_models_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        model["id"],
+                        model["name"],
+                        model["type"]
+                    )
+                )
+
+        except Exception as e:
+            print(f"❌ Erreur rafraîchissement table All Models: {e}")
+
+    def refresh_current_models_table(self):
+        """Rafraîchir la table 'Current Models'"""
+        try:
+            if not hasattr(self, 'current_models_tree'):
+                return
+
+            # Vider la table
+            for item in self.current_models_tree.get_children():
+                self.current_models_tree.delete(item)
+
+            # Vérifier si un prompt est sélectionné
+            if not self.selected_prompt_id:
+                return
+
+            # Récupérer les modèles du prompt
+            models = self.db_manager.get_models_for_prompt(self.selected_prompt_id)
+
+            # Appliquer le filtre si nécessaire
+            if self.current_model_filter:
+                models = [m for m in models if m["type"] == self.current_model_filter]
+
+            # Remplir la table
+            for model in models:
+                self.current_models_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        model["id"],
+                        model["name"],
+                        model["type"]
+                    )
+                )
+
+            # Mettre à jour le label
+            if hasattr(self, 'current_models_label'):
+                if models:
+                    self.current_models_label.config(
+                        text=f"Modèles du prompt sélectionné ({len(models)} modèles)"
+                    )
+                else:
+                    self.current_models_label.config(
+                        text="Aucun modèle associé au prompt sélectionné"
+                    )
+
+        except Exception as e:
+            print(f"❌ Erreur rafraîchissement table Current Models: {e}")
+
+    def on_model_double_click(self, event):
+        """Gestionnaire du double-clic sur un modèle"""
+        try:
+            tree = event.widget
+            selection = tree.selection()
+
+            if not selection:
+                return
+
+            item = tree.item(selection[0])
+            model_id = item['values'][0]
+
+            # Récupérer les détails du modèle
+            models = self.db_manager.get_all_models()
+            model_details = next((m for m in models if m["id"] == model_id), None)
+
+            if model_details:
+                self.show_model_details_popup(model_details)
+
+        except Exception as e:
+            print(f"❌ Erreur double-clic modèle: {e}")
+
+    def show_model_details_popup(self, model):
+        """Afficher la popup avec les détails du modèle"""
+        try:
+            import json
+
+            # Créer la fenêtre popup
+            popup = tk.Toplevel(self.root)
+            popup.title(f"Détails du modèle: {model['name']}")
+            popup.geometry("600x400")
+            popup.transient(self.root)
+            popup.grab_set()
+
+            # Centrer la popup
+            popup.update_idletasks()
+            x = (popup.winfo_screenwidth() // 2) - (popup.winfo_width() // 2)
+            y = (popup.winfo_screenheight() // 2) - (popup.winfo_height() // 2)
+            popup.geometry(f"+{x}+{y}")
+
+            # Frame principal
+            main_frame = ttk.Frame(popup, padding="10")
+            main_frame.pack(fill="both", expand=True)
+
+            # Titre
+            ttk.Label(
+                main_frame,
+                text=f"📋 {model['name']}",
+                font=("TkDefaultFont", 12, "bold")
+            ).pack(anchor="w", pady=(0, 10))
+
+            # Informations de base
+            info_frame = ttk.LabelFrame(main_frame, text="Informations générales", padding="10")
+            info_frame.pack(fill="x", pady=(0, 10))
+
+            ttk.Label(info_frame, text=f"Type: {model['type']}").pack(anchor="w")
+            ttk.Label(info_frame, text=f"Chemin: {model['path']}").pack(anchor="w")
+            ttk.Label(info_frame, text=f"Ajouté: {model['created_at']}").pack(anchor="w")
+
+            # Métadonnées
+            metadata_frame = ttk.LabelFrame(main_frame, text="Métadonnées", padding="10")
+            metadata_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+            # Zone de texte pour les métadonnées
+            metadata_text = tk.Text(metadata_frame, wrap="word", font=("Consolas", 9))
+            metadata_scrollbar = ttk.Scrollbar(metadata_frame, orient="vertical", command=metadata_text.yview)
+            metadata_text.configure(yscrollcommand=metadata_scrollbar.set)
+
+            # Formater les métadonnées
+            try:
+                if model['metadata']:
+                    metadata = json.loads(model['metadata'])
+                    formatted_metadata = json.dumps(metadata, indent=2, ensure_ascii=False)
+                else:
+                    formatted_metadata = "Aucune métadonnée disponible"
+            except:
+                formatted_metadata = str(model['metadata'])
+
+            metadata_text.insert("1.0", formatted_metadata)
+            metadata_text.config(state="disabled")
+
+            metadata_text.pack(side="left", fill="both", expand=True)
+            metadata_scrollbar.pack(side="right", fill="y")
+
+            # Boutons
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(fill="x", pady=(10, 0))
+
+            ttk.Button(
+                button_frame,
+                text="📋 Copier le chemin",
+                command=lambda: self.copy_path_to_clipboard(model['path'])
+            ).pack(side="left")
+
+            ttk.Button(
+                button_frame,
+                text="❌ Fermer",
+                command=popup.destroy
+            ).pack(side="right")
+
+        except Exception as e:
+            print(f"❌ Erreur popup détails modèle: {e}")
+
     def setup_status_bar(self):
         """Configuration de la barre de statut"""
         self.status_bar = ttk.Frame(self.root)
@@ -3736,6 +4155,10 @@ class cy8_prompts_manager:
         if selection:
             self.selected_prompt_id = int(selection[0])
             self.load_prompt_details(self.selected_prompt_id)
+
+            # Mettre à jour l'onglet Models avec les modèles du prompt sélectionné
+            if hasattr(self, 'refresh_current_models_table'):
+                self.refresh_current_models_table()
 
     def on_prompt_double_click(self, event):
         """Gestionnaire de double-clic sur un prompt"""
@@ -4211,6 +4634,13 @@ class cy8_prompts_manager:
                 print(f"❌ {error_msg}")
                 self.update_execution_stack_status(execution_id, error_msg, 0)
                 return
+
+            # Analyser et extraire les modèles du workflow
+            try:
+                print(f"🔍 Analyse des modèles utilisés dans le workflow...")
+                self.db_manager.extract_models_from_workflow(workflow_data, prompt_id)
+            except Exception as e:
+                print(f"⚠️ Erreur analyse modèles: {e}")
 
             # Exécuter le workflow avec ComfyUI et obtenir l'ID
             try:

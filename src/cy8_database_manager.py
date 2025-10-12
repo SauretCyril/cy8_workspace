@@ -109,6 +109,36 @@ class cy8_database_manager:
             """
             )
 
+            # Créer la table all_models pour stocker tous les modèles détectés
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS all_models (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    metadata TEXT,
+                    type TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Créer la table association_model_workflow pour lier modèles et prompts
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS association_model_workflow (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL,
+                    model_id INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE,
+                    FOREIGN KEY (model_id) REFERENCES all_models (id) ON DELETE CASCADE,
+                    UNIQUE(prompt_id, model_id)
+                )
+            """
+            )
+
             self.conn.commit()
             self.ensure_additional_columns()
             self.add_default_environments()
@@ -293,8 +323,59 @@ class cy8_database_manager:
                     self.conn.commit()
                     print("Colonne 'environment_id' ajoutée à la table 'prompt_image'")
 
+            # S'assurer que les tables de modèles existent
+            self.ensure_models_tables()
+
         except sqlite3.OperationalError as e:
             print(f"Erreur lors de l'ajout des colonnes : {e}")
+
+    def ensure_models_tables(self):
+        """S'assurer que les tables de modèles existent"""
+        try:
+            # Vérifier si la table all_models existe
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='all_models'"
+            )
+            if not self.cursor.fetchone():
+                self.cursor.execute(
+                    """
+                    CREATE TABLE all_models (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        path TEXT NOT NULL,
+                        metadata TEXT,
+                        type TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """
+                )
+                print("✅ Table 'all_models' créée avec succès")
+
+            # Vérifier si la table association_model_workflow existe
+            self.cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='association_model_workflow'"
+            )
+            if not self.cursor.fetchone():
+                self.cursor.execute(
+                    """
+                    CREATE TABLE association_model_workflow (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        prompt_id INTEGER NOT NULL,
+                        model_id INTEGER NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (prompt_id) REFERENCES prompts (id) ON DELETE CASCADE,
+                        FOREIGN KEY (model_id) REFERENCES all_models (id) ON DELETE CASCADE,
+                        UNIQUE(prompt_id, model_id)
+                    )
+                """
+                )
+                print("✅ Table 'association_model_workflow' créée avec succès")
+
+            self.conn.commit()
+
+        except Exception as e:
+            print(f"❌ Erreur création tables modèles: {e}")
 
     def remove_legacy_image_column(self, existing_columns):
         """Supprimer la colonne image legacy et migrer les données"""
@@ -1140,6 +1221,271 @@ class cy8_database_manager:
         except Exception as e:
             print(f"Erreur lors de l'ajout de l'action: {e}")
             return None
+
+    # ===== GESTION DES MODÈLES =====
+
+    def update_all_models(self, models_list):
+        """
+        Mettre à jour la table all_models avec la liste des modèles détectés
+
+        Args:
+            models_list: Liste des modèles avec leurs informations
+        """
+        try:
+            # Vider la table actuelle
+            self.cursor.execute("DELETE FROM all_models")
+
+            # Insérer tous les nouveaux modèles
+            for model in models_list:
+                self.cursor.execute(
+                    """
+                    INSERT INTO all_models (name, path, metadata, type)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (model['name'], model['path'], model['metadata'], model['type'])
+                )
+
+            self.conn.commit()
+            print(f"✅ Table all_models mise à jour avec {len(models_list)} modèles")
+
+        except Exception as e:
+            print(f"❌ Erreur mise à jour all_models: {e}")
+            self.conn.rollback()
+
+    def get_all_models(self):
+        """
+        Récupérer tous les modèles de la table all_models
+
+        Returns:
+            Liste des modèles avec leurs informations
+        """
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, metadata, type, created_at, updated_at
+                FROM all_models
+                ORDER BY name
+                """
+            )
+            rows = self.cursor.fetchall()
+
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "path": row[2],
+                    "metadata": row[3],
+                    "type": row[4],
+                    "created_at": row[5],
+                    "updated_at": row[6]
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            print(f"❌ Erreur récupération modèles: {e}")
+            return []
+
+    def get_models_by_type(self, model_type):
+        """
+        Récupérer les modèles d'un type spécifique
+
+        Args:
+            model_type: Type de modèle à filtrer
+
+        Returns:
+            Liste des modèles du type spécifié
+        """
+        try:
+            self.cursor.execute(
+                """
+                SELECT id, name, path, metadata, type, created_at, updated_at
+                FROM all_models
+                WHERE type = ?
+                ORDER BY name
+                """,
+                (model_type,)
+            )
+            rows = self.cursor.fetchall()
+
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "path": row[2],
+                    "metadata": row[3],
+                    "type": row[4],
+                    "created_at": row[5],
+                    "updated_at": row[6]
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            print(f"❌ Erreur récupération modèles par type: {e}")
+            return []
+
+    def get_unique_model_types(self):
+        """
+        Récupérer la liste unique des types de modèles
+
+        Returns:
+            Liste des types sans doublons
+        """
+        try:
+            self.cursor.execute(
+                """
+                SELECT DISTINCT type
+                FROM all_models
+                ORDER BY type
+                """
+            )
+            rows = self.cursor.fetchall()
+
+            return [row[0] for row in rows]
+
+        except Exception as e:
+            print(f"❌ Erreur récupération types modèles: {e}")
+            return []
+
+    def associate_model_to_prompt(self, prompt_id, model_id):
+        """
+        Associer un modèle à un prompt
+
+        Args:
+            prompt_id: ID du prompt
+            model_id: ID du modèle
+        """
+        try:
+            self.cursor.execute(
+                """
+                INSERT OR IGNORE INTO association_model_workflow (prompt_id, model_id)
+                VALUES (?, ?)
+                """,
+                (prompt_id, model_id)
+            )
+            self.conn.commit()
+
+        except Exception as e:
+            print(f"❌ Erreur association modèle-prompt: {e}")
+
+    def get_models_for_prompt(self, prompt_id):
+        """
+        Récupérer les modèles associés à un prompt
+
+        Args:
+            prompt_id: ID du prompt
+
+        Returns:
+            Liste des modèles associés
+        """
+        try:
+            self.cursor.execute(
+                """
+                SELECT m.id, m.name, m.path, m.metadata, m.type, m.created_at, m.updated_at
+                FROM all_models m
+                INNER JOIN association_model_workflow amw ON m.id = amw.model_id
+                WHERE amw.prompt_id = ?
+                ORDER BY m.name
+                """,
+                (prompt_id,)
+            )
+            rows = self.cursor.fetchall()
+
+            return [
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "path": row[2],
+                    "metadata": row[3],
+                    "type": row[4],
+                    "created_at": row[5],
+                    "updated_at": row[6]
+                }
+                for row in rows
+            ]
+
+        except Exception as e:
+            print(f"❌ Erreur récupération modèles du prompt: {e}")
+            return []
+
+    def clear_prompt_models(self, prompt_id):
+        """
+        Supprimer toutes les associations de modèles pour un prompt
+
+        Args:
+            prompt_id: ID du prompt
+        """
+        try:
+            self.cursor.execute(
+                "DELETE FROM association_model_workflow WHERE prompt_id = ?",
+                (prompt_id,)
+            )
+            self.conn.commit()
+
+        except Exception as e:
+            print(f"❌ Erreur suppression associations: {e}")
+
+    def extract_models_from_workflow(self, workflow_data, prompt_id):
+        """
+        Extraire et associer les modèles utilisés dans un workflow
+
+        Args:
+            workflow_data: Données du workflow JSON
+            prompt_id: ID du prompt
+        """
+        if not workflow_data:
+            return
+
+        try:
+            # Vider les associations existantes
+            self.clear_prompt_models(prompt_id)
+
+            # Parser le workflow pour trouver les modèles
+            import json
+            if isinstance(workflow_data, str):
+                workflow = json.loads(workflow_data)
+            else:
+                workflow = workflow_data
+
+            # Types de nodes qui utilisent des modèles
+            model_nodes = {
+                'CheckpointLoaderSimple': ('ckpt_name', 'checkpoints'),
+                'LoraLoader': ('lora_name', 'loras'),
+                'VAELoader': ('vae_name', 'vae'),
+                'ControlNetLoader': ('control_net_name', 'controlnet'),
+                'UpscaleModelLoader': ('model_name', 'upscale_models'),
+                'CLIPTextEncode': None,  # Pas de modèle direct
+                'CLIPVisionLoader': ('clip_name', 'clip_vision')
+            }
+
+            found_models = []
+
+            for node_id, node_data in workflow.items():
+                class_type = node_data.get('class_type', '')
+                inputs = node_data.get('inputs', {})
+
+                if class_type in model_nodes and model_nodes[class_type]:
+                    param_name, model_type = model_nodes[class_type]
+                    model_name = inputs.get(param_name)
+
+                    if model_name:
+                        # Trouver le modèle dans la base
+                        self.cursor.execute(
+                            "SELECT id FROM all_models WHERE name = ? AND type = ?",
+                            (model_name, model_type)
+                        )
+                        model_row = self.cursor.fetchone()
+
+                        if model_row:
+                            model_id = model_row[0]
+                            self.associate_model_to_prompt(prompt_id, model_id)
+                            found_models.append(model_name)
+
+            print(f"✅ Modèles associés au prompt {prompt_id}: {found_models}")
+
+        except Exception as e:
+            print(f"❌ Erreur extraction modèles du workflow: {e}")
 
     def update_env_action(self, action_id, short_desc, action_cmd):
         """Mettre à jour une action existante"""
