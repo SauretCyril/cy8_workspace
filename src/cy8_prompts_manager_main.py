@@ -154,7 +154,7 @@ class cy8_prompts_manager:
         # Démarrer le monitoring des workflows
         print("🚀 Démarrage du monitoring des workflows...")
         self.workflow_monitor.start()
-        
+
         # Vérifier que le monitoring a bien démarré
         self.root.after(2000, self._verify_monitoring_started)
         print("✅ Monitoring des workflows actif")
@@ -2669,7 +2669,7 @@ class cy8_prompts_manager:
         try:
             if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
                 stats = self.workflow_monitor.get_monitor_status()
-                
+
                 if stats['running']:
                     # Arrêter le monitoring
                     self.workflow_monitor.stop()
@@ -2692,7 +2692,7 @@ class cy8_prompts_manager:
                 # Arrêter d'abord
                 self.workflow_monitor.stop()
                 self.add_monitoring_log("🔄 Arrêt du monitoring...")
-                
+
                 # Attendre un peu
                 self.root.after(1000, self._restart_monitoring_delayed)
             else:
@@ -2733,24 +2733,24 @@ class cy8_prompts_manager:
             if not hasattr(self, 'workflow_monitor'):
                 self.add_monitoring_log("❌ WorkflowMonitor non initialisé")
                 return
-                
+
             if not self.workflow_monitor:
                 self.add_monitoring_log("❌ WorkflowMonitor est None")
                 return
-                
+
             stats = self.workflow_monitor.get_monitor_status()
             debug_info = self.workflow_monitor.get_debug_info()
-            
+
             self.add_monitoring_log("🔍 DIAGNOSTIC MONITORING:")
             self.add_monitoring_log(f"   📊 Running: {stats.get('running', 'Unknown')}")
             self.add_monitoring_log(f"   📊 Status: {stats.get('status', 'Unknown')}")
             self.add_monitoring_log(f"   📊 Thread alive: {debug_info.get('thread_alive', 'Unknown')}")
             self.add_monitoring_log(f"   📊 Thread running: {debug_info.get('thread_running', 'Unknown')}")
             self.add_monitoring_log(f"   📊 Active tasks: {stats.get('active_tasks', 0)}")
-            
+
             if not stats.get('running', False):
                 self.add_monitoring_log("⚠️ Monitoring arrêté - Utilisez les boutons Pause/Resume ou Restart")
-                
+
         except Exception as e:
             self.add_monitoring_log(f"❌ Erreur diagnostic: {e}")
 
@@ -2774,7 +2774,16 @@ class cy8_prompts_manager:
                 if debug_info['tasks_details']:
                     self.add_monitoring_log("📋 TÂCHES ACTIVES:")
                     for task in debug_info['tasks_details']:
-                        task_msg = f"   • {task['comfyui_prompt_id']}: {task['status']} ({task['elapsed_seconds']}s, {task['progress']}%)"
+                        # Affichage amélioré avec progression temps réel
+                        progress_info = ""
+                        if task['real_time_progress'] > 0:
+                            progress_info = f"🔄 {task['real_time_progress']}% (temps réel)"
+                        elif task['manual_progress'] > 0:
+                            progress_info = f"📊 {task['manual_progress']}% (manuel)"
+                        else:
+                            progress_info = "⏳ 0%"
+
+                        task_msg = f"   • {task['comfyui_prompt_id']}: {task['status']} ({task['elapsed_seconds']}s) - {progress_info}"
                         self.add_monitoring_log(task_msg)
             else:
                 self.add_monitoring_log("⚠️ WorkflowMonitor non disponible")
@@ -2787,6 +2796,7 @@ class cy8_prompts_manager:
         try:
             if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
                 stats = self.workflow_monitor.get_monitor_status()
+                debug_info = self.workflow_monitor.get_debug_info()
                 running = stats.get('running', False)
                 status = stats.get('status', 'Inconnu')
                 active_tasks = stats.get('active_tasks', 0)
@@ -2795,7 +2805,13 @@ class cy8_prompts_manager:
                     status_text = "⏹️ Arrêté"
                 elif status == "Actif":
                     if active_tasks > 0:
-                        status_text = f"🔄 Actif ({active_tasks} tâche{'s' if active_tasks > 1 else ''})"
+                        # Chercher la progression temps réel des tâches actives
+                        progress_info = ""
+                        for task in debug_info.get('tasks_details', []):
+                            if task['real_time_progress'] > 0:
+                                progress_info = f" - {task['real_time_progress']}%"
+                                break
+                        status_text = f"🔄 Actif ({active_tasks} tâche{'s' if active_tasks > 1 else ''}){progress_info}"
                     else:
                         status_text = "🟢 Actif (en attente)"
                 elif status == "Panne serveur":
@@ -2812,6 +2828,40 @@ class cy8_prompts_manager:
 
         # Programmer la prochaine mise à jour
         self.root.after(2000, self._update_monitoring_status)  # Toutes les 2 secondes
+
+        # Vérifier et afficher les progressions actives
+        self._check_and_display_progress()
+
+    def _check_and_display_progress(self):
+        """Vérifier et afficher les progressions en temps réel"""
+        try:
+            if not hasattr(self, 'workflow_monitor') or not self.workflow_monitor:
+                return
+
+            debug_info = self.workflow_monitor.get_debug_info()
+
+            # Afficher les progressions uniquement si il y a des tâches actives avec progression > 0
+            active_tasks_with_progress = []
+            for task in debug_info.get('tasks_details', []):
+                if task['real_time_progress'] > 0:
+                    active_tasks_with_progress.append(task)
+
+            # Afficher les progressions toutes les 5 secondes si il y en a
+            if active_tasks_with_progress and hasattr(self, '_last_progress_display'):
+                import time
+                current_time = time.time()
+                if current_time - self._last_progress_display >= 5:  # Toutes les 5 secondes
+                    for task in active_tasks_with_progress:
+                        progress_msg = f"📊 Progression: {task['comfyui_prompt_id']} - {task['real_time_progress']}% ({task['elapsed_seconds']}s)"
+                        self.add_monitoring_log(progress_msg)
+                    self._last_progress_display = current_time
+            elif active_tasks_with_progress and not hasattr(self, '_last_progress_display'):
+                # Première fois qu'on détecte une progression
+                import time
+                self._last_progress_display = time.time()
+
+        except Exception as e:
+            print(f"Erreur check progress: {e}")
 
     def setup_images_tab(self, parent):
         """Configuration de l'onglet explorateur d'images avec sous-onglets"""

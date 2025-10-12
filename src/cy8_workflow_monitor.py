@@ -288,12 +288,19 @@ class WorkflowMonitor:
 
         for prompt_id, task in tasks.items():
             elapsed = time.time() - task.timestamp
+
+            # Utiliser la progression en temps réel si disponible, sinon la progression manuelle
+            current_progress = task.real_time_progress if task.real_time_progress > 0 else task.progress
+
             debug_info["tasks_details"].append({
                 "comfyui_prompt_id": prompt_id,
                 "prompt_id": task.prompt_id,
                 "status": task.status.value,
                 "elapsed_seconds": round(elapsed, 1),
-                "progress": task.progress,
+                "progress": current_progress,
+                "real_time_progress": task.real_time_progress,
+                "manual_progress": task.progress,
+                "last_progress_update": task.last_progress_update,
                 "error_message": task.error_message
             })
 

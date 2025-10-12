@@ -8,7 +8,7 @@ print("=" * 50)
 
 print("✅ Corrections apportées:")
 print("1. Remplacé toggle_monitoring_logging par toggle_monitoring")
-print("2. Ajouté restart_monitoring pour redémarrage complet") 
+print("2. Ajouté restart_monitoring pour redémarrage complet")
 print("3. Ajouté diagnose_monitoring pour diagnostics")
 print("4. Amélioré _update_monitoring_status avec l'état 'running'")
 print("5. Ajouté _verify_monitoring_started au démarrage")
