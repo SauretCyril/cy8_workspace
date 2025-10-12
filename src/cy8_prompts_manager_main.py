@@ -154,6 +154,9 @@ class cy8_prompts_manager:
         # Démarrer le monitoring des workflows
         print("🚀 Démarrage du monitoring des workflows...")
         self.workflow_monitor.start()
+        
+        # Vérifier que le monitoring a bien démarré
+        self.root.after(2000, self._verify_monitoring_started)
         print("✅ Monitoring des workflows actif")
 
         # Initialiser le tableau des environnements après la création de l'interface
@@ -2592,7 +2595,11 @@ class cy8_prompts_manager:
         ttk.Button(control_frame, text="📊 Statistiques",
                   command=self.show_monitoring_stats).pack(side="left", padx=(0, 5))
         ttk.Button(control_frame, text="⏸️ Pause/▶️ Resume",
-                  command=self.toggle_monitoring_logging).pack(side="left", padx=(0, 5))
+                  command=self.toggle_monitoring).pack(side="left", padx=(0, 5))
+        ttk.Button(control_frame, text="🔄 Restart",
+                  command=self.restart_monitoring).pack(side="left", padx=(0, 5))
+        ttk.Button(control_frame, text="🔍 Diagnostic",
+                  command=self.diagnose_monitoring).pack(side="left", padx=(0, 5))
 
         # Zone de logs
         logs_frame = ttk.Frame(main_frame)
@@ -2657,11 +2664,95 @@ class cy8_prompts_manager:
         except Exception as e:
             print(f"⚠️ Erreur effacement logs: {e}")
 
-    def toggle_monitoring_logging(self):
-        """Activer/désactiver l'enregistrement des logs"""
-        self.monitoring_logs_enabled = not self.monitoring_logs_enabled
-        status = "activé" if self.monitoring_logs_enabled else "désactivé"
-        self.add_monitoring_log(f"📝 Enregistrement des logs {status}")
+    def toggle_monitoring(self):
+        """Démarrer/arrêter le monitoring des workflows"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                stats = self.workflow_monitor.get_monitor_status()
+                
+                if stats['running']:
+                    # Arrêter le monitoring
+                    self.workflow_monitor.stop()
+                    self.add_monitoring_log("⏸️ Monitoring arrêté")
+                    self.monitoring_status_var.set("⏹️ Arrêté")
+                else:
+                    # Démarrer le monitoring
+                    self.workflow_monitor.start()
+                    self.add_monitoring_log("▶️ Monitoring redémarré")
+                    self.monitoring_status_var.set("🟢 Actif")
+            else:
+                self.add_monitoring_log("❌ WorkflowMonitor non disponible")
+        except Exception as e:
+            self.add_monitoring_log(f"❌ Erreur toggle monitoring: {e}")
+
+    def restart_monitoring(self):
+        """Redémarrer complètement le monitoring"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                # Arrêter d'abord
+                self.workflow_monitor.stop()
+                self.add_monitoring_log("🔄 Arrêt du monitoring...")
+                
+                # Attendre un peu
+                self.root.after(1000, self._restart_monitoring_delayed)
+            else:
+                self.add_monitoring_log("❌ WorkflowMonitor non disponible")
+        except Exception as e:
+            self.add_monitoring_log(f"❌ Erreur restart monitoring: {e}")
+
+    def _restart_monitoring_delayed(self):
+        """Redémarrage différé du monitoring"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                self.workflow_monitor.start()
+                self.add_monitoring_log("🟢 Monitoring redémarré avec succès")
+                self.monitoring_status_var.set("🟢 Actif")
+        except Exception as e:
+            self.add_monitoring_log(f"❌ Erreur redémarrage monitoring: {e}")
+
+    def _verify_monitoring_started(self):
+        """Vérifier que le monitoring a bien démarré"""
+        try:
+            if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
+                stats = self.workflow_monitor.get_monitor_status()
+                if stats.get('running', False):
+                    print("✅ Monitoring vérifié et fonctionnel")
+                    if hasattr(self, 'monitoring_status_var'):
+                        self.monitoring_status_var.set("🟢 Actif")
+                else:
+                    print("⚠️ Monitoring non démarré, tentative de redémarrage...")
+                    self.workflow_monitor.start()
+            else:
+                print("❌ WorkflowMonitor non disponible")
+        except Exception as e:
+            print(f"❌ Erreur vérification monitoring: {e}")
+
+    def diagnose_monitoring(self):
+        """Diagnostiquer les problèmes de monitoring"""
+        try:
+            if not hasattr(self, 'workflow_monitor'):
+                self.add_monitoring_log("❌ WorkflowMonitor non initialisé")
+                return
+                
+            if not self.workflow_monitor:
+                self.add_monitoring_log("❌ WorkflowMonitor est None")
+                return
+                
+            stats = self.workflow_monitor.get_monitor_status()
+            debug_info = self.workflow_monitor.get_debug_info()
+            
+            self.add_monitoring_log("🔍 DIAGNOSTIC MONITORING:")
+            self.add_monitoring_log(f"   📊 Running: {stats.get('running', 'Unknown')}")
+            self.add_monitoring_log(f"   📊 Status: {stats.get('status', 'Unknown')}")
+            self.add_monitoring_log(f"   📊 Thread alive: {debug_info.get('thread_alive', 'Unknown')}")
+            self.add_monitoring_log(f"   📊 Thread running: {debug_info.get('thread_running', 'Unknown')}")
+            self.add_monitoring_log(f"   📊 Active tasks: {stats.get('active_tasks', 0)}")
+            
+            if not stats.get('running', False):
+                self.add_monitoring_log("⚠️ Monitoring arrêté - Utilisez les boutons Pause/Resume ou Restart")
+                
+        except Exception as e:
+            self.add_monitoring_log(f"❌ Erreur diagnostic: {e}")
 
     def show_monitoring_stats(self):
         """Afficher les statistiques de monitoring"""
@@ -2696,24 +2787,28 @@ class cy8_prompts_manager:
         try:
             if hasattr(self, 'workflow_monitor') and self.workflow_monitor:
                 stats = self.workflow_monitor.get_monitor_status()
-                status = stats['status']
-                active_tasks = stats['active_tasks']
+                running = stats.get('running', False)
+                status = stats.get('status', 'Inconnu')
+                active_tasks = stats.get('active_tasks', 0)
 
-                if status == "Actif":
+                if not running:
+                    status_text = "⏹️ Arrêté"
+                elif status == "Actif":
                     if active_tasks > 0:
                         status_text = f"🔄 Actif ({active_tasks} tâche{'s' if active_tasks > 1 else ''})"
                     else:
-                        status_text = "✅ Actif (en attente)"
+                        status_text = "🟢 Actif (en attente)"
                 elif status == "Panne serveur":
                     status_text = "🚨 Panne serveur"
                 else:
-                    status_text = "⏹️ Arrêté"
+                    status_text = f"🔄 {status}"
 
                 self.monitoring_status_var.set(status_text)
             else:
                 self.monitoring_status_var.set("❓ Non initialisé")
         except Exception as e:
             self.monitoring_status_var.set("❌ Erreur")
+            print(f"Erreur update monitoring status: {e}")
 
         # Programmer la prochaine mise à jour
         self.root.after(2000, self._update_monitoring_status)  # Toutes les 2 secondes
