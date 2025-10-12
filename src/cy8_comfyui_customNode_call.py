@@ -603,6 +603,162 @@ class ComfyUICustomNodeCaller:
             print(f"❌ Erreur récupération sortie custom node: {e}")
             return None
 
+    def detect_missing_nodes(self, workflow_path: str, custom_nodes_dir: str,
+                           auto_detect_paths: bool = True) -> Dict[str, Any]:
+        """
+        Détecter les nodes manquants dans un workflow via le custom node MissingNodesDetector
+
+        Args:
+            workflow_path: Chemin vers le fichier workflow JSON
+            custom_nodes_dir: Chemin vers le répertoire custom_nodes
+            auto_detect_paths: Activer la détection automatique des chemins
+
+        Returns:
+            Dict contenant le rapport et les résultats de la détection
+        """
+        try:
+            print(f"🔍 Détection des nodes manquants...")
+            print(f"   📄 Workflow: {workflow_path}")
+            print(f"   📁 Custom nodes: {custom_nodes_dir}")
+
+            # Préparer les inputs pour le custom node
+            inputs = {
+                "workflow_path": workflow_path,
+                "custom_nodes_dir": custom_nodes_dir,
+                "auto_detect_paths": auto_detect_paths
+            }
+
+            # Créer un workflow pour le custom node MissingNodesDetector
+            workflow = {
+                "1": {
+                    "class_type": "MissingNodesDetector",
+                    "inputs": inputs,
+                    "_meta": {"title": "Missing Nodes Detector"}
+                }
+            }
+
+            # Exécuter le workflow
+            result = self.execute_custom_node_workflow(workflow)
+
+            if "prompt_id" in result:
+                prompt_id = result["prompt_id"]
+                print(f"🆔 Prompt ID détection: {prompt_id}")
+
+                # Attendre l'exécution
+                time.sleep(3)
+
+                # Récupérer les résultats depuis l'historique
+                url = urljoin(self.server_url, f"/history/{prompt_id}")
+                response = self.session.get(url, timeout=15)
+
+                if response.status_code == 200:
+                    history = response.json()
+
+                    if prompt_id in history:
+                        prompt_data = history[prompt_id]
+
+                        if "outputs" in prompt_data and "1" in prompt_data["outputs"]:
+                            outputs = prompt_data["outputs"]["1"]
+
+                            # Extraire les trois sorties du custom node
+                            report = None
+                            missing_nodes_json = None
+                            status = None
+
+                            # Le custom node retourne (report, missing_nodes_json, status)
+                            if "text" in outputs and isinstance(outputs["text"], list):
+                                if len(outputs["text"]) >= 3:
+                                    report = outputs["text"][0]
+                                    missing_nodes_json = outputs["text"][1]
+                                    status = outputs["text"][2]
+
+                            if report and missing_nodes_json and status:
+                                # Parser le JSON des nodes manquants
+                                try:
+                                    missing_data = json.loads(missing_nodes_json)
+                                except:
+                                    missing_data = {"error": True, "message": "Erreur parsing JSON"}
+
+                                print(f"✅ Détection terminée - Status: {status}")
+
+                                return {
+                                    "error": False,
+                                    "status": status,
+                                    "report": report,
+                                    "missing_data": missing_data,
+                                    "prompt_id": prompt_id,
+                                    "workflow_analyzed": workflow_path,
+                                    "custom_nodes_scanned": custom_nodes_dir
+                                }
+                            else:
+                                return {
+                                    "error": True,
+                                    "message": "Sorties du custom node incomplètes",
+                                    "outputs_received": outputs
+                                }
+                        else:
+                            return {
+                                "error": True,
+                                "message": "Pas de sortie dans l'historique du custom node"
+                            }
+                    else:
+                        return {
+                            "error": True,
+                            "message": "Prompt ID non trouvé dans l'historique"
+                        }
+                else:
+                    return {
+                        "error": True,
+                        "message": f"Erreur récupération historique: {response.status_code}"
+                    }
+            else:
+                return {
+                    "error": True,
+                    "message": "Pas de prompt_id dans la réponse d'exécution",
+                    "response": result
+                }
+
+        except Exception as e:
+            return {
+                "error": True,
+                "message": f"Erreur lors de la détection des nodes manquants: {e}"
+            }
+
+    def print_missing_nodes_report(self, detection_result: Dict[str, Any]) -> None:
+        """
+        Afficher le rapport de détection des nodes manquants de manière formatée
+
+        Args:
+            detection_result: Résultat de detect_missing_nodes
+        """
+        if detection_result["error"]:
+            print(f"❌ Erreur: {detection_result['message']}")
+            return
+
+        print("\n" + "="*60)
+        print("🔍 RAPPORT DE DÉTECTION DES NODES MANQUANTS")
+        print("="*60)
+
+        print(f"📊 Status: {detection_result['status']}")
+        print(f"📄 Workflow analysé: {detection_result['workflow_analyzed']}")
+        print(f"📁 Custom nodes scannés: {detection_result['custom_nodes_scanned']}")
+
+        # Afficher le rapport détaillé
+        print("\n📋 RAPPORT DÉTAILLÉ:")
+        print("-" * 40)
+        print(detection_result["report"])
+
+        # Afficher les données JSON si utiles
+        missing_data = detection_result["missing_data"]
+        if not missing_data.get("error") and "summary" in missing_data:
+            summary = missing_data["summary"]
+            print(f"\n📊 RÉSUMÉ RAPIDE:")
+            print(f"   • Nodes manquants: {summary.get('missing_nodes', 0)}")
+            print(f"   • Custom nodes utilisés: {summary.get('custom_nodes', 0)}")
+            print(f"   • Total nodes: {summary.get('total_nodes', 0)}")
+
+        print("\n" + "="*60)
+
 
 # Exemple d'utilisation
 def example_usage():
@@ -630,6 +786,57 @@ def example_usage():
                 except Exception as e:
                     print(f"Erreur: {e}")
 
+            # Exemple de détection de nodes manquants
+            print("\n🔍 Test de détection des nodes manquants...")
+
+            # Chemins d'exemple (à adapter selon votre installation)
+            workflow_path = "path/to/your/workflow.json"
+            custom_nodes_dir = "ComfyUI/custom_nodes"
+
+            try:
+                detection_result = caller.detect_missing_nodes(
+                    workflow_path=workflow_path,
+                    custom_nodes_dir=custom_nodes_dir,
+                    auto_detect_paths=True
+                )
+
+                # Afficher le rapport formaté
+                caller.print_missing_nodes_report(detection_result)
+
+            except Exception as e:
+                print(f"Erreur détection nodes: {e}")
+
+
+def test_missing_nodes_detection():
+    """Test spécifique de la détection de nodes manquants"""
+
+    print("🧪 TEST SPÉCIFIQUE - Détection de nodes manquants")
+    print("="*50)
+
+    with ComfyUICustomNodeCaller() as caller:
+        # Vérifier que le serveur est accessible
+        status = caller.get_server_status()
+        if status["status"] != "online":
+            print("❌ Serveur ComfyUI non accessible")
+            return
+
+        print("✅ Serveur ComfyUI accessible")
+
+        # Test avec auto-détection
+        result = caller.detect_missing_nodes(
+            workflow_path="auto_detect",  # Sera auto-détecté
+            custom_nodes_dir="auto_detect",  # Sera auto-détecté
+            auto_detect_paths=True
+        )
+
+        if not result["error"]:
+            print(f"\n🎯 Status: {result['status']}")
+            caller.print_missing_nodes_report(result)
+        else:
+            print(f"❌ Erreur: {result['message']}")
+
 
 if __name__ == "__main__":
     example_usage()
+    print("\n" + "="*60)
+    test_missing_nodes_detection()
