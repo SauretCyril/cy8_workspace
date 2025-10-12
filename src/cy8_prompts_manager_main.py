@@ -2601,6 +2601,13 @@ class cy8_prompts_manager:
         ttk.Button(control_frame, text="🔍 Diagnostic",
                   command=self.diagnose_monitoring).pack(side="left", padx=(0, 5))
 
+        # Indicateur du nombre de logs
+        self.logs_count_var = tk.StringVar()
+        self.logs_count_var.set("📝 0 logs")
+        logs_count_label = ttk.Label(control_frame, textvariable=self.logs_count_var,
+                                   font=("TkDefaultFont", 9, "italic"))
+        logs_count_label.pack(side="right", padx=(10, 0))
+
         # Zone de logs
         logs_frame = ttk.Frame(main_frame)
         logs_frame.pack(fill="both", expand=True)
@@ -2643,24 +2650,42 @@ class cy8_prompts_manager:
 
             self.monitoring_logs_count += 1
 
-            # Limiter le nombre de lignes (garder seulement les 1000 dernières)
-            if self.monitoring_logs_count > 1000:
-                self.monitoring_logs.config(state="normal")
-                self.monitoring_logs.delete("1.0", "2.0")  # Supprimer la première ligne
-                self.monitoring_logs.config(state="disabled")
-                self.monitoring_logs_count -= 1
+            # Mettre à jour l'indicateur de comptage
+            if hasattr(self, 'logs_count_var'):
+                self.logs_count_var.set(f"📝 {self.monitoring_logs_count} logs")
+
+            # Note: Suppression de la limitation automatique des logs
+            # Les logs ne seront effacés que manuellement via le bouton "Clear Logs"
 
         except Exception as e:
             print(f"⚠️ Erreur ajout log monitoring: {e}")
 
     def clear_monitoring_logs(self):
-        """Effacer tous les logs de monitoring"""
+        """Effacer tous les logs de monitoring avec confirmation"""
         try:
-            self.monitoring_logs.config(state="normal")
-            self.monitoring_logs.delete("1.0", "end")
-            self.monitoring_logs.config(state="disabled")
-            self.monitoring_logs_count = 0
-            self.add_monitoring_log("🧹 Logs effacés")
+            # Demander confirmation avant d'effacer
+            from tkinter import messagebox
+            result = messagebox.askyesno(
+                "Confirmation",
+                "Êtes-vous sûr de vouloir effacer tous les logs de monitoring ?\n\n"
+                f"Cela supprimera {self.monitoring_logs_count} entrées de log.",
+                icon='warning'
+            )
+
+            if result:
+                self.monitoring_logs.config(state="normal")
+                self.monitoring_logs.delete("1.0", "end")
+                self.monitoring_logs.config(state="disabled")
+                self.monitoring_logs_count = 0
+
+                # Mettre à jour l'indicateur
+                if hasattr(self, 'logs_count_var'):
+                    self.logs_count_var.set("📝 0 logs")
+
+                self.add_monitoring_log("🧹 Logs effacés manuellement")
+            else:
+                self.add_monitoring_log("❌ Effacement annulé")
+
         except Exception as e:
             print(f"⚠️ Erreur effacement logs: {e}")
 
