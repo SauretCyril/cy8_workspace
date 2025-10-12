@@ -1444,7 +1444,9 @@ class RAGManagerStats:
         return False
 
 
-# Ajouter la méthode à RAGManager
+# Ajouter les méthodes à RAGManager
 RAGManager.get_collection_stats = RAGManagerStats.get_collection_stats
+RAGManager.process_todo_command = RAGManagerStats.process_todo_command
+RAGManager.is_todo_command = RAGManagerStats.is_todo_command
 if __name__ == "__main__":
     main()

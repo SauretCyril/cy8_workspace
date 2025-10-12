@@ -18,6 +18,10 @@ class TemporalRAGManager:
     def __init__(self, rag_manager):
         self.rag_manager = rag_manager
 
+    def __getattr__(self, name):
+        """Déléguer tous les appels de méthodes manquantes vers le RAGManager sous-jacent"""
+        return getattr(self.rag_manager, name)
+
     def search_with_temporal_priority(self, query: str, limit: int = 5,
                                     recent_weight: float = 1.5,
                                     max_age_days: Optional[int] = None) -> List[Dict]:
