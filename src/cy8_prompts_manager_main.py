@@ -4063,7 +4063,7 @@ class cy8_prompts_manager:
 
             # Créer la liste de tous les boutons
             all_button_types = ["Tous"] + sorted([t for t in model_types if t])
-            
+
             # Configuration pour la grille (3 lignes maximum)
             buttons_per_row = max(1, len(all_button_types) // 3)  # Répartir sur 3 lignes max
             if len(all_button_types) % 3 > 0:
@@ -4073,7 +4073,7 @@ class cy8_prompts_manager:
             for i, button_type in enumerate(all_button_types):
                 row = i // buttons_per_row
                 col = i % buttons_per_row
-                
+
                 if button_type == "Tous":
                     command = lambda: self.filter_models_by_type(None)
                     text = "Tous"
@@ -4082,7 +4082,7 @@ class cy8_prompts_manager:
                     command = lambda t=button_type: self.filter_models_by_type(t)
                     text = button_type.capitalize()
                     style = "TButton"
-                
+
                 btn = ttk.Button(
                     self.type_buttons_frame,
                     text=text,
@@ -4091,7 +4091,7 @@ class cy8_prompts_manager:
                     style=style
                 )
                 btn.grid(row=row, column=col, padx=2, pady=1, sticky="ew")
-            
+
             # Configurer le redimensionnement des colonnes
             for col in range(buttons_per_row):
                 self.type_buttons_frame.columnconfigure(col, weight=1)

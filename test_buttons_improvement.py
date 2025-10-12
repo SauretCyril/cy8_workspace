@@ -46,7 +46,7 @@ for i, button_type in enumerate(all_button_types):
     col = i % buttons_per_row
     prefix = "🎯" if button_type == "Tous" else "📂"
     print(f"   Ligne {row + 1}, Col {col + 1}: {prefix} {button_type}")
-    
+
 print()
 print("🚀 Pour tester:")
 print("   1. Lancez l'application: python main.py")
